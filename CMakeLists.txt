@@ -18,7 +18,7 @@ add_library(
 )
 target_link_libraries(
     rhi PUBLIC
-    core
+    core_lib
 )
 target_include_directories(
     rhi PUBLIC
@@ -35,3 +35,5 @@ elseif(${RHI_API} STREQUAL "D3D12")
 endif()
 
 add_subdirectory(src)
+get_target_property(RHI_SOURCES rhi SOURCES)
+source_group(TREE src FILES ${RHI_SOURCES})

@@ -1,7 +1,10 @@
 target_sources(
     rhi PRIVATE
+    command_list.hpp
     graphics_device.cpp
     graphics_device.hpp
+    resource.hpp
+    swapchain.hpp
 )
 
 if(${RHI_API} STREQUAL "D3D12")
