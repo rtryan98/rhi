@@ -3,7 +3,7 @@
 
 #include "rhi/graphics_device.hpp"
 
-#include <d3d12/d3d12_device.hpp>
+#include <core/d3d12/d3d12_device.hpp>
 
 namespace rhi::d3d12
 {
