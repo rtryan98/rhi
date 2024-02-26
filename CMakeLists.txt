@@ -36,4 +36,4 @@ endif()
 
 add_subdirectory(src)
 get_target_property(RHI_SOURCES rhi SOURCES)
-source_group(TREE src FILES ${RHI_SOURCES})
+source_group(TREE ${CMAKE_CURRENT_LIST_DIR}/src/rhi PREFIX src FILES ${RHI_SOURCES})
