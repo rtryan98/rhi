@@ -18,6 +18,13 @@ enum class Command_List_Type
     Video_Encode
 };
 
+enum class Pipeline_Bind_Point
+{
+    Graphics,
+    Compute,
+    Ray_Tracing
+};
+
 enum class Barrier_Layout : uint64_t
 {
 
@@ -30,22 +37,22 @@ enum class Barrier_Pipeline_Stage : uint64_t
     Draw_Indirect                   = 0x0000000002ull,
     Vertex_Input                    = 0x0000000004ull,
     Vertex_Shader                   = 0x0000000008ull,
-    Hull_Shader                     = 0x0000000010ull,  // Maps to Vertex Shader in D3D12
-    Domain_Shader                   = 0x0000000020ull,  // Maps to Vertex Shader in D3D12
-    Geometry_Shader                 = 0x0000000040ull,  // Maps to Vertex Shader in D3D12
+    Hull_Shader                     = 0x0000000010ull,
+    Domain_Shader                   = 0x0000000020ull,
+    Geometry_Shader                 = 0x0000000040ull,
     Pixel_Shader                    = 0x0000000080ull,
-    Early_Fragment_Tests            = 0x0000000100ull,  // Maps to Render Target in D3D12
-    Late_Fragment_Tests             = 0x0000000200ull,  // Maps to Render Target in D3D12
-    Color_Attachment_Output         = 0x0000000400ull,  // Maps to Render Target in D3D12
+    Early_Fragment_Tests            = 0x0000000100ull,
+    Late_Fragment_Tests             = 0x0000000200ull,
+    Color_Attachment_Output         = 0x0000000400ull,
     Compute_Shader                  = 0x0000000800ull,
-    All_Transfer                    = 0x0000001000ull,  // Maps to Copy, Resolve, Ray Tracing Acceleration Structure Copy and Render Target in D3D12
-    Host                            = 0x0000004000ull,  // No equivalent D3D12 mapping
-    All_Graphics                    = 0x0000008000ull,  // Maps to Draw and Execute Indirect on D3D12
+    All_Transfer                    = 0x0000001000ull,
+    Host                            = 0x0000004000ull,
+    All_Graphics                    = 0x0000008000ull,
     All_Commands                    = 0x0000010000ull,
     Copy                            = 0x0100000000ull,
     Resolve                         = 0x0200000000ull,
-    Blit                            = 0x0400000000ull,  // Maps to Render Target in D3D12
-    Clear                           = 0x0800000000ull,  // Maps to Render Target in D3D12
+    Blit                            = 0x0400000000ull,
+    Clear                           = 0x0800000000ull,
     Index_Input                     = 0x1000000000ull,
     Vertex_Attribute_Input          = 0x2000000000ull,
     Pre_Rasterization_Stages        = 0x4000000000ull,
@@ -60,7 +67,29 @@ enum class Barrier_Pipeline_Stage : uint64_t
 
 enum class Barrier_Access : uint64_t
 {
-
+    None                            = 0x0000000000ull,
+    Indirect_Command_Read           = 0x0000000001ull,
+    Index_Read                      = 0x0000000002ull,
+    Vertex_Attribute_Read           = 0x0000000004ull,
+    Constant_Buffer_View            = 0x0000000008ull,
+    Shader_Read                     = 0x0000000020ull,
+    Shader_Write                    = 0x0000000040ull,
+    Color_Attachment_Read           = 0x0000000080ull,
+    Color_Attachment_Write          = 0x0000000100ull,
+    Depth_Stencil_Attachment_Read   = 0x0000000200ull,
+    Depth_Stencil_Attachment_Write  = 0x0000000400ull,
+    Transfer_Read                   = 0x0000000800ull,
+    Transfer_Write                  = 0x0000001000ull,
+    Shader_Sampled_Read             = 0x0100000000ull,
+    Unordered_Access_Read           = 0x0200000000ull,
+    Unordered_Access_Write          = 0x0400000000ull,
+    Video_Decode_Read               = 0x0800000000ull,
+    Video_Decode_Write              = 0x1000000000ull,
+    Video_Encode_Read               = 0x2000000000ull,
+    Video_Encode_Write              = 0x4000000000ull,
+    Shading_Rate_Attachment         = 0x0000800000ull,
+    Acceleration_Structure_Read     = 0x0000200000ull,
+    Acceleration_Structure_Write    = 0x0000400000ull,
 };
 
 class Command_List
@@ -97,7 +126,7 @@ public:
     virtual void begin_render_pass() noexcept = 0;
     virtual void end_render_pass() noexcept = 0;
     virtual void set_pipeline(Pipeline* pipeline) noexcept = 0;
-    virtual void set_push_constants(void* data, uint32_t size) noexcept = 0;
+    virtual void set_push_constants(void* data, uint32_t size, Pipeline_Bind_Point bind_point) noexcept = 0;
     virtual void set_scissor(int32_t x, int32_t y, uint32_t width, uint32_t height) noexcept = 0;
     virtual void set_viewport(float x, float y, float width, float height, float min_depth, float max_depth, [[maybe_unused]] bool vk_invert_viewport = true) noexcept = 0;
 
