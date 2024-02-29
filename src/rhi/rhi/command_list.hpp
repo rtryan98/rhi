@@ -51,7 +51,11 @@ enum class Barrier_Pipeline_Stage : uint64_t
     Pre_Rasterization_Stages        = 0x4000000000ull,
     Video_Decode                    = 0x0004000000ull,
     Video_Encode                    = 0x0008000000ull,
-
+    Acceleration_Structure_Build    = 0x0002000000ull,
+    Ray_Tracing_Shader              = 0x0000200000ull,
+    Amplification_Shader            = 0x0000080000ull,
+    Mesh_Shader                     = 0x0000100000ull,
+    Acceleration_Structure_Copy     = 0x0010000000ull,
 };
 
 enum class Barrier_Access : uint64_t

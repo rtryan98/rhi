@@ -67,6 +67,16 @@ auto translate_barrier_pipeline_stage_flags(Barrier_Pipeline_Stage stage)
         D3D12_BARRIER_SYNC_VIDEO_DECODE);
     result |= apply_stages(Barrier_Pipeline_Stage::Video_Encode,
         D3D12_BARRIER_SYNC_VIDEO_ENCODE);
+    result |= apply_stages(Barrier_Pipeline_Stage::Acceleration_Structure_Build,
+        D3D12_BARRIER_SYNC_BUILD_RAYTRACING_ACCELERATION_STRUCTURE);
+    result |= apply_stages(Barrier_Pipeline_Stage::Ray_Tracing_Shader,
+        D3D12_BARRIER_SYNC_RAYTRACING);
+    result |= apply_stages(Barrier_Pipeline_Stage::Amplification_Shader,
+        D3D12_BARRIER_SYNC_VERTEX_SHADING);
+    result |= apply_stages(Barrier_Pipeline_Stage::Mesh_Shader,
+        D3D12_BARRIER_SYNC_VERTEX_SHADING);
+    result |= apply_stages(Barrier_Pipeline_Stage::Acceleration_Structure_Copy,
+        D3D12_BARRIER_SYNC_COPY_RAYTRACING_ACCELERATION_STRUCTURE);
     return result;
 }
 }
