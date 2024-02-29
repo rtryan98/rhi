@@ -57,6 +57,6 @@ enum class Pipeline_Type
 
 struct Pipeline
 {
-
+    Pipeline_Type type;
 };
 }
