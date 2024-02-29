@@ -146,6 +146,30 @@ auto translate_barrier_access_flags(Barrier_Access access)
     return result;
 }
 
+void D3D12_Command_List::draw(
+    uint32_t vertex_count,
+    uint32_t instance_count,
+    uint32_t vertex_offset,
+    uint32_t instance_offset) noexcept
+{
+    m_cmd->DrawInstanced(vertex_count, instance_count, vertex_offset, instance_offset);
+}
+
+void D3D12_Command_List::draw_indexed(
+    uint32_t index_count,
+    uint32_t instance_count,
+    uint32_t index_offset,
+    uint32_t vertex_offset,
+    uint32_t instance_offset) noexcept
+{
+    m_cmd->DrawIndexedInstanced(index_count, instance_count, index_offset, vertex_offset, instance_offset);
+}
+
+void D3D12_Command_List::draw_mesh_tasks(uint32_t groups_x, uint32_t groups_y, uint32_t groups_z) noexcept
+{
+    m_cmd->DispatchMesh(groups_x, groups_y, groups_z);
+}
+
 void D3D12_Command_List::end_render_pass() noexcept
 {
     m_cmd->EndRenderPass();
