@@ -18,43 +18,45 @@ enum class Command_List_Type
     Video_Encode
 };
 
-enum class Barrier_Layout : uint32_t
+enum class Barrier_Layout : uint64_t
 {
 
 };
 
-enum class Barrier_Pipeline_Stage : uint32_t
+enum class Barrier_Pipeline_Stage : uint64_t
 {
+    // Use Vulkan flags, translate to D3D12 flags (more conservative)
+    None                            = 0x0000000000ull,
+    Draw_Indirect                   = 0x0000000002ull,
+    Vertex_Input                    = 0x0000000004ull,
+    Vertex_Shader                   = 0x0000000008ull,
+    Hull_Shader                     = 0x0000000010ull,  // Maps to Vertex Shader in D3D12
+    Domain_Shader                   = 0x0000000020ull,  // Maps to Vertex Shader in D3D12
+    Geometry_Shader                 = 0x0000000040ull,  // Maps to Vertex Shader in D3D12
+    Pixel_Shader                    = 0x0000000080ull,
+    Early_Fragment_Tests            = 0x0000000100ull,  // Maps to Render Target in D3D12
+    Late_Fragment_Tests             = 0x0000000200ull,  // Maps to Render Target in D3D12
+    Color_Attachment_Output         = 0x0000000400ull,  // Maps to Render Target in D3D12
+    Compute_Shader                  = 0x0000000800ull,
+    All_Transfer                    = 0x0000001000ull,  // Maps to Copy, Resolve, Ray Tracing Acceleration Structure Copy and Render Target in D3D12
+    Host                            = 0x0000004000ull,  // No equivalent D3D12 mapping
+    All_Graphics                    = 0x0000008000ull,  // Maps to Draw and Execute Indirect on D3D12
+    All_Commands                    = 0x0000010000ull,
+    Copy                            = 0x0100000000ull,
+    Resolve                         = 0x0200000000ull,
+    Blit                            = 0x0400000000ull,  // Maps to Render Target in D3D12
+    Clear                           = 0x0800000000ull,  // Maps to Render Target in D3D12
+    Index_Input                     = 0x1000000000ull,
+    Vertex_Attribute_Input          = 0x2000000000ull,
+    Pre_Rasterization_Stages        = 0x4000000000ull,
+    Video_Decode                    = 0x0004000000ull,
+    Video_Encode                    = 0x0008000000ull,
 
 };
 
-enum class Barrier_Access : uint32_t
+enum class Barrier_Access : uint64_t
 {
-    Common = 0x0,
-    Vertex_Buffer = 0x1,
-    Constant_Buffer = 0x2,
-    Index_Buffer = 0x4,
-    Render_Target = 0x8,
-    Unordered_Access = 0x10,
-    Depth_Stencil_Write = 0x20,
-    Depth_Stencil_Read = 0x40,
-    Shader_Resource = 0x80,
-    Stream_Output = 0x100,
-    Indirect_Argument = 0x200,
-    Copy_Dest = 0x400,
-    Copy_Source = 0x800,
-    Resolve_Dest = 0x1000,
-    Resolve_Source = 0x2000,
-    Ray_Tracing_Acceleration_Structure_Read = 0x4000,
-    Ray_Tracing_Acceleration_Structure_Write = 0x8000,
-    Shading_Rate_Source = 0x10000,
-    Video_Decode_Read = 0x20000,
-    Video_Decode_Write = 0x40000,
-    Video_Process_Read = 0x80000,
-    Video_Process_Write = 0x100000,
-    Video_Encode_Read = 0x200000,
-    Video_Encode_Write = 0x400000,
-    No_Access = 0x80000000
+
 };
 
 class Command_List
@@ -71,6 +73,7 @@ public:
     virtual void copy_buffer_to_image() noexcept = 0;
     virtual void copy_image() noexcept = 0;
     virtual void copy_image_to_buffer() noexcept = 0;
+    virtual void fill_buffer() noexcept = 0;
 
     // Debug commands
     virtual void begin_debug_region() noexcept = 0;
@@ -98,9 +101,6 @@ protected:
     Command_List_Type m_type;
 };
 }
-
-template<>
-constexpr static bool CORE_ENABLE_BIT_OPERATORS<rhi::Barrier_Layout> = true;
 
 template<>
 constexpr static bool CORE_ENABLE_BIT_OPERATORS<rhi::Barrier_Pipeline_Stage> = true;
