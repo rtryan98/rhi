@@ -9,7 +9,9 @@ namespace rhi::d3d12
 {
 struct D3D12_Buffer : public Buffer
 {
-
+    ID3D12Resource2* resource;
+    D3D12_CPU_DESCRIPTOR_HANDLE cpu_descriptor_handle;
+    D3D12_GPU_DESCRIPTOR_HANDLE gpu_descriptor_handle;
 };
 
 struct D3D12_Pipeline : public Pipeline

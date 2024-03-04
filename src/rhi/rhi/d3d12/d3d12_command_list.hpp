@@ -17,14 +17,15 @@ public:
     virtual void dispatch(uint32_t groups_x, uint32_t groups_y, uint32_t groups_z) noexcept override;
 
     // Copy commands
-    virtual void copy_buffer(Buffer* src, Buffer* dst, uint32_t size, uint32_t offset) noexcept override;
+    virtual void copy_buffer(Buffer* src, uint64_t src_offset, Buffer* dst, uint64_t dst_offset, uint64_t size) noexcept override;
     virtual void copy_buffer_to_image() noexcept override;
     virtual void copy_image() noexcept override;
     virtual void copy_image_to_buffer() noexcept override;
+    virtual void fill_buffer(Buffer* dst, uint32_t value) noexcept override;
 
     // Debug commands
-    virtual void begin_debug_region() noexcept override;
-    virtual void add_debug_marker()  noexcept override;
+    virtual void begin_debug_region(const char* name, float r, float g, float b) noexcept override;
+    virtual void add_debug_marker(const char* name, float r, float g, float b)  noexcept override;
     virtual void end_debug_region() noexcept override;
 
     // Draw commands

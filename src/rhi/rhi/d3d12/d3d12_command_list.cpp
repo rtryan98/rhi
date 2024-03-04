@@ -3,6 +3,8 @@
 #include "rhi/d3d12/d3d12_command_list.hpp"
 #include "rhi/d3d12/d3d12_resource.hpp"
 
+#include <WinPixEventRuntime/pix3.h>
+
 namespace rhi::d3d12
 {
 auto translate_barrier_pipeline_stage_flags(Barrier_Pipeline_Stage stage)
@@ -144,6 +146,57 @@ auto translate_barrier_access_flags(Barrier_Access access)
     result |= apply_access(Barrier_Access::Acceleration_Structure_Write,
         D3D12_BARRIER_ACCESS_RAYTRACING_ACCELERATION_STRUCTURE_WRITE);
     return result;
+}
+
+void D3D12_Command_List::copy_buffer(Buffer* src, uint64_t src_offset, Buffer* dst, uint64_t dst_offset, uint64_t size) noexcept
+{
+    if (!src || !dst) return;
+
+    auto d3d12_src = static_cast<D3D12_Buffer*>(src);
+    auto d3d12_dst = static_cast<D3D12_Buffer*>(dst);
+    m_cmd->CopyBufferRegion(d3d12_dst->resource, dst_offset, d3d12_src->resource, src_offset, size);
+}
+
+void D3D12_Command_List::fill_buffer(Buffer* dst, uint32_t value) noexcept
+{
+    if (!dst) return;
+
+    auto d3d12_dst = static_cast<D3D12_Buffer*>(dst);
+    uint32_t values[4] = { value, value, value, value };
+    m_cmd->ClearUnorderedAccessViewUint(
+        d3d12_dst->gpu_descriptor_handle,
+        d3d12_dst->cpu_descriptor_handle,
+        d3d12_dst->resource,
+        values, 0, nullptr);
+}
+
+void D3D12_Command_List::begin_debug_region(
+    [[maybe_unused]] const char* name,
+    [[maybe_unused]] float r,
+    [[maybe_unused]] float g,
+    [[maybe_unused]] float b) noexcept
+{
+#ifdef USE_PIX
+    PIXBeginEvent(m_cmd, PIX_COLOR(uint8_t(r * 255), uint8_t(g * 255), uint8_t(b * 255)), name);
+#endif
+}
+
+void D3D12_Command_List::add_debug_marker(
+    [[maybe_unused]] const char* name,
+    [[maybe_unused]] float r,
+    [[maybe_unused]] float g,
+    [[maybe_unused]] float b) noexcept
+{
+#ifdef USE_PIX
+    PIXSetMarker(m_cmd, PIX_COLOR(uint8_t(r * 255), uint8_t(g * 255), uint8_t(b * 255)), name);
+#endif
+}
+
+void D3D12_Command_List::end_debug_region() noexcept
+{
+#ifdef USE_PIX
+    PIXEndEvent(m_cmd);
+#endif
 }
 
 void D3D12_Command_List::draw(
