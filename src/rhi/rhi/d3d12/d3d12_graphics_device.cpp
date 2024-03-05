@@ -23,6 +23,24 @@ Result D3D12_Graphics_Device::submit(const Submit_Info& submit_info) noexcept
 {
     return Result::Success;
 }
+
+std::expected<Shader_Blob*, Result> D3D12_Graphics_Device::create_shader_blob(void* data, uint64_t size) noexcept
+{
+    static_assert(sizeof(decltype(Shader_Blob::data)::value_type) == sizeof(uint8_t), "Size of blob changed.");
+    if (data == nullptr)
+    {
+        return std::unexpected(Result::Error_Invalid_Parameters);
+    }
+    auto blob = m_shader_blobs.acquire();
+    blob->data.reserve(size);
+    memcpy(blob->data.data(), data, size);
+    return blob;
+}
+
+void D3D12_Graphics_Device::destroy_shader_blob(Shader_Blob* shader_blob) noexcept
+{
+    m_shader_blobs.release(shader_blob);
+}
 }
 
 #endif // RHI_GRAPHICS_API_D3D12

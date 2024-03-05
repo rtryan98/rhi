@@ -2,6 +2,8 @@
 #ifdef RHI_GRAPHICS_API_D3D12
 
 #include "rhi/graphics_device.hpp"
+#include "rhi/common/array_vector.hpp"
+#include "rhi/d3d12/d3d12_resource.hpp"
 
 #include <core/d3d12/d3d12_device.hpp>
 
@@ -20,6 +22,7 @@ public:
     virtual [[nodiscard]] std::expected<Sampler*, Result> create_sampler(const Sampler_Create_Info& create_info) noexcept override;
     virtual void destroy_sampler(Sampler* sampler) noexcept override;
     virtual [[nodiscard]] std::expected<Shader_Blob*, Result> create_shader_blob(void* data, uint64_t size) noexcept override;
+    virtual void destroy_shader_blob(Shader_Blob* shader_blob) noexcept override;
     virtual [[nodiscard]] std::expected<Pipeline*, Result> create_pipeline(const Graphics_Pipeline_Create_Info& create_info) noexcept override;
     virtual [[nodiscard]] std::expected<Pipeline*, Result> create_pipeline(const Compute_Pipeline_Create_Info& create_info) noexcept override;
     virtual [[nodiscard]] std::expected<Pipeline*, Result> create_pipeline(const Mesh_Shading_Pipeline_Create_Info& create_info) noexcept override;
@@ -28,7 +31,15 @@ public:
     virtual Result submit(const Submit_Info& submit_info) noexcept override;
 
 private:
+    constexpr static std::size_t ARRAY_VECTOR_SIZE = 512;
+
     core::d3d12::D3D12_Context m_context;
+
+    Array_Vector<D3D12_Buffer, ARRAY_VECTOR_SIZE> m_buffers;
+    Array_Vector<D3D12_Image, ARRAY_VECTOR_SIZE> m_images;
+    Array_Vector<D3D12_Sampler, ARRAY_VECTOR_SIZE> m_samplers;
+    Array_Vector<Shader_Blob, ARRAY_VECTOR_SIZE> m_shader_blobs;
+    Array_Vector<D3D12_Pipeline, ARRAY_VECTOR_SIZE> m_pipelines;
 };
 }
 
