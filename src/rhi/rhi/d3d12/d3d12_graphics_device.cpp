@@ -6,6 +6,11 @@ namespace rhi::d3d12
 D3D12_Graphics_Device::D3D12_Graphics_Device(const Graphics_Device_Create_Info& create_info) noexcept
     : Graphics_Device()
     , m_context{}
+    , m_buffers()
+    , m_images()
+    , m_samplers()
+    , m_shader_blobs()
+    , m_pipelines()
 {
     core::d3d12::D3D12_Context_Create_Info context_create_info = {
 

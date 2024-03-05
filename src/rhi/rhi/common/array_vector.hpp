@@ -13,9 +13,14 @@ class Array_Vector
 {
 public:
     Array_Vector()
+        : m_data()
+        , m_current_head(nullptr)
     {
         m_data.push_back({});
     }
+
+    Array_Vector(const Array_Vector& other) = delete;
+    Array_Vector& operator=(const Array_Vector& other) = delete;
 
     [[nodiscard]] T* acquire() noexcept
     {
