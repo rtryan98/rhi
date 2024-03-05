@@ -11,7 +11,7 @@ class D3D12_Command_List final : public Command_List
 {
 public:
     // Barrier commands
-    virtual void barrier() noexcept override;
+    virtual void barrier(const Barrier_Info& barrier_info) noexcept override;
 
     // Compute commands
     virtual void dispatch(uint32_t groups_x, uint32_t groups_y, uint32_t groups_z) noexcept override;

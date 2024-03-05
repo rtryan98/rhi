@@ -2,6 +2,7 @@
 
 #include <core/common/bitmask.hpp>
 #include <cstdint>
+#include <span>
 
 namespace rhi
 {
@@ -25,7 +26,7 @@ enum class Pipeline_Bind_Point
     Ray_Tracing
 };
 
-enum class Barrier_Layout : uint64_t
+enum class Barrier_Image_Layout : uint64_t
 {
 
 };
@@ -92,11 +93,57 @@ enum class Barrier_Access : uint64_t
     Acceleration_Structure_Write    = 0x0000400000ull,
 };
 
+struct Buffer_Barrier_Info
+{
+    Barrier_Pipeline_Stage stage_before;
+    Barrier_Pipeline_Stage stage_after;
+    Barrier_Access access_before;
+    Barrier_Access access_after;
+    Buffer* buffer;
+};
+
+struct Image_Barrier_Subresource_Range
+{
+    uint32_t index_or_first_mip_level;
+    uint32_t array_index;
+    uint32_t array_size;
+    uint32_t first_plane;
+    uint32_t plane_count;
+};
+
+struct Image_Barrier_Info
+{
+    Barrier_Pipeline_Stage stage_before;
+    Barrier_Pipeline_Stage stage_after;
+    Barrier_Access access_before;
+    Barrier_Access access_after;
+    Barrier_Image_Layout layout_before;
+    Barrier_Image_Layout layout_after;
+    Image* image;
+    Image_Barrier_Subresource_Range subresource_range;
+    bool discard; // D3D12 only - only usable if 
+};
+
+struct Memory_Barrier_Info
+{
+    Barrier_Pipeline_Stage stage_before;
+    Barrier_Pipeline_Stage stage_after;
+    Barrier_Access access_before;
+    Barrier_Access access_after;
+};
+
+struct Barrier_Info
+{
+    std::span<Buffer_Barrier_Info> buffer_barriers;
+    std::span<Image_Barrier_Info> image_barriers;
+    std::span<Memory_Barrier_Info> memory_barriers;
+};
+
 class Command_List
 {
 public:
     // Barrier commands
-    virtual void barrier() noexcept = 0;
+    virtual void barrier(const Barrier_Info& barrier_info) noexcept = 0;
 
     // Compute commands
     virtual void dispatch(uint32_t groups_x, uint32_t groups_y, uint32_t groups_z) noexcept = 0;

@@ -3,6 +3,8 @@
 #include "rhi/d3d12/d3d12_command_list.hpp"
 #include "rhi/d3d12/d3d12_resource.hpp"
 
+#include <array>
+#include <vector>
 #include <WinPixEventRuntime/pix3.h>
 
 namespace rhi::d3d12
@@ -17,7 +19,7 @@ auto translate_barrier_pipeline_stage_flags(Barrier_Pipeline_Stage stage)
     {
         return check_stage(flag) ? d3d12_flag : D3D12_BARRIER_SYNC_NONE;
     };
-    int32_t result = D3D12_BARRIER_SYNC_NONE;
+    auto result = D3D12_BARRIER_SYNC_NONE;
     result |= apply_stages(Barrier_Pipeline_Stage::Draw_Indirect,
         D3D12_BARRIER_SYNC_EXECUTE_INDIRECT);
     result |= apply_stages(Barrier_Pipeline_Stage::Vertex_Input,
@@ -96,10 +98,10 @@ auto translate_barrier_access_flags(Barrier_Access access)
 
     if (access == Barrier_Access::None)
     {
-        return int32_t(D3D12_BARRIER_ACCESS_NO_ACCESS);
+        return D3D12_BARRIER_ACCESS_NO_ACCESS;
     }
 
-    int32_t result = D3D12_BARRIER_ACCESS_COMMON;
+    auto result = D3D12_BARRIER_ACCESS_COMMON;
     result |= apply_access(Barrier_Access::Indirect_Command_Read,
         D3D12_BARRIER_ACCESS_INDIRECT_ARGUMENT);
     result |= apply_access(Barrier_Access::Index_Read,
@@ -146,6 +148,38 @@ auto translate_barrier_access_flags(Barrier_Access access)
     result |= apply_access(Barrier_Access::Acceleration_Structure_Write,
         D3D12_BARRIER_ACCESS_RAYTRACING_ACCELERATION_STRUCTURE_WRITE);
     return result;
+}
+
+void D3D12_Command_List::barrier(const Barrier_Info& barrier_info) noexcept
+{
+    uint32_t num_barrier_groups = 0;
+    std::array<D3D12_BARRIER_GROUP, 3> barrier_groups = {};
+    std::array<std::vector<D3D12_BUFFER_BARRIER>, 3> barrier_lists = {};
+
+    if (barrier_info.buffer_barriers.size() > 0)
+    {
+        auto& barrier_group = barrier_groups[num_barrier_groups];
+        barrier_group.Type = D3D12_BARRIER_TYPE_BUFFER;
+        barrier_group.NumBarriers = uint32_t(barrier_info.buffer_barriers.size());
+        auto& barrier_list = barrier_lists[num_barrier_groups];
+        barrier_list.reserve(barrier_group.NumBarriers);
+        for (const auto& buffer_barrier : barrier_info.buffer_barriers)
+        {
+            barrier_list.push_back( D3D12_BUFFER_BARRIER {
+                .SyncBefore = translate_barrier_pipeline_stage_flags(buffer_barrier.stage_before),
+                .SyncAfter = translate_barrier_pipeline_stage_flags(buffer_barrier.stage_after),
+                .AccessBefore = translate_barrier_access_flags(buffer_barrier.access_before),
+                .AccessAfter = translate_barrier_access_flags(buffer_barrier.access_after),
+                .pResource = static_cast<D3D12_Buffer*>(buffer_barrier.buffer)->resource,
+                .Offset = 0ull,
+                .Size = ~0ull
+                });
+        }
+
+        num_barrier_groups += 1;
+    }
+
+    m_cmd->Barrier(num_barrier_groups, barrier_groups.data());
 }
 
 void D3D12_Command_List::copy_buffer(Buffer* src, uint64_t src_offset, Buffer* dst, uint64_t dst_offset, uint64_t size) noexcept
