@@ -8,7 +8,11 @@
 namespace rhi
 {
 template<typename T, std::size_t SIZE>
-requires std::is_default_constructible_v<T>
+requires (
+    std::is_default_constructible_v<T> &&
+    !std::is_final_v<T> &&
+    !std::is_fundamental_v<T>
+    )
 class Array_Vector
 {
 public:
@@ -32,7 +36,7 @@ public:
         }
         if (is_no_slot_available())
         {
-            m_data.push_back({});
+            m_data.push_back(std::make_unique<Count_Array>());
         }
         auto& count_array = m_data[m_data.size() - 1];
         auto* element = &(count_array->array[count_array->element_count]);
@@ -43,6 +47,7 @@ public:
     void release(T* element) noexcept
     {
         auto linked_list_element = static_cast<Linked_List_Element*>(element);
+        *linked_list_element = {};
         linked_list_element->next = m_current_head;
         m_current_head = linked_list_element;
     }

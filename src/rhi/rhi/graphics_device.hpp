@@ -19,6 +19,7 @@ enum class Result
     Error_Out_Of_Memory,
     Error_Invalid_Parameters,
     Error_Device_Lost,
+    Error_No_Resource, // Create a view of a destroyed resource
     Error_Unknown
 };
 
@@ -45,8 +46,10 @@ public:
     constexpr static [[nodiscard]] Graphics_API get_active_graphics_api() noexcept;
 
     virtual [[nodiscard]] std::expected<Buffer*, Result> create_buffer(const Buffer_Create_Info& create_info) noexcept = 0;
+    virtual [[nodiscard]] std::expected<Buffer_View*, Result> create_buffer_view(const Buffer_View_Create_Info& create_info) noexcept = 0;
     virtual void destroy_buffer(Buffer* buffer) noexcept = 0;
     virtual [[nodiscard]] std::expected<Image*, Result> create_image(const Image_Create_Info& create_info) noexcept = 0;
+    virtual [[nodiscard]] std::expected<Image_View*, Result> create_image_view(const Image_View_Create_Info& create_info) noexcept = 0;
     virtual void destroy_image(Image* image) noexcept = 0;
     virtual [[nodiscard]] std::expected<Sampler*, Result> create_sampler(const Sampler_Create_Info& create_info) noexcept = 0;
     virtual void destroy_sampler(Sampler* sampler) noexcept = 0;
