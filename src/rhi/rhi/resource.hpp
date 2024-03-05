@@ -1,5 +1,7 @@
 #pragma once
 
+#include <vector>
+
 namespace rhi
 {
 struct Buffer_Create_Info
@@ -30,6 +32,11 @@ struct Sampler_Create_Info
 struct Sampler
 {
 
+};
+
+struct Shader_Blob
+{
+    std::vector<uint8_t> data;
 };
 
 struct Graphics_Pipeline_Create_Info

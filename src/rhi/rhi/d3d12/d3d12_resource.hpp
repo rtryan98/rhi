@@ -14,6 +14,16 @@ struct D3D12_Buffer : public Buffer
     D3D12_GPU_DESCRIPTOR_HANDLE gpu_descriptor_handle;
 };
 
+struct D3D12_Image : public Image
+{
+    ID3D12Resource2* resource;
+};
+
+struct D3D12_Sampler : public Sampler
+{
+
+};
+
 struct D3D12_Pipeline : public Pipeline
 {
     ID3D12PipelineState* pso;

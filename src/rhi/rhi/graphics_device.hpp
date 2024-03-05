@@ -50,6 +50,7 @@ public:
     virtual void destroy_image(Image* image) noexcept = 0;
     virtual [[nodiscard]] std::expected<Sampler*, Result> create_sampler(const Sampler_Create_Info& create_info) noexcept = 0;
     virtual void destroy_sampler(Sampler* sampler) noexcept = 0;
+    virtual [[nodiscard]] std::expected<Shader_Blob*, Result> create_shader_blob(void* data, uint64_t size) noexcept = 0;
     virtual [[nodiscard]] std::expected<Pipeline*, Result> create_pipeline(const Graphics_Pipeline_Create_Info& create_info) noexcept = 0;
     virtual [[nodiscard]] std::expected<Pipeline*, Result> create_pipeline(const Compute_Pipeline_Create_Info& create_info) noexcept = 0;
     virtual [[nodiscard]] std::expected<Pipeline*, Result> create_pipeline(const Mesh_Shading_Pipeline_Create_Info& create_info) noexcept = 0;
