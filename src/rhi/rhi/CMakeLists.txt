@@ -7,6 +7,8 @@ target_sources(
     swapchain.hpp
 )
 
+add_subdirectory(common)
+
 if(${RHI_API} STREQUAL "D3D12")
     add_subdirectory(d3d12)
 elseif(${RHI_API} STREQUAL "Vulkan")
