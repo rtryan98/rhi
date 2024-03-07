@@ -2,10 +2,13 @@
 #include "d3d12_graphics_device.hpp"
 
 #include <core/d3d12/d3d12_pso.hpp>
+#include <D3D12MemAlloc.h>
 
 namespace rhi::d3d12
 {
-Result result_from_hresult(HRESULT hresult)
+constexpr static uint32_t MAX_RTV_DSV_DESCRIPTORS = 2048;
+
+Result result_from_hresult(HRESULT hresult) noexcept
 {
     switch (hresult)
     {
@@ -24,9 +27,29 @@ Result result_from_hresult(HRESULT hresult)
     }
 }
 
+D3D12_HEAP_TYPE d3d12_heap_type_from_memory_heap_type(Memory_Heap_Type heap_type) noexcept
+{
+    switch (heap_type)
+    {
+    case Memory_Heap_Type::GPU:
+        return D3D12_HEAP_TYPE_DEFAULT;
+    case Memory_Heap_Type::CPU_Upload:
+        return D3D12_HEAP_TYPE_UPLOAD;
+    case Memory_Heap_Type::CPU_Readback:
+        return D3D12_HEAP_TYPE_READBACK;
+    default:
+        return D3D12_HEAP_TYPE_DEFAULT;
+    }
+}
+
 D3D12_Graphics_Device::D3D12_Graphics_Device(const Graphics_Device_Create_Info& create_info) noexcept
     : Graphics_Device()
     , m_context{}
+    , m_allocator()
+    , m_resource_descriptor_increment_size(0)
+    , m_sampler_descriptor_increment_size(0)
+    , m_rtv_descriptor_increment_size(0)
+    , m_dsv_descriptor_increment_size(0)
     , m_buffers()
     , m_images()
     , m_samplers()
@@ -34,20 +57,87 @@ D3D12_Graphics_Device::D3D12_Graphics_Device(const Graphics_Device_Create_Info& 
     , m_pipelines()
 {
     core::d3d12::D3D12_Context_Create_Info context_create_info = {
-
+        .enable_validation = create_info.enable_validation,
+        .enable_gpu_validation = create_info.enable_gpu_validation,
+        .disable_tdr = false,
+        .feature_level = D3D_FEATURE_LEVEL_12_2,
+        .resource_descriptor_heap_size = D3D12_MAX_SHADER_VISIBLE_DESCRIPTOR_HEAP_SIZE_TIER_2,
+        .sampler_descriptor_heap_size = D3D12_MAX_SHADER_VISIBLE_SAMPLER_HEAP_SIZE,
+        .rtv_descriptor_heap_size = MAX_RTV_DSV_DESCRIPTORS,
+        .dsv_descriptor_heap_size = MAX_RTV_DSV_DESCRIPTORS,
+        .static_samplers = {}
     };
     core::d3d12::create_d3d12_context(context_create_info, &m_context);
+    D3D12MA::ALLOCATOR_DESC allocator_desc = {
+        .Flags = D3D12MA::ALLOCATOR_FLAG_SINGLETHREADED,
+        .pDevice = m_context.device,
+        .PreferredBlockSize = 0,
+        .pAllocationCallbacks = nullptr,
+        .pAdapter = m_context.adapter
+    };
+    D3D12MA::CreateAllocator(&allocator_desc, &m_allocator);
+
+    m_resource_descriptor_increment_size = m_context.device->GetDescriptorHandleIncrementSize(
+        D3D12_DESCRIPTOR_HEAP_TYPE_CBV_SRV_UAV);
+    m_sampler_descriptor_increment_size = m_context.device->GetDescriptorHandleIncrementSize(
+        D3D12_DESCRIPTOR_HEAP_TYPE_SAMPLER);
+    m_rtv_descriptor_increment_size = m_context.device->GetDescriptorHandleIncrementSize(
+        D3D12_DESCRIPTOR_HEAP_TYPE_RTV);
+    m_dsv_descriptor_increment_size = m_context.device->GetDescriptorHandleIncrementSize(
+        D3D12_DESCRIPTOR_HEAP_TYPE_DSV);
 }
 
 D3D12_Graphics_Device::~D3D12_Graphics_Device() noexcept
 {
     core::d3d12::await_context(&m_context);
+    m_allocator->Release();
     core::d3d12::destroy_d3d12_context(&m_context);
 }
 
-Result D3D12_Graphics_Device::submit(const Submit_Info& submit_info) noexcept
+std::expected<Buffer*, Result> D3D12_Graphics_Device::create_buffer(const Buffer_Create_Info& create_info) noexcept
 {
-    return Result::Success;
+    D3D12_RESOURCE_DESC1 resource_desc = {
+        .Dimension = D3D12_RESOURCE_DIMENSION_BUFFER,
+        .Alignment = 0,
+        .Width = create_info.size,
+        .Height = 1,
+        .DepthOrArraySize = 1,
+        .MipLevels = 1,
+        .Format = DXGI_FORMAT_UNKNOWN,
+        .SampleDesc = { .Count = 1, .Quality = 0 },
+        .Layout = D3D12_TEXTURE_LAYOUT_ROW_MAJOR,
+        .Flags = D3D12_RESOURCE_FLAG_ALLOW_UNORDERED_ACCESS,
+        .SamplerFeedbackMipRegion = {}
+    };
+    D3D12MA::ALLOCATION_DESC allocation_desc = {
+        .Flags = D3D12MA::ALLOCATION_FLAG_NONE,
+        .HeapType = d3d12_heap_type_from_memory_heap_type(create_info.heap),
+        .ExtraHeapFlags = D3D12_HEAP_FLAG_NONE,
+        .CustomPool = nullptr,
+        .pPrivateData = nullptr
+    };
+    D3D12MA::Allocation* allocation = nullptr;
+    ID3D12Resource2* resource = nullptr;
+    auto result = result_from_hresult(m_allocator->CreateResource3(
+        &allocation_desc, &resource_desc, D3D12_BARRIER_LAYOUT_UNDEFINED,
+        nullptr, 0, nullptr, &allocation, IID_PPV_ARGS(&resource)));
+    if (result != Result::Success)
+    {
+        return std::unexpected(result);
+    }
+
+    void* mapped_data = nullptr;
+    if (create_info.heap == Memory_Heap_Type::CPU_Upload)
+    {
+        resource->Map(0, nullptr, &mapped_data);
+    }
+
+    auto buffer = m_buffers.acquire();
+    buffer->bindless_index = create_bindless_index(D3D12_DESCRIPTOR_HEAP_TYPE_CBV_SRV_UAV);
+    buffer->next_buffer_view = nullptr;
+    buffer->data = mapped_data;
+    buffer->resource = resource;
+    return buffer;
 }
 
 std::expected<Shader_Blob*, Result> D3D12_Graphics_Device::create_shader_blob(void* data, uint64_t size) noexcept
@@ -115,7 +205,87 @@ void D3D12_Graphics_Device::destroy_pipeline(Pipeline* pipeline) noexcept
 {
     if (pipeline == nullptr) return;
 
-    m_pipelines.release(static_cast<D3D12_Pipeline*>(pipeline));
+    auto d3d12_pipeline = static_cast<D3D12_Pipeline*>(pipeline);
+    if (d3d12_pipeline->pso)
+        d3d12_pipeline->pso->Release();
+    if (d3d12_pipeline->rtpso)
+        d3d12_pipeline->rtpso->Release();
+
+    m_pipelines.release(d3d12_pipeline);
+}
+
+Result D3D12_Graphics_Device::submit(const Submit_Info& submit_info) noexcept
+{
+    return Result::Success;
+}
+
+D3D12_CPU_DESCRIPTOR_HANDLE D3D12_Graphics_Device::get_cpu_descriptor_handle(
+    uint32_t index, D3D12_DESCRIPTOR_HEAP_TYPE type) const noexcept
+{
+    D3D12_CPU_DESCRIPTOR_HANDLE handle = {};
+    uint64_t increment = 0;
+    switch (type)
+    {
+    case D3D12_DESCRIPTOR_HEAP_TYPE_CBV_SRV_UAV:
+        handle = m_context.resource_descriptor_heap->GetCPUDescriptorHandleForHeapStart();
+        increment = m_resource_descriptor_increment_size;
+        break;
+    case D3D12_DESCRIPTOR_HEAP_TYPE_SAMPLER:
+        handle = m_context.sampler_descriptor_heap->GetCPUDescriptorHandleForHeapStart();
+        increment = m_sampler_descriptor_increment_size;
+        break;
+    case D3D12_DESCRIPTOR_HEAP_TYPE_RTV:
+        handle = m_context.rtv_descriptor_heap->GetCPUDescriptorHandleForHeapStart();
+        increment = m_rtv_descriptor_increment_size;
+        break;
+    case D3D12_DESCRIPTOR_HEAP_TYPE_DSV:
+        handle = m_context.dsv_descriptor_heap->GetCPUDescriptorHandleForHeapStart();
+        increment = m_dsv_descriptor_increment_size;
+        break;
+    default:
+        break;
+    }
+
+    handle.ptr += increment * index;
+
+    return handle;
+}
+
+D3D12_GPU_DESCRIPTOR_HANDLE D3D12_Graphics_Device::get_gpu_descriptor_handle(
+    uint32_t index, D3D12_DESCRIPTOR_HEAP_TYPE type) const noexcept
+{
+    D3D12_GPU_DESCRIPTOR_HANDLE handle = {};
+    uint64_t increment = 0;
+    switch (type)
+    {
+    case D3D12_DESCRIPTOR_HEAP_TYPE_CBV_SRV_UAV:
+        handle = m_context.resource_descriptor_heap->GetGPUDescriptorHandleForHeapStart();
+        increment = m_resource_descriptor_increment_size;
+        break;
+    case D3D12_DESCRIPTOR_HEAP_TYPE_SAMPLER:
+        handle = m_context.sampler_descriptor_heap->GetGPUDescriptorHandleForHeapStart();
+        increment = m_sampler_descriptor_increment_size;
+        break;
+    case D3D12_DESCRIPTOR_HEAP_TYPE_RTV:
+        handle = m_context.rtv_descriptor_heap->GetGPUDescriptorHandleForHeapStart();
+        increment = m_rtv_descriptor_increment_size;
+        break;
+    case D3D12_DESCRIPTOR_HEAP_TYPE_DSV:
+        handle = m_context.dsv_descriptor_heap->GetGPUDescriptorHandleForHeapStart();
+        increment = m_dsv_descriptor_increment_size;
+        break;
+    default:
+        break;
+    }
+
+    handle.ptr += increment * index;
+
+    return handle;
+}
+
+uint32_t D3D12_Graphics_Device::get_uav_from_bindless_index(uint32_t bindless_index) const noexcept
+{
+    return bindless_index + 1;
 }
 }
 

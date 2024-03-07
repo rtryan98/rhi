@@ -1,6 +1,7 @@
 #pragma once
 
 #include "rhi/d3d12/d3d12_command_list.hpp"
+#include "rhi/d3d12/d3d12_graphics_device.hpp"
 #include "rhi/d3d12/d3d12_resource.hpp"
 
 #include <array>
@@ -182,7 +183,12 @@ void D3D12_Command_List::barrier(const Barrier_Info& barrier_info) noexcept
     m_cmd->Barrier(num_barrier_groups, barrier_groups.data());
 }
 
-void D3D12_Command_List::copy_buffer(Buffer* src, uint64_t src_offset, Buffer* dst, uint64_t dst_offset, uint64_t size) noexcept
+void D3D12_Command_List::copy_buffer(
+    Buffer* src,
+    uint64_t src_offset,
+    Buffer* dst,
+    uint64_t dst_offset,
+    uint64_t size) noexcept
 {
     if (!src || !dst) return;
 
@@ -198,8 +204,12 @@ void D3D12_Command_List::fill_buffer(Buffer* dst, uint32_t value) noexcept
     auto d3d12_dst = static_cast<D3D12_Buffer*>(dst);
     uint32_t values[4] = { value, value, value, value };
     m_cmd->ClearUnorderedAccessViewUint(
-        d3d12_dst->gpu_descriptor_handle,
-        d3d12_dst->cpu_descriptor_handle,
+        m_device->get_gpu_descriptor_handle(
+            m_device->get_uav_from_bindless_index(d3d12_dst->bindless_index),
+            D3D12_DESCRIPTOR_HEAP_TYPE_CBV_SRV_UAV),
+        m_device->get_cpu_descriptor_handle(
+            m_device->get_uav_from_bindless_index(d3d12_dst->bindless_index),
+            D3D12_DESCRIPTOR_HEAP_TYPE_CBV_SRV_UAV),
         d3d12_dst->resource,
         values, 0, nullptr);
 }

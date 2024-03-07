@@ -7,6 +7,8 @@
 
 namespace rhi::d3d12
 {
+class D3D12_Graphics_Device;
+
 class D3D12_Command_List final : public Command_List
 {
 public:
@@ -47,6 +49,7 @@ public:
 
 private:
     ID3D12GraphicsCommandList7* m_cmd;
+    D3D12_Graphics_Device* m_device;
 };
 }
 
