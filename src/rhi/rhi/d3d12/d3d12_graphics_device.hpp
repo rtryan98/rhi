@@ -58,6 +58,7 @@ public:
     [[nodiscard]] uint32_t get_uav_from_bindless_index(uint32_t bindless_index) const noexcept;
 
 private:
+    void release_bindless_index(uint32_t index, D3D12_DESCRIPTOR_HEAP_TYPE type) noexcept;
     [[nodiscard]] uint32_t create_bindless_index(D3D12_DESCRIPTOR_HEAP_TYPE type) noexcept;
 
 private:

@@ -137,13 +137,28 @@ std::expected<Buffer*, Result> D3D12_Graphics_Device::create_buffer(const Buffer
     buffer->next_buffer_view = nullptr;
     buffer->data = mapped_data;
     buffer->resource = resource;
+    buffer->allocation = allocation;
     return buffer;
+}
+
+void D3D12_Graphics_Device::destroy_buffer(Buffer* buffer) noexcept
+{
+    if (!buffer) return;
+
+    auto d3d12_buffer = static_cast<D3D12_Buffer*>(buffer);
+    d3d12_buffer->resource->Release();
+    d3d12_buffer->allocation->Release();
+    release_bindless_index(d3d12_buffer->bindless_index, D3D12_DESCRIPTOR_HEAP_TYPE_CBV_SRV_UAV);
+
+    m_buffers.release(d3d12_buffer);
 }
 
 std::expected<Shader_Blob*, Result> D3D12_Graphics_Device::create_shader_blob(void* data, uint64_t size) noexcept
 {
-    static_assert(sizeof(decltype(Shader_Blob::data)::value_type) == sizeof(uint8_t), "Size of blob changed.");
-    if (data == nullptr)
+    static_assert(
+        sizeof(decltype(Shader_Blob::data)::value_type) == sizeof(uint8_t),
+        "Size of blob changed.");
+    if (data == nullptr || size == 0)
     {
         return std::unexpected(Result::Error_Invalid_Parameters);
     }
@@ -160,7 +175,8 @@ void D3D12_Graphics_Device::destroy_shader_blob(Shader_Blob* shader_blob) noexce
     m_shader_blobs.release(shader_blob);
 }
 
-std::expected<Pipeline*, Result> D3D12_Graphics_Device::create_pipeline(const Graphics_Pipeline_Create_Info& create_info) noexcept
+std::expected<Pipeline*, Result> D3D12_Graphics_Device::create_pipeline(
+    const Graphics_Pipeline_Create_Info& create_info) noexcept
 {
     core::d3d12::Graphics_Pipeline_Desc graphics_pipeline_stream = {
         .root_signature = { .data = m_context.bindless_root_signature },
