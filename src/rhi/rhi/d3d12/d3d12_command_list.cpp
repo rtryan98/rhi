@@ -183,6 +183,11 @@ void D3D12_Command_List::barrier(const Barrier_Info& barrier_info) noexcept
     m_cmd->Barrier(num_barrier_groups, barrier_groups.data());
 }
 
+void D3D12_Command_List::dispatch(uint32_t groups_x, uint32_t groups_y, uint32_t groups_z) noexcept
+{
+    m_cmd->Dispatch(groups_x, groups_y, groups_z);
+}
+
 void D3D12_Command_List::copy_buffer(
     Buffer* src,
     uint64_t src_offset,
