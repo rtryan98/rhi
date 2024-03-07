@@ -31,6 +31,7 @@ struct Submit_Info
 struct Graphics_Device_Create_Info
 {
     bool enable_validation;
+    bool enable_gpu_validation;
 };
 
 class Graphics_Device
