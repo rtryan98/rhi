@@ -14,6 +14,14 @@ class Allocator;
 
 namespace rhi::d3d12
 {
+struct Descriptor_Increment_Sizes
+{
+    uint64_t resource;
+    uint64_t sampler;
+    uint64_t rtv;
+    uint64_t dsv;
+};
+
 struct D3D12_Fence : public Fence
 {
     ID3D12Fence1* fence;
@@ -75,10 +83,7 @@ private:
     core::d3d12::D3D12_Context m_context;
     D3D12MA::Allocator* m_allocator;
 
-    uint64_t m_resource_descriptor_increment_size;
-    uint64_t m_sampler_descriptor_increment_size;
-    uint64_t m_rtv_descriptor_increment_size;
-    uint64_t m_dsv_descriptor_increment_size;
+    Descriptor_Increment_Sizes m_descriptor_increment_sizes;
 
     Array_Vector<D3D12_Fence, ARRAY_VECTOR_SIZE> m_fences;
     Array_Vector<D3D12_Buffer, ARRAY_VECTOR_SIZE> m_buffers;

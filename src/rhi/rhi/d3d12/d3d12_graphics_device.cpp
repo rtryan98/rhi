@@ -47,10 +47,7 @@ D3D12_Graphics_Device::D3D12_Graphics_Device(const Graphics_Device_Create_Info& 
     : Graphics_Device()
     , m_context{}
     , m_allocator()
-    , m_resource_descriptor_increment_size(0)
-    , m_sampler_descriptor_increment_size(0)
-    , m_rtv_descriptor_increment_size(0)
-    , m_dsv_descriptor_increment_size(0)
+    , m_descriptor_increment_sizes{}
     , m_fences()
     , m_buffers()
     , m_images()
@@ -79,13 +76,13 @@ D3D12_Graphics_Device::D3D12_Graphics_Device(const Graphics_Device_Create_Info& 
     };
     D3D12MA::CreateAllocator(&allocator_desc, &m_allocator);
 
-    m_resource_descriptor_increment_size = m_context.device->GetDescriptorHandleIncrementSize(
+    m_descriptor_increment_sizes.resource = m_context.device->GetDescriptorHandleIncrementSize(
         D3D12_DESCRIPTOR_HEAP_TYPE_CBV_SRV_UAV);
-    m_sampler_descriptor_increment_size = m_context.device->GetDescriptorHandleIncrementSize(
+    m_descriptor_increment_sizes.sampler = m_context.device->GetDescriptorHandleIncrementSize(
         D3D12_DESCRIPTOR_HEAP_TYPE_SAMPLER);
-    m_rtv_descriptor_increment_size = m_context.device->GetDescriptorHandleIncrementSize(
+    m_descriptor_increment_sizes.rtv = m_context.device->GetDescriptorHandleIncrementSize(
         D3D12_DESCRIPTOR_HEAP_TYPE_RTV);
-    m_dsv_descriptor_increment_size = m_context.device->GetDescriptorHandleIncrementSize(
+    m_descriptor_increment_sizes.dsv = m_context.device->GetDescriptorHandleIncrementSize(
         D3D12_DESCRIPTOR_HEAP_TYPE_DSV);
 }
 
@@ -319,19 +316,19 @@ D3D12_CPU_DESCRIPTOR_HANDLE D3D12_Graphics_Device::get_cpu_descriptor_handle(
     {
     case D3D12_DESCRIPTOR_HEAP_TYPE_CBV_SRV_UAV:
         handle = m_context.resource_descriptor_heap->GetCPUDescriptorHandleForHeapStart();
-        increment = m_resource_descriptor_increment_size;
+        increment = m_descriptor_increment_sizes.resource;
         break;
     case D3D12_DESCRIPTOR_HEAP_TYPE_SAMPLER:
         handle = m_context.sampler_descriptor_heap->GetCPUDescriptorHandleForHeapStart();
-        increment = m_sampler_descriptor_increment_size;
+        increment = m_descriptor_increment_sizes.sampler;
         break;
     case D3D12_DESCRIPTOR_HEAP_TYPE_RTV:
         handle = m_context.rtv_descriptor_heap->GetCPUDescriptorHandleForHeapStart();
-        increment = m_rtv_descriptor_increment_size;
+        increment = m_descriptor_increment_sizes.rtv;
         break;
     case D3D12_DESCRIPTOR_HEAP_TYPE_DSV:
         handle = m_context.dsv_descriptor_heap->GetCPUDescriptorHandleForHeapStart();
-        increment = m_dsv_descriptor_increment_size;
+        increment = m_descriptor_increment_sizes.dsv;
         break;
     default:
         break;
@@ -351,19 +348,19 @@ D3D12_GPU_DESCRIPTOR_HANDLE D3D12_Graphics_Device::get_gpu_descriptor_handle(
     {
     case D3D12_DESCRIPTOR_HEAP_TYPE_CBV_SRV_UAV:
         handle = m_context.resource_descriptor_heap->GetGPUDescriptorHandleForHeapStart();
-        increment = m_resource_descriptor_increment_size;
+        increment = m_descriptor_increment_sizes.resource;
         break;
     case D3D12_DESCRIPTOR_HEAP_TYPE_SAMPLER:
         handle = m_context.sampler_descriptor_heap->GetGPUDescriptorHandleForHeapStart();
-        increment = m_sampler_descriptor_increment_size;
+        increment = m_descriptor_increment_sizes.sampler;
         break;
     case D3D12_DESCRIPTOR_HEAP_TYPE_RTV:
         handle = m_context.rtv_descriptor_heap->GetGPUDescriptorHandleForHeapStart();
-        increment = m_rtv_descriptor_increment_size;
+        increment = m_descriptor_increment_sizes.rtv;
         break;
     case D3D12_DESCRIPTOR_HEAP_TYPE_DSV:
         handle = m_context.dsv_descriptor_heap->GetGPUDescriptorHandleForHeapStart();
-        increment = m_dsv_descriptor_increment_size;
+        increment = m_descriptor_increment_sizes.dsv;
         break;
     default:
         break;
