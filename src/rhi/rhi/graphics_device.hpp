@@ -70,6 +70,8 @@ public:
     Graphics_Device& operator=(const Graphics_Device& other) = delete;
     Graphics_Device& operator=(Graphics_Device&& other) = delete;
 
+    virtual [[nodiscard]] Graphics_API get_graphics_api() const noexcept = 0;
+
     virtual [[nodsicard]] std::expected<Fence*, Result> create_fence(uint64_t initial_value) noexcept = 0;
     virtual void destroy_fence(Fence* fence) noexcept = 0;
 

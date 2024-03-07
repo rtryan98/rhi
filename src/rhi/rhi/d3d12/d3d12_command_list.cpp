@@ -151,6 +151,11 @@ auto translate_barrier_access_flags(Barrier_Access access)
     return result;
 }
 
+Graphics_API D3D12_Command_List::get_graphics_api() const noexcept
+{
+    return m_device->get_graphics_api();
+}
+
 void D3D12_Command_List::barrier(const Barrier_Info& barrier_info) noexcept
 {
     uint32_t num_barrier_groups = 0;
@@ -195,6 +200,30 @@ void D3D12_Command_List::dispatch_indirect(Buffer* buffer, uint64_t offset) noex
     auto d3d12_buffer = static_cast<D3D12_Buffer*>(buffer);
     m_cmd->ExecuteIndirect(m_device->get_indirect_signatures().dispatch_indirect,
         1, d3d12_buffer->resource, offset, nullptr, 0);
+}
+
+void D3D12_Command_List::dispatch_indirect_d3d12(Buffer* buffer, uint64_t offset, uint32_t count) noexcept
+{
+    if (!buffer) return;
+
+    auto d3d12_buffer = static_cast<D3D12_Buffer*>(buffer);
+    m_cmd->ExecuteIndirect(m_device->get_indirect_signatures().dispatch_indirect,
+        count, d3d12_buffer->resource, offset, nullptr, 0);
+}
+
+void D3D12_Command_List::dispatch_indirect_count_d3d12(
+    Buffer* buffer,
+    uint64_t offset,
+    uint32_t max_dispatch_count,
+    Buffer* count_buffer,
+    uint64_t count_offset) noexcept
+{
+    if (!buffer || !count_buffer) return;
+
+    auto d3d12_buffer = static_cast<D3D12_Buffer*>(buffer);
+    auto d3d12_count_buffer = static_cast<D3D12_Buffer*>(count_buffer);
+    m_cmd->ExecuteIndirect(m_device->get_indirect_signatures().dispatch_indirect,
+        max_dispatch_count, d3d12_buffer->resource, offset, d3d12_count_buffer->resource, count_offset);
 }
 
 void D3D12_Command_List::copy_buffer(

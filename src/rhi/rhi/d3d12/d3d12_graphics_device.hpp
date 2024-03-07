@@ -41,6 +41,8 @@ public:
     D3D12_Graphics_Device(const Graphics_Device_Create_Info& create_info) noexcept;
     virtual ~D3D12_Graphics_Device() noexcept override;
 
+    virtual [[nodiscard]] Graphics_API get_graphics_api() const noexcept override;
+
     virtual [[nodsicard]] std::expected<Fence*, Result> create_fence(uint64_t initial_value) noexcept override;
     virtual void destroy_fence(Fence* fence) noexcept override;
 

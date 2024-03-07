@@ -92,6 +92,11 @@ D3D12_Graphics_Device::~D3D12_Graphics_Device() noexcept
     core::d3d12::destroy_d3d12_context(&m_context);
 }
 
+Graphics_API D3D12_Graphics_Device::get_graphics_api() const noexcept
+{
+    return Graphics_API::D3D12;
+}
+
 std::expected<Fence*, Result> D3D12_Graphics_Device::create_fence(uint64_t initial_value) noexcept
 {
     ID3D12Fence1* d3d12_fence = nullptr;
