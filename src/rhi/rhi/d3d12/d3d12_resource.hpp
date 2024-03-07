@@ -1,5 +1,4 @@
 #pragma once
-#ifdef RHI_GRAPHICS_API_D3D12
 
 #include "rhi/resource.hpp"
 
@@ -35,5 +34,3 @@ struct D3D12_Pipeline : public Pipeline
     ID3D12StateObject* rtpso;
 };
 }
-
-#endif // RHI_GRAPHICS_API_D3D12

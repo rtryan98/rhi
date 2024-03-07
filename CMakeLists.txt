@@ -18,11 +18,8 @@ core_deploy_files(
     .
 )
 
-# set RHI_API to either "D3D12" or "Vulkan".
-if(NOT DEFINED RHI_API)
-    set(RHI_API "D3D12")
-endif()
-
+option(RHI_BUILD_D3D12 "If true, builds the D3D12 backend." TRUE)
+option(RHI_BUILD_VULKAN "If true, builds the Vulkan backend." TRUE)
 option(RHI_USE_PIX "If true, compiles with WinPixEventRuntime linked when compiling for D3D12." TRUE)
 
 add_library(
@@ -42,7 +39,7 @@ set_target_properties(
     rhi PROPERTIES
     CXX_STANDARD 23
 )
-if(${RHI_API} STREQUAL "D3D12")
+if(${RHI_BUILD_D3D12})
     target_compile_definitions(rhi PUBLIC
         RHI_GRAPHICS_API_D3D12
     )
@@ -50,7 +47,7 @@ if(${RHI_API} STREQUAL "D3D12")
         target_compile_definitions(rhi PUBLIC
             USE_PIX)
     endif()
-elseif(${RHI_API} STREQUAL "Vulkan")
+elseif(${RHI_BUILD_VULKAN})
     target_compile_definitions(rhi PUBLIC
         RHI_GRAPHICS_API_VULKAN
     )

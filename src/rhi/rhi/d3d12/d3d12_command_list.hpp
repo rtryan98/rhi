@@ -1,5 +1,4 @@
 #pragma once
-#ifdef RHI_GRAPHICS_API_D3D12
 
 #include "rhi/command_list.hpp"
 
@@ -62,5 +61,3 @@ private:
     D3D12_Graphics_Device* m_device;
 };
 }
-
-#endif // RHI_GRAPHICS_API_D3D12

@@ -1,4 +1,3 @@
-#ifdef RHI_GRAPHICS_API_D3D12
 #include "d3d12_graphics_device.hpp"
 #include "d3d12_command_list.hpp"
 
@@ -444,5 +443,3 @@ Indirect_Signatures D3D12_Graphics_Device::create_execute_indirect_signatures() 
     return result;
 }
 }
-
-#endif // RHI_GRAPHICS_API_D3D12

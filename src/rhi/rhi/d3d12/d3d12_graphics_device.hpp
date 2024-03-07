@@ -1,5 +1,4 @@
 #pragma once
-#ifdef RHI_GRAPHICS_API_D3D12
 
 #include "rhi/graphics_device.hpp"
 #include "rhi/common/array_vector.hpp"
@@ -108,5 +107,3 @@ private:
     Array_Vector<D3D12_Pipeline, ARRAY_VECTOR_SIZE> m_pipelines;
 };
 }
-
-#endif // RHI_GRAPHICS_API_D3D12

@@ -9,8 +9,8 @@ target_sources(
 
 add_subdirectory(common)
 
-if(${RHI_API} STREQUAL "D3D12")
+if(${RHI_BUILD_D3D12})
     add_subdirectory(d3d12)
-elseif(${RHI_API} STREQUAL "Vulkan")
+elseif(${RHI_BUILD_VULKAN})
     add_subdirectory(vulkan)
 endif()

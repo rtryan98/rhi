@@ -12,6 +12,7 @@ struct Buffer;
 struct Image;
 struct Pipeline;
 enum class Queue_Type;
+enum class Graphics_API;
 
 enum class Pipeline_Bind_Point
 {
