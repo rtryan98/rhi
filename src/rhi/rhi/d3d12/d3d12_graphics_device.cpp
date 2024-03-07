@@ -261,10 +261,13 @@ Result D3D12_Graphics_Device::submit(const Submit_Info& submit_info) noexcept
     {
     case Queue_Type::Graphics:
         command_queue = m_context.direct_queue;
+        break;
     case Queue_Type::Compute:
         command_queue = m_context.compute_queue;
+        break;
     case Queue_Type::Copy:
         command_queue = m_context.copy_queue;
+        break;
     case Queue_Type::Video_Decode:
         [[fallthrough]]; // TODO: implement video queues
     case Queue_Type::Video_Encode:
