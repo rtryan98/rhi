@@ -7,15 +7,24 @@ namespace rhi
 struct Buffer_View;
 struct Image_View;
 
+enum class Memory_Heap_Type
+{
+    GPU,
+    CPU_Upload,
+    CPU_Readback
+};
+
 struct Buffer_Create_Info
 {
-
+    uint64_t size;
+    Memory_Heap_Type heap;
 };
 
 struct Buffer
 {
     uint32_t bindless_index;
     Buffer_View* next_buffer_view;
+    void* data;
 };
 
 struct Buffer_View_Create_Info
