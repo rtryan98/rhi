@@ -22,6 +22,14 @@ struct Descriptor_Increment_Sizes
     uint64_t dsv;
 };
 
+struct Indirect_Signatures
+{
+    ID3D12CommandSignature* draw_indirect;
+    ID3D12CommandSignature* draw_indexed_indirect;
+    ID3D12CommandSignature* draw_mesh_tasks_indirect;
+    ID3D12CommandSignature* dispatch_indirect;
+};
+
 struct D3D12_Fence : public Fence
 {
     ID3D12Fence1* fence;
@@ -72,10 +80,14 @@ public:
         uint32_t index, D3D12_DESCRIPTOR_HEAP_TYPE type) const noexcept;
 
     [[nodiscard]] uint32_t get_uav_from_bindless_index(uint32_t bindless_index) const noexcept;
+    [[nodiscard]] const Indirect_Signatures& get_indirect_signatures() const noexcept;
 
 private:
     void release_bindless_index(uint32_t index, D3D12_DESCRIPTOR_HEAP_TYPE type) noexcept;
     [[nodiscard]] uint32_t create_bindless_index(D3D12_DESCRIPTOR_HEAP_TYPE type) noexcept;
+
+    [[nodiscard]] Descriptor_Increment_Sizes acquire_descriptor_increment_sizes() noexcept;
+    [[nodiscard]] Indirect_Signatures create_execute_indirect_signatures() noexcept;
 
 private:
     constexpr static std::size_t ARRAY_VECTOR_SIZE = 512;
@@ -84,6 +96,7 @@ private:
     D3D12MA::Allocator* m_allocator;
 
     Descriptor_Increment_Sizes m_descriptor_increment_sizes;
+    Indirect_Signatures m_indirect_signatures;
 
     Array_Vector<D3D12_Fence, ARRAY_VECTOR_SIZE> m_fences;
     Array_Vector<D3D12_Buffer, ARRAY_VECTOR_SIZE> m_buffers;

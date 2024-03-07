@@ -6,6 +6,8 @@
 
 namespace rhi
 {
+constexpr static uint32_t INDIRECT_ARGUMENT_STRIDE = sizeof(uint32_t) * 8;
+
 struct Buffer;
 struct Image;
 struct Pipeline;
@@ -139,6 +141,7 @@ public:
 
     // Compute commands
     virtual void dispatch(uint32_t groups_x, uint32_t groups_y, uint32_t groups_z) noexcept = 0;
+    virtual void dispatch_indirect(Buffer* buffer, uint64_t offset) noexcept = 0;
 
     // Copy commands
     virtual void copy_buffer(Buffer* src, uint64_t src_offset, Buffer* dst, uint64_t dst_offset, uint64_t size) noexcept = 0;
@@ -154,12 +157,14 @@ public:
 
     // Draw commands
     virtual void draw(uint32_t vertex_count, uint32_t instance_count, uint32_t vertex_offset, uint32_t instance_offset) noexcept = 0;
-    virtual void draw_indirect() noexcept = 0;
-    virtual void draw_indirect_count() noexcept = 0;
+    virtual void draw_indirect(Buffer* buffer, uint64_t offset, uint32_t count) noexcept = 0;
+    virtual void draw_indirect_count(Buffer* buffer, uint64_t offset, uint32_t max_draw_count, Buffer* count_buffer, uint64_t count_offset) noexcept = 0;
     virtual void draw_indexed(uint32_t index_count, uint32_t instance_count, uint32_t index_offset, uint32_t vertex_offset, uint32_t instance_offset) noexcept = 0;
-    virtual void draw_indexed_indirect() noexcept = 0;
-    virtual void draw_indexed_indirect_count() noexcept = 0;
+    virtual void draw_indexed_indirect(Buffer* buffer, uint64_t offset, uint32_t count) noexcept = 0;
+    virtual void draw_indexed_indirect_count(Buffer* buffer, uint64_t offset, uint32_t max_draw_count, Buffer* count_buffer, uint64_t count_offset) noexcept = 0;
     virtual void draw_mesh_tasks(uint32_t groups_x, uint32_t groups_y, uint32_t groups_z) noexcept = 0;
+    virtual void draw_mesh_tasks_indirect(Buffer* buffer, uint64_t offset, uint32_t count) noexcept = 0;
+    virtual void draw_mesh_tasks_indirect_count(Buffer* buffer, uint64_t offset, uint32_t max_draw_count, Buffer* count_buffer, uint64_t count_offset) noexcept = 0;
 
     // State commands
     virtual void begin_render_pass() noexcept = 0;

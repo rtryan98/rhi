@@ -17,6 +17,7 @@ public:
 
     // Compute commands
     virtual void dispatch(uint32_t groups_x, uint32_t groups_y, uint32_t groups_z) noexcept override;
+    virtual void dispatch_indirect(Buffer* buffer, uint64_t offset) noexcept override;
 
     // Copy commands
     virtual void copy_buffer(Buffer* src, uint64_t src_offset, Buffer* dst, uint64_t dst_offset, uint64_t size) noexcept override;
@@ -32,12 +33,14 @@ public:
 
     // Draw commands
     virtual void draw(uint32_t vertex_count, uint32_t instance_count, uint32_t vertex_offset, uint32_t instance_offset) noexcept override;
-    virtual void draw_indirect() noexcept override;
-    virtual void draw_indirect_count() noexcept override;
+    virtual void draw_indirect(Buffer* buffer, uint64_t offset, uint32_t count) noexcept override;
+    virtual void draw_indirect_count(Buffer* buffer, uint64_t offset, uint32_t max_draw_count, Buffer* count_buffer, uint64_t count_offset) noexcept override;
     virtual void draw_indexed(uint32_t index_count, uint32_t instance_count, uint32_t index_offset, uint32_t vertex_offset, uint32_t instance_offset) noexcept override;
-    virtual void draw_indexed_indirect() noexcept override;
-    virtual void draw_indexed_indirect_count() noexcept override;
+    virtual void draw_indexed_indirect(Buffer* buffer, uint64_t offset, uint32_t count) noexcept override;
+    virtual void draw_indexed_indirect_count(Buffer* buffer, uint64_t offset, uint32_t max_draw_count, Buffer* count_buffer, uint64_t count_offset) noexcept override;
     virtual void draw_mesh_tasks(uint32_t groups_x, uint32_t groups_y, uint32_t groups_z) noexcept override;
+    virtual void draw_mesh_tasks_indirect(Buffer* buffer, uint64_t offset, uint32_t count) noexcept override;
+    virtual void draw_mesh_tasks_indirect_count(Buffer* buffer, uint64_t offset, uint32_t max_draw_count, Buffer* count_buffer, uint64_t count_offset) noexcept override;
 
     // State commands
     virtual void begin_render_pass() noexcept override;

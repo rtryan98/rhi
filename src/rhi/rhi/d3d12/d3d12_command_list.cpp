@@ -188,6 +188,15 @@ void D3D12_Command_List::dispatch(uint32_t groups_x, uint32_t groups_y, uint32_t
     m_cmd->Dispatch(groups_x, groups_y, groups_z);
 }
 
+void D3D12_Command_List::dispatch_indirect(Buffer* buffer, uint64_t offset) noexcept
+{
+    if (!buffer) return;
+
+    auto d3d12_buffer = static_cast<D3D12_Buffer*>(buffer);
+    m_cmd->ExecuteIndirect(m_device->get_indirect_signatures().dispatch_indirect,
+        1, d3d12_buffer->resource, offset, nullptr, 0);
+}
+
 void D3D12_Command_List::copy_buffer(
     Buffer* src,
     uint64_t src_offset,
@@ -257,6 +266,30 @@ void D3D12_Command_List::draw(
     m_cmd->DrawInstanced(vertex_count, instance_count, vertex_offset, instance_offset);
 }
 
+void D3D12_Command_List::draw_indirect(Buffer* buffer, uint64_t offset, uint32_t count) noexcept
+{
+    if (!buffer) return;
+
+    auto d3d12_buffer = static_cast<D3D12_Buffer*>(buffer);
+    m_cmd->ExecuteIndirect(m_device->get_indirect_signatures().draw_indirect,
+        count, d3d12_buffer->resource, offset, nullptr, 0);
+}
+
+void D3D12_Command_List::draw_indirect_count(
+    Buffer* buffer,
+    uint64_t offset,
+    uint32_t max_draw_count,
+    Buffer* count_buffer,
+    uint64_t count_offset) noexcept
+{
+    if (!buffer || !count_buffer) return;
+
+    auto d3d12_buffer = static_cast<D3D12_Buffer*>(buffer);
+    auto d3d12_count_buffer = static_cast<D3D12_Buffer*>(count_buffer);
+    m_cmd->ExecuteIndirect(m_device->get_indirect_signatures().draw_indirect,
+        max_draw_count, d3d12_buffer->resource, offset, d3d12_count_buffer->resource, count_offset);
+}
+
 void D3D12_Command_List::draw_indexed(
     uint32_t index_count,
     uint32_t instance_count,
@@ -267,9 +300,57 @@ void D3D12_Command_List::draw_indexed(
     m_cmd->DrawIndexedInstanced(index_count, instance_count, index_offset, vertex_offset, instance_offset);
 }
 
+void D3D12_Command_List::draw_indexed_indirect(Buffer* buffer, uint64_t offset, uint32_t count) noexcept
+{
+    if (!buffer) return;
+
+    auto d3d12_buffer = static_cast<D3D12_Buffer*>(buffer);
+    m_cmd->ExecuteIndirect(m_device->get_indirect_signatures().draw_indexed_indirect,
+        count, d3d12_buffer->resource, offset, nullptr, 0);
+}
+
+void D3D12_Command_List::draw_indexed_indirect_count(
+    Buffer* buffer,
+    uint64_t offset,
+    uint32_t max_draw_count,
+    Buffer* count_buffer,
+    uint64_t count_offset) noexcept
+{
+    if (!buffer || !count_buffer) return;
+
+    auto d3d12_buffer = static_cast<D3D12_Buffer*>(buffer);
+    auto d3d12_count_buffer = static_cast<D3D12_Buffer*>(count_buffer);
+    m_cmd->ExecuteIndirect(m_device->get_indirect_signatures().draw_indexed_indirect,
+        max_draw_count, d3d12_buffer->resource, offset, d3d12_count_buffer->resource, count_offset);
+}
+
 void D3D12_Command_List::draw_mesh_tasks(uint32_t groups_x, uint32_t groups_y, uint32_t groups_z) noexcept
 {
     m_cmd->DispatchMesh(groups_x, groups_y, groups_z);
+}
+
+void D3D12_Command_List::draw_mesh_tasks_indirect(Buffer* buffer, uint64_t offset, uint32_t count) noexcept
+{
+    if (!buffer) return;
+
+    auto d3d12_buffer = static_cast<D3D12_Buffer*>(buffer);
+    m_cmd->ExecuteIndirect(m_device->get_indirect_signatures().draw_mesh_tasks_indirect,
+        count, d3d12_buffer->resource, offset, nullptr, 0);
+}
+
+void D3D12_Command_List::draw_mesh_tasks_indirect_count(
+    Buffer* buffer,
+    uint64_t offset,
+    uint32_t max_draw_count,
+    Buffer* count_buffer,
+    uint64_t count_offset) noexcept
+{
+    if (!buffer || !count_buffer) return;
+
+    auto d3d12_buffer = static_cast<D3D12_Buffer*>(buffer);
+    auto d3d12_count_buffer = static_cast<D3D12_Buffer*>(count_buffer);
+    m_cmd->ExecuteIndirect(m_device->get_indirect_signatures().draw_mesh_tasks_indirect,
+        max_draw_count, d3d12_buffer->resource, offset, d3d12_count_buffer->resource, count_offset);
 }
 
 void D3D12_Command_List::end_render_pass() noexcept

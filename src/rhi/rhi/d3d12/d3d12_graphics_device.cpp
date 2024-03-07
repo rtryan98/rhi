@@ -48,6 +48,7 @@ D3D12_Graphics_Device::D3D12_Graphics_Device(const Graphics_Device_Create_Info& 
     , m_context{}
     , m_allocator()
     , m_descriptor_increment_sizes{}
+    , m_indirect_signatures{}
     , m_fences()
     , m_buffers()
     , m_images()
@@ -76,19 +77,17 @@ D3D12_Graphics_Device::D3D12_Graphics_Device(const Graphics_Device_Create_Info& 
     };
     D3D12MA::CreateAllocator(&allocator_desc, &m_allocator);
 
-    m_descriptor_increment_sizes.resource = m_context.device->GetDescriptorHandleIncrementSize(
-        D3D12_DESCRIPTOR_HEAP_TYPE_CBV_SRV_UAV);
-    m_descriptor_increment_sizes.sampler = m_context.device->GetDescriptorHandleIncrementSize(
-        D3D12_DESCRIPTOR_HEAP_TYPE_SAMPLER);
-    m_descriptor_increment_sizes.rtv = m_context.device->GetDescriptorHandleIncrementSize(
-        D3D12_DESCRIPTOR_HEAP_TYPE_RTV);
-    m_descriptor_increment_sizes.dsv = m_context.device->GetDescriptorHandleIncrementSize(
-        D3D12_DESCRIPTOR_HEAP_TYPE_DSV);
+    m_descriptor_increment_sizes = acquire_descriptor_increment_sizes();
+    m_indirect_signatures = create_execute_indirect_signatures();
 }
 
 D3D12_Graphics_Device::~D3D12_Graphics_Device() noexcept
 {
     core::d3d12::await_context(&m_context);
+    m_indirect_signatures.draw_indirect->Release();
+    m_indirect_signatures.draw_indexed_indirect->Release();
+    m_indirect_signatures.draw_mesh_tasks_indirect->Release();
+    m_indirect_signatures.dispatch_indirect->Release();
     m_allocator->Release();
     core::d3d12::destroy_d3d12_context(&m_context);
 }
@@ -377,6 +376,67 @@ D3D12_GPU_DESCRIPTOR_HANDLE D3D12_Graphics_Device::get_gpu_descriptor_handle(
 uint32_t D3D12_Graphics_Device::get_uav_from_bindless_index(uint32_t bindless_index) const noexcept
 {
     return bindless_index + 1;
+}
+
+const Indirect_Signatures& D3D12_Graphics_Device::get_indirect_signatures() const noexcept
+{
+    return m_indirect_signatures;
+}
+
+Descriptor_Increment_Sizes D3D12_Graphics_Device::acquire_descriptor_increment_sizes() noexcept
+{
+    return Descriptor_Increment_Sizes {
+        .resource = m_context.device->GetDescriptorHandleIncrementSize(
+            D3D12_DESCRIPTOR_HEAP_TYPE_CBV_SRV_UAV),
+        .sampler = m_context.device->GetDescriptorHandleIncrementSize(
+            D3D12_DESCRIPTOR_HEAP_TYPE_SAMPLER),
+        .rtv = m_context.device->GetDescriptorHandleIncrementSize(
+            D3D12_DESCRIPTOR_HEAP_TYPE_RTV),
+        .dsv = m_context.device->GetDescriptorHandleIncrementSize(
+            D3D12_DESCRIPTOR_HEAP_TYPE_DSV)
+    };
+}
+
+Indirect_Signatures D3D12_Graphics_Device::create_execute_indirect_signatures() noexcept
+{
+    Indirect_Signatures result = {};
+    D3D12_INDIRECT_ARGUMENT_DESC argument_desc = {};
+    D3D12_COMMAND_SIGNATURE_DESC command_signature_desc = {
+        .ByteStride = INDIRECT_ARGUMENT_STRIDE,
+        .NumArgumentDescs = 1,
+        .pArgumentDescs = &argument_desc,
+        .NodeMask = 0
+    };
+
+    static_assert(INDIRECT_ARGUMENT_STRIDE >= sizeof(D3D12_DRAW_ARGUMENTS) + 1);
+    argument_desc.Type = D3D12_INDIRECT_ARGUMENT_TYPE_DRAW;
+    m_context.device->CreateCommandSignature(
+        &command_signature_desc,
+        m_context.bindless_root_signature,
+        IID_PPV_ARGS(&result.draw_indirect));
+
+    static_assert(INDIRECT_ARGUMENT_STRIDE >= sizeof(D3D12_DRAW_INDEXED_ARGUMENTS) + 1);
+    argument_desc.Type = D3D12_INDIRECT_ARGUMENT_TYPE_DRAW_INDEXED;
+    m_context.device->CreateCommandSignature(
+        &command_signature_desc,
+        m_context.bindless_root_signature,
+        IID_PPV_ARGS(&result.draw_indexed_indirect));
+
+    static_assert(INDIRECT_ARGUMENT_STRIDE >= sizeof(D3D12_DISPATCH_MESH_ARGUMENTS) + 1);
+    argument_desc.Type = D3D12_INDIRECT_ARGUMENT_TYPE_DISPATCH_MESH;
+    m_context.device->CreateCommandSignature(
+        &command_signature_desc,
+        m_context.bindless_root_signature,
+        IID_PPV_ARGS(&result.draw_mesh_tasks_indirect));
+
+    static_assert(INDIRECT_ARGUMENT_STRIDE >= sizeof(D3D12_DISPATCH_ARGUMENTS) + 1);
+    argument_desc.Type = D3D12_INDIRECT_ARGUMENT_TYPE_DISPATCH;
+    m_context.device->CreateCommandSignature(
+        &command_signature_desc,
+        m_context.bindless_root_signature,
+        IID_PPV_ARGS(&result.dispatch_indirect));
+
+    return result;
 }
 }
 
