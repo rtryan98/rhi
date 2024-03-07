@@ -20,15 +20,4 @@ std::unique_ptr<Graphics_Device> Graphics_Device::create(const Graphics_Device_C
     #error No graphics api is set.
 #endif
 }
-
-constexpr Graphics_API Graphics_Device::get_active_graphics_api() noexcept
-{
-#if defined(RHI_GRAPHICS_API_D3D12)
-    return Graphics_API::D3D12;
-#elif defined(RHI_GRAPHICS_API_VULKAN)
-    return Graphics_API::Vulkan;
-#else
-    #error No graphics api is set.
-#endif
-}
 }

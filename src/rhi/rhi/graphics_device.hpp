@@ -4,9 +4,13 @@
 
 #include <memory>
 #include <expected>
+#include <span>
 
 namespace rhi
 {
+class Command_List;
+class Swapchain;
+
 enum class Graphics_API
 {
     D3D12,
@@ -23,9 +27,31 @@ enum class Result
     Error_Unknown
 };
 
+enum class Queue_Type
+{
+    Graphics,
+    Compute,
+    Copy,
+    Video_Decode,
+    Video_Encode
+};
+
+struct Fence
+{};
+
+struct Submit_Fence_Info
+{
+    Fence* fence;
+    uint64_t value;
+};
+
 struct Submit_Info
 {
-
+    Queue_Type queue_type;
+    Swapchain* swapchain; // May be nullptr.
+    std::span<Submit_Fence_Info> wait_infos;
+    std::span<Command_List*> command_lists;
+    std::span< Submit_Fence_Info> signal_infos;
 };
 
 struct Graphics_Device_Create_Info
@@ -44,18 +70,29 @@ public:
     Graphics_Device& operator=(const Graphics_Device& other) = delete;
     Graphics_Device& operator=(Graphics_Device&& other) = delete;
 
-    constexpr static [[nodiscard]] Graphics_API get_active_graphics_api() noexcept;
+    virtual [[nodsicard]] std::expected<Fence*, Result> create_fence(uint64_t initial_value) noexcept = 0;
+    virtual void destroy_fence(Fence* fence) noexcept = 0;
 
-    virtual [[nodiscard]] std::expected<Buffer*, Result> create_buffer(const Buffer_Create_Info& create_info) noexcept = 0;
-    virtual [[nodiscard]] std::expected<Buffer_View*, Result> create_buffer_view(const Buffer_View_Create_Info& create_info) noexcept = 0;
+    virtual [[nodiscard]] std::expected<Buffer*, Result> create_buffer(
+        const Buffer_Create_Info& create_info) noexcept = 0;
+    virtual [[nodiscard]] std::expected<Buffer_View*, Result> create_buffer_view(
+        const Buffer_View_Create_Info& create_info) noexcept = 0;
     virtual void destroy_buffer(Buffer* buffer) noexcept = 0;
-    virtual [[nodiscard]] std::expected<Image*, Result> create_image(const Image_Create_Info& create_info) noexcept = 0;
-    virtual [[nodiscard]] std::expected<Image_View*, Result> create_image_view(const Image_View_Create_Info& create_info) noexcept = 0;
+
+    virtual [[nodiscard]] std::expected<Image*, Result> create_image(
+        const Image_Create_Info& create_info) noexcept = 0;
+    virtual [[nodiscard]] std::expected<Image_View*, Result> create_image_view(
+        const Image_View_Create_Info& create_info) noexcept = 0;
     virtual void destroy_image(Image* image) noexcept = 0;
-    virtual [[nodiscard]] std::expected<Sampler*, Result> create_sampler(const Sampler_Create_Info& create_info) noexcept = 0;
+
+    virtual [[nodiscard]] std::expected<Sampler*, Result> create_sampler(
+        const Sampler_Create_Info& create_info) noexcept = 0;
     virtual void destroy_sampler(Sampler* sampler) noexcept = 0;
-    virtual [[nodiscard]] std::expected<Shader_Blob*, Result> create_shader_blob(void* data, uint64_t size) noexcept = 0;
+
+    virtual [[nodiscard]] std::expected<Shader_Blob*, Result> create_shader_blob(
+        void* data, uint64_t size) noexcept = 0;
     virtual void destroy_shader_blob(Shader_Blob* shader_blob) noexcept = 0;
+
     virtual [[nodiscard]] std::expected<Pipeline*, Result> create_pipeline(const Graphics_Pipeline_Create_Info& create_info) noexcept = 0;
     virtual [[nodiscard]] std::expected<Pipeline*, Result> create_pipeline(const Compute_Pipeline_Create_Info& create_info) noexcept = 0;
     virtual [[nodiscard]] std::expected<Pipeline*, Result> create_pipeline(const Mesh_Shading_Pipeline_Create_Info& create_info) noexcept = 0;
