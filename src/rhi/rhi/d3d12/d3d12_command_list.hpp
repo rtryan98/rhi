@@ -47,6 +47,8 @@ public:
     virtual void set_scissor(int32_t x, int32_t y, uint32_t width, uint32_t height) noexcept override;
     virtual void set_viewport(float x, float y, float width, float height, float min_depth, float max_depth, [[maybe_unused]] bool vk_invert_viewport = true) noexcept override;
 
+    [[nodiscard]] ID3D12GraphicsCommandList7* get_internal_command_list() const noexcept;
+
 private:
     ID3D12GraphicsCommandList7* m_cmd;
     D3D12_Graphics_Device* m_device;

@@ -14,11 +14,19 @@ class Allocator;
 
 namespace rhi::d3d12
 {
+struct D3D12_Fence : public Fence
+{
+    ID3D12Fence1* fence;
+};
+
 class D3D12_Graphics_Device final : public Graphics_Device
 {
 public:
     D3D12_Graphics_Device(const Graphics_Device_Create_Info& create_info) noexcept;
     virtual ~D3D12_Graphics_Device() noexcept override;
+
+    virtual [[nodsicard]] std::expected<Fence*, Result> create_fence(uint64_t initial_value) noexcept override;
+    virtual void destroy_fence(Fence* fence) noexcept override;
 
     virtual [[nodiscard]] std::expected<Buffer*, Result> create_buffer(
         const Buffer_Create_Info& create_info) noexcept override;
@@ -72,6 +80,7 @@ private:
     uint64_t m_rtv_descriptor_increment_size;
     uint64_t m_dsv_descriptor_increment_size;
 
+    Array_Vector<D3D12_Fence, ARRAY_VECTOR_SIZE> m_fences;
     Array_Vector<D3D12_Buffer, ARRAY_VECTOR_SIZE> m_buffers;
     Array_Vector<D3D12_Image, ARRAY_VECTOR_SIZE> m_images;
     Array_Vector<D3D12_Sampler, ARRAY_VECTOR_SIZE> m_samplers;

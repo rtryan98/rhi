@@ -335,4 +335,9 @@ void D3D12_Command_List::set_viewport(
     };
     m_cmd->RSSetViewports(1, &viewport);
 }
+
+ID3D12GraphicsCommandList7* D3D12_Command_List::get_internal_command_list() const noexcept
+{
+    return m_cmd;
+}
 }

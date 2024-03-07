@@ -1,5 +1,6 @@
 #ifdef RHI_GRAPHICS_API_D3D12
 #include "d3d12_graphics_device.hpp"
+#include "d3d12_command_list.hpp"
 
 #include <core/d3d12/d3d12_pso.hpp>
 #include <D3D12MemAlloc.h>
@@ -50,6 +51,7 @@ D3D12_Graphics_Device::D3D12_Graphics_Device(const Graphics_Device_Create_Info& 
     , m_sampler_descriptor_increment_size(0)
     , m_rtv_descriptor_increment_size(0)
     , m_dsv_descriptor_increment_size(0)
+    , m_fences()
     , m_buffers()
     , m_images()
     , m_samplers()
@@ -60,7 +62,7 @@ D3D12_Graphics_Device::D3D12_Graphics_Device(const Graphics_Device_Create_Info& 
         .enable_validation = create_info.enable_validation,
         .enable_gpu_validation = create_info.enable_gpu_validation,
         .disable_tdr = false,
-        .feature_level = D3D_FEATURE_LEVEL_12_2,
+        .feature_level = D3D_FEATURE_LEVEL_12_2, // TODO: customizable feature level?
         .resource_descriptor_heap_size = D3D12_MAX_SHADER_VISIBLE_DESCRIPTOR_HEAP_SIZE_TIER_2,
         .sampler_descriptor_heap_size = D3D12_MAX_SHADER_VISIBLE_SAMPLER_HEAP_SIZE,
         .rtv_descriptor_heap_size = MAX_RTV_DSV_DESCRIPTORS,
@@ -92,6 +94,31 @@ D3D12_Graphics_Device::~D3D12_Graphics_Device() noexcept
     core::d3d12::await_context(&m_context);
     m_allocator->Release();
     core::d3d12::destroy_d3d12_context(&m_context);
+}
+
+std::expected<Fence*, Result> D3D12_Graphics_Device::create_fence(uint64_t initial_value) noexcept
+{
+    ID3D12Fence1* d3d12_fence = nullptr;
+    auto result = result_from_hresult(
+        m_context.device->CreateFence(
+            initial_value, D3D12_FENCE_FLAG_NONE, IID_PPV_ARGS(&d3d12_fence)));
+    if (result != Result::Success)
+    {
+        return std::unexpected(result);
+    }
+
+    D3D12_Fence* fence = m_fences.acquire();
+    fence->fence = d3d12_fence;
+    return fence;
+}
+
+void D3D12_Graphics_Device::destroy_fence(Fence* fence) noexcept
+{
+    if (!fence) return;
+
+    auto d3d12_fence = static_cast<D3D12_Fence*>(fence);
+    d3d12_fence->fence->Release();
+    m_fences.release(d3d12_fence);
 }
 
 std::expected<Buffer*, Result> D3D12_Graphics_Device::create_buffer(const Buffer_Create_Info& create_info) noexcept
@@ -232,6 +259,54 @@ void D3D12_Graphics_Device::destroy_pipeline(Pipeline* pipeline) noexcept
 
 Result D3D12_Graphics_Device::submit(const Submit_Info& submit_info) noexcept
 {
+    ID3D12CommandQueue* command_queue = nullptr;
+    switch (submit_info.queue_type)
+    {
+    case Queue_Type::Graphics:
+        command_queue = m_context.direct_queue;
+    case Queue_Type::Compute:
+        command_queue = m_context.compute_queue;
+    case Queue_Type::Copy:
+        command_queue = m_context.copy_queue;
+    case Queue_Type::Video_Decode:
+        [[fallthrough]]; // TODO: implement video queues
+    case Queue_Type::Video_Encode:
+        [[fallthrough]];
+    default:
+        return Result::Error_Invalid_Parameters;
+    }
+
+    for (auto& wait_info : submit_info.wait_infos)
+    {
+        auto result = result_from_hresult(command_queue->Wait(
+            static_cast<ID3D12Fence1*>(
+                static_cast<D3D12_Fence*>(wait_info.fence)->fence),
+            wait_info.value));
+        if (result != Result::Success)
+        {
+            return result;
+        }
+    }
+    uint32_t command_list_count = uint32_t(submit_info.command_lists.size());
+    std::vector<ID3D12CommandList*> command_lists;
+    command_lists.reserve(command_list_count);
+    for (auto command_list : submit_info.command_lists)
+    {
+        auto d3d12_command_list = static_cast<D3D12_Command_List*>(command_list);
+        command_lists.push_back(d3d12_command_list->get_internal_command_list());
+    }
+    command_queue->ExecuteCommandLists(command_list_count, command_lists.data());
+    for (auto& signal_info : submit_info.signal_infos)
+    {
+        auto result = result_from_hresult(command_queue->Signal(
+            static_cast<ID3D12Fence1*>(
+                static_cast<D3D12_Fence*>(signal_info.fence)->fence),
+            signal_info.value));
+        if (result != Result::Success)
+        {
+            return result;
+        }
+    }
     return Result::Success;
 }
 

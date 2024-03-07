@@ -9,15 +9,7 @@ namespace rhi
 struct Buffer;
 struct Image;
 struct Pipeline;
-
-enum class Command_List_Type
-{
-    Graphics,
-    Compute,
-    Copy,
-    Video_Decode,
-    Video_Encode
-};
+enum class Queue_Type;
 
 enum class Pipeline_Bind_Point
 {
@@ -121,7 +113,7 @@ struct Image_Barrier_Info
     Barrier_Image_Layout layout_after;
     Image* image;
     Image_Barrier_Subresource_Range subresource_range;
-    bool discard; // D3D12 only - only usable if 
+    bool discard; // D3D12 only - only usable if
 };
 
 struct Memory_Barrier_Info
@@ -178,7 +170,7 @@ public:
     virtual void set_viewport(float x, float y, float width, float height, float min_depth, float max_depth, [[maybe_unused]] bool vk_invert_viewport = true) noexcept = 0;
 
 protected:
-    Command_List_Type m_type;
+    Queue_Type m_queue_type;
 };
 }
 
