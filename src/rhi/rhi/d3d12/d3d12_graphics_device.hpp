@@ -85,7 +85,13 @@ public:
     [[nodiscard]] const Indirect_Signatures& get_indirect_signatures() const noexcept;
 
 private:
-    void create_buffer_descriptor(uint32_t bindless_index) noexcept;
+    void create_initial_buffer_descriptors(D3D12_Buffer* buffer) noexcept;
+
+    void create_srv_and_uav(
+        ID3D12Resource* resource,
+        uint32_t bindless_index,
+        const D3D12_SHADER_RESOURCE_VIEW_DESC* srv_desc,
+        const D3D12_UNORDERED_ACCESS_VIEW_DESC* uav_desc) noexcept;
 
     // Only use inside resource creation and destruction. Not guarded by mutex.
     [[nodiscard]] uint32_t create_bindless_index(D3D12_DESCRIPTOR_HEAP_TYPE type) noexcept;

@@ -2,6 +2,7 @@
 #include "d3d12_command_list.hpp"
 
 #include <core/d3d12/d3d12_pso.hpp>
+#include <core/d3d12/d3d12_descriptor_util.hpp>
 #include <D3D12MemAlloc.h>
 
 namespace rhi::d3d12
@@ -193,6 +194,9 @@ std::expected<Buffer*, Result> D3D12_Graphics_Device::create_buffer(const Buffer
     buffer->data = mapped_data;
     buffer->resource = resource;
     buffer->allocation = allocation;
+
+    create_initial_buffer_descriptors(buffer);
+
     return buffer;
 }
 
@@ -514,6 +518,34 @@ uint32_t D3D12_Graphics_Device::get_uav_from_bindless_index(uint32_t bindless_in
 const Indirect_Signatures& D3D12_Graphics_Device::get_indirect_signatures() const noexcept
 {
     return m_indirect_signatures;
+}
+
+void D3D12_Graphics_Device::create_initial_buffer_descriptors(D3D12_Buffer* buffer) noexcept
+{
+    auto srv_desc = core::d3d12::make_raw_buffer_srv(buffer->size);
+    auto uav_desc = core::d3d12::make_raw_buffer_uav(buffer->size);
+    create_srv_and_uav(buffer->resource, buffer->next_buffer_view->bindless_index, &srv_desc, &uav_desc);
+}
+
+void D3D12_Graphics_Device::create_srv_and_uav(
+    ID3D12Resource* resource,
+    uint32_t bindless_index,
+    const D3D12_SHADER_RESOURCE_VIEW_DESC* srv_desc,
+    const D3D12_UNORDERED_ACCESS_VIEW_DESC* uav_desc) noexcept
+{
+    if (srv_desc)
+    {
+        D3D12_CPU_DESCRIPTOR_HANDLE cpu_handle = m_context.resource_descriptor_heap->GetCPUDescriptorHandleForHeapStart();
+        cpu_handle.ptr += (bindless_index) * m_descriptor_increment_sizes.resource;
+        m_context.device->CreateShaderResourceView(resource, srv_desc, cpu_handle);
+    }
+
+    if (uav_desc)
+    {
+        D3D12_CPU_DESCRIPTOR_HANDLE cpu_handle = m_context.resource_descriptor_heap->GetCPUDescriptorHandleForHeapStart();
+        cpu_handle.ptr += (bindless_index + 1) * m_descriptor_increment_sizes.resource;
+        m_context.device->CreateUnorderedAccessView(resource, nullptr, uav_desc, cpu_handle);
+    }
 }
 
 Descriptor_Increment_Sizes D3D12_Graphics_Device::acquire_descriptor_increment_sizes() noexcept
