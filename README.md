@@ -1,6 +1,44 @@
 # RHI
 Rendering Hardware Interface for D3D12 and Vulkan.
 
-# Building
+## Table of Contents
+- [Building](#building)
+- [Usage](#usage)
+    - [Device Creation](#device-creation)
+    - [Resource Creation](#resources)
+
+## Building
 1. Clone the repository: `git clone https://github.com/rtryan98/rhi.git --recurse-submodules --shallow-submodules`.
 2. Call CMake inside the cloned repository: `cmake -B build -G "Visual Studio 17 2022"`.
+    - Optionally disable building either the D3D12 backend or the Vulkan backend by setting the respective CMake option `RHI_GRAPHICS_API_D3D12` or `RHI_GRAPHICS_API_VULKAN` to `FALSE`.
+    However, at least one graphics backend must be built.
+
+## Usage
+The RHI is designed to be as easy as possible to use if you're familiar with either Vulkan or D3D12.
+
+### Device Creation
+```cpp
+#include <rhi/graphics_device.hpp>
+// ...
+rhi::Graphics_API_Create_Info device_create_info = {
+    .graphics_api = rhi::Graphics_API::D3D12,
+    .enable_validation = true,
+    .enable_gpu_validation = false
+};
+auto graphics_device = rhi::Graphics_Device::create(device_create_info);
+```
+
+### Resources
+All resources, like Fences, Buffers, Images, etc. are created using the newly created `Graphics_Device`.
+The memory of those resources is owned by the `Graphics_Device`.
+Destruction, however, still needs to be managed by the user.
+Resources in use by the GPU may must not be destroyed - such destructions need to be protected by a fence.
+```cpp
+#include <rhi/resource.hpp>
+// ...
+rhi::Buffer_Create_Info buffer_create_info = {
+    .size = 1ull << 16,
+    .heap = rhi::Memory_Heap_Type::GPU
+};
+auto buffer = graphics_device->create_buffer(buffer_create_info);
+```
