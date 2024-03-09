@@ -47,7 +47,8 @@ if(${RHI_BUILD_D3D12})
         target_compile_definitions(rhi PUBLIC
             USE_PIX)
     endif()
-elseif(${RHI_BUILD_VULKAN})
+endif()
+if(${RHI_BUILD_VULKAN})
     target_compile_definitions(rhi PUBLIC
         RHI_GRAPHICS_API_VULKAN
     )

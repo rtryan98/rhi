@@ -13,8 +13,12 @@ class Swapchain;
 
 enum class Graphics_API
 {
-    D3D12,
-    Vulkan
+#ifdef RHI_GRAPHICS_API_D3D12
+    D3D12 = 0,
+#endif
+#ifdef RHI_GRAPHICS_API_VULKAN
+    Vulkan = 1,
+#endif
 };
 
 enum class Result

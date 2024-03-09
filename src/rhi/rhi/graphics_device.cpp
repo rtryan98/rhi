@@ -13,10 +13,14 @@ std::unique_ptr<Graphics_Device> Graphics_Device::create(const Graphics_Device_C
 {
     switch (create_info.graphics_api)
     {
+#ifdef RHI_GRAPHICS_API_D3D12
     case Graphics_API::D3D12:
         return std::make_unique<d3d12::D3D12_Graphics_Device>(create_info);
+#endif
+#ifdef RHI_GRAPHICS_API_VULKAN
     case Graphics_API::Vulkan:
         [[fallthrough]]; // TODO: implement
+#endif
     default:
         return nullptr;
     }
