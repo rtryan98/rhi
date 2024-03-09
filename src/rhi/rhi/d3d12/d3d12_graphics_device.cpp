@@ -52,7 +52,9 @@ D3D12_Graphics_Device::D3D12_Graphics_Device(const Graphics_Device_Create_Info& 
     , m_resource_mutex()
     , m_fences()
     , m_buffers()
+    , m_buffer_views()
     , m_images()
+    , m_image_views()
     , m_samplers()
     , m_shader_blobs()
     , m_pipelines()
@@ -180,10 +182,14 @@ std::expected<Buffer*, Result> D3D12_Graphics_Device::create_buffer(const Buffer
     }
 
     auto buffer = m_buffers.acquire();
-    buffer->bindless_index = create_bindless_index(D3D12_DESCRIPTOR_HEAP_TYPE_CBV_SRV_UAV);
     buffer->size = create_info.size;
     buffer->heap_type = create_info.heap;
-    buffer->next_buffer_view = nullptr;
+    buffer->next_buffer_view = m_buffer_views.acquire();
+    buffer->next_buffer_view->bindless_index = create_bindless_index(D3D12_DESCRIPTOR_HEAP_TYPE_CBV_SRV_UAV);
+    buffer->next_buffer_view->size = buffer->size;
+    buffer->next_buffer_view->offset = 0;
+    buffer->next_buffer_view->buffer = buffer;
+    buffer->next_buffer_view->next_buffer_view = nullptr;
     buffer->data = mapped_data;
     buffer->resource = resource;
     buffer->allocation = allocation;
@@ -193,7 +199,7 @@ std::expected<Buffer*, Result> D3D12_Graphics_Device::create_buffer(const Buffer
 std::expected<Buffer_View*, Result> D3D12_Graphics_Device::create_buffer_view(
     Buffer* buffer, const Buffer_View_Create_Info& create_info) noexcept
 {
-    if (!buffer) return;
+    if (!buffer) return std::unexpected(Result::Error_Invalid_Parameters);
 
     if (create_info.size + create_info.offset > buffer->size)
     {
@@ -229,7 +235,6 @@ void D3D12_Graphics_Device::destroy_buffer(Buffer* buffer) noexcept
     auto d3d12_buffer = static_cast<D3D12_Buffer*>(buffer);
     d3d12_buffer->resource->Release();
     d3d12_buffer->allocation->Release();
-    release_bindless_index(d3d12_buffer->bindless_index, D3D12_DESCRIPTOR_HEAP_TYPE_CBV_SRV_UAV);
 
     auto next_buffer_view = buffer->next_buffer_view;
     while (next_buffer_view != nullptr)
@@ -241,6 +246,32 @@ void D3D12_Graphics_Device::destroy_buffer(Buffer* buffer) noexcept
     }
 
     m_buffers.release(d3d12_buffer);
+}
+
+void D3D12_Graphics_Device::destroy_image(Image* image) noexcept
+{
+    if (!image) return;
+
+    std::unique_lock<std::mutex> lock_guard(m_resource_mutex, std::defer_lock);
+    if (m_use_mutex)
+    {
+        lock_guard.lock();
+    }
+
+    auto d3d12_image = static_cast<D3D12_Image*>(image);
+    d3d12_image->resource->Release();
+    d3d12_image->allocation->Release();
+
+    auto next_image_view = image->next_image_view;
+    while (next_image_view != nullptr)
+    {
+        auto current_image_view = next_image_view;
+        release_bindless_index(current_image_view->bindless_index, D3D12_DESCRIPTOR_HEAP_TYPE_CBV_SRV_UAV);
+        next_image_view = current_image_view->next_image_view;
+        m_image_views.release(current_image_view);
+    }
+
+    m_images.release(d3d12_image);
 }
 
 std::expected<Shader_Blob*, Result> D3D12_Graphics_Device::create_shader_blob(void* data, uint64_t size) noexcept

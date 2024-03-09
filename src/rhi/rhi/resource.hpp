@@ -22,7 +22,6 @@ struct Buffer_Create_Info
 
 struct Buffer
 {
-    uint32_t bindless_index;
     uint64_t size;
     Memory_Heap_Type heap_type;
     Buffer_View* next_buffer_view;
@@ -44,11 +43,6 @@ struct Buffer_View
     Buffer_View* next_buffer_view;
 };
 
-struct Image_View_Create_Info
-{
-
-};
-
 struct Image_Create_Info
 {
     Image_View* next_image_view;
@@ -56,8 +50,12 @@ struct Image_Create_Info
 
 struct Image
 {
-    uint32_t bindless_index;
     Image_View* next_image_view;
+};
+
+struct Image_View_Create_Info
+{
+
 };
 
 struct Image_View

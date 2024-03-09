@@ -85,6 +85,8 @@ public:
     [[nodiscard]] const Indirect_Signatures& get_indirect_signatures() const noexcept;
 
 private:
+    void create_buffer_descriptor(uint32_t bindless_index) noexcept;
+
     // Only use inside resource creation and destruction. Not guarded by mutex.
     [[nodiscard]] uint32_t create_bindless_index(D3D12_DESCRIPTOR_HEAP_TYPE type) noexcept;
     void release_bindless_index(uint32_t index, D3D12_DESCRIPTOR_HEAP_TYPE type) noexcept;
@@ -111,6 +113,7 @@ private:
     Array_Vector<D3D12_Buffer, ARRAY_VECTOR_SIZE> m_buffers;
     Array_Vector<Buffer_View, ARRAY_VECTOR_SIZE> m_buffer_views;
     Array_Vector<D3D12_Image, ARRAY_VECTOR_SIZE> m_images;
+    Array_Vector<Image_View, ARRAY_VECTOR_SIZE> m_image_views;
     Array_Vector<D3D12_Sampler, ARRAY_VECTOR_SIZE> m_samplers;
     Array_Vector<Shader_Blob, ARRAY_VECTOR_SIZE> m_shader_blobs;
     Array_Vector<D3D12_Pipeline, ARRAY_VECTOR_SIZE> m_pipelines;

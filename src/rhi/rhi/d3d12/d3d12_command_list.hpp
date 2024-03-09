@@ -28,7 +28,7 @@ public:
     virtual void copy_buffer_to_image() noexcept override;
     virtual void copy_image() noexcept override;
     virtual void copy_image_to_buffer() noexcept override;
-    virtual void fill_buffer(Buffer* dst, uint32_t value) noexcept override;
+    virtual void fill_buffer(Buffer_View* dst, uint32_t value) noexcept override;
 
     // Debug commands
     virtual void begin_debug_region(const char* name, float r, float g, float b) noexcept override;

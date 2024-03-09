@@ -244,7 +244,7 @@ auto translate_barrier_access_flags(Barrier_Access access)
 
 Graphics_API D3D12_Command_List::get_graphics_api() const noexcept
 {
-    return m_device->get_graphics_api();
+    return Graphics_API::D3D12;
 }
 
 void D3D12_Command_List::barrier(const Barrier_Info& barrier_info) noexcept
@@ -417,18 +417,18 @@ void D3D12_Command_List::copy_buffer(
     m_cmd->CopyBufferRegion(d3d12_dst->resource, dst_offset, d3d12_src->resource, src_offset, size);
 }
 
-void D3D12_Command_List::fill_buffer(Buffer* dst, uint32_t value) noexcept
+void D3D12_Command_List::fill_buffer(Buffer_View* dst, uint32_t value) noexcept
 {
-    if (!dst) return;
+    if (dst && !dst->buffer) return;
 
-    auto d3d12_dst = static_cast<D3D12_Buffer*>(dst);
+    auto d3d12_dst = static_cast<D3D12_Buffer*>(dst->buffer);
     uint32_t values[4] = { value, value, value, value };
     m_cmd->ClearUnorderedAccessViewUint(
         m_device->get_gpu_descriptor_handle(
-            m_device->get_uav_from_bindless_index(d3d12_dst->bindless_index),
+            m_device->get_uav_from_bindless_index(dst->bindless_index),
             D3D12_DESCRIPTOR_HEAP_TYPE_CBV_SRV_UAV),
         m_device->get_cpu_descriptor_handle(
-            m_device->get_uav_from_bindless_index(d3d12_dst->bindless_index),
+            m_device->get_uav_from_bindless_index(dst->bindless_index),
             D3D12_DESCRIPTOR_HEAP_TYPE_CBV_SRV_UAV),
         d3d12_dst->resource,
         values, 0, nullptr);

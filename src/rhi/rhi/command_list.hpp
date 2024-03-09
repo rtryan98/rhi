@@ -9,15 +9,17 @@ namespace rhi
 constexpr static uint32_t INDIRECT_ARGUMENT_STRIDE = sizeof(uint32_t) * 8;
 
 struct Buffer;
+struct Buffer_View;
 struct Image;
+struct Image_View;
 struct Pipeline;
 enum class Queue_Type;
 enum class Graphics_API;
 
 struct Render_Pass_Begin_Info
 {
-    std::span<Image*> color_attachments;
-    Image* depth_attachments;
+    std::span<Image_View*> color_attachments;
+    Image_View* depth_attachments;
 };
 
 enum class Pipeline_Bind_Point
@@ -185,7 +187,7 @@ public:
     virtual void copy_buffer_to_image() noexcept = 0;
     virtual void copy_image() noexcept = 0;
     virtual void copy_image_to_buffer() noexcept = 0;
-    virtual void fill_buffer(Buffer* dst, uint32_t value) noexcept = 0;
+    virtual void fill_buffer(Buffer_View* dst, uint32_t value) noexcept = 0;
 
     // Debug commands
     virtual void begin_debug_region(const char* name, float r, float g, float b) noexcept = 0;
