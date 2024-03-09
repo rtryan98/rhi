@@ -12,6 +12,8 @@ Rendering Hardware Interface for D3D12 and Vulkan.
 2. Call CMake inside the cloned repository: `cmake -B build -G "Visual Studio 17 2022"`.
     - Optionally disable building either the D3D12 backend or the Vulkan backend by setting the respective CMake option `RHI_GRAPHICS_API_D3D12` or `RHI_GRAPHICS_API_VULKAN` to `FALSE`.
     However, at least one graphics backend must be built.
+    - Optionally disable usage of WinPixEventRuntime by setting the CMake option `RHI_USE_PIX` off.
+    This option has no effect if the D3D12 backend is not being built.
 
 ## Usage
 The RHI is designed to be as easy as possible to use if you're familiar with either Vulkan or D3D12.
