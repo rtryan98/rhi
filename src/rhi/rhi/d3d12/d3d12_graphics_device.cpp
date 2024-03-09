@@ -51,6 +51,9 @@ D3D12_Graphics_Device::D3D12_Graphics_Device(const Graphics_Device_Create_Info& 
     , m_indirect_signatures{}
     , m_use_mutex(create_info.enable_locking)
     , m_resource_mutex()
+    , m_direct_queue_mutex()
+    , m_compute_queue_mutex()
+    , m_copy_queue_mutex()
     , m_fences()
     , m_buffers()
     , m_buffer_views()
