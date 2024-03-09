@@ -48,6 +48,8 @@ D3D12_Graphics_Device::D3D12_Graphics_Device(const Graphics_Device_Create_Info& 
     , m_allocator()
     , m_descriptor_increment_sizes{}
     , m_indirect_signatures{}
+    , m_use_mutex(create_info.enable_locking)
+    , m_resource_mutex()
     , m_fences()
     , m_buffers()
     , m_images()
@@ -98,6 +100,12 @@ Graphics_API D3D12_Graphics_Device::get_graphics_api() const noexcept
 
 std::expected<Fence*, Result> D3D12_Graphics_Device::create_fence(uint64_t initial_value) noexcept
 {
+    std::unique_lock<std::mutex> lock_guard(m_resource_mutex, std::defer_lock);
+    if (m_use_mutex)
+    {
+        lock_guard.lock();
+    }
+
     ID3D12Fence1* d3d12_fence = nullptr;
     auto result = result_from_hresult(
         m_context.device->CreateFence(
@@ -116,6 +124,12 @@ void D3D12_Graphics_Device::destroy_fence(Fence* fence) noexcept
 {
     if (!fence) return;
 
+    std::unique_lock<std::mutex> lock_guard(m_resource_mutex, std::defer_lock);
+    if (m_use_mutex)
+    {
+        lock_guard.lock();
+    }
+
     auto d3d12_fence = static_cast<D3D12_Fence*>(fence);
     d3d12_fence->fence->Release();
     m_fences.release(d3d12_fence);
@@ -123,6 +137,12 @@ void D3D12_Graphics_Device::destroy_fence(Fence* fence) noexcept
 
 std::expected<Buffer*, Result> D3D12_Graphics_Device::create_buffer(const Buffer_Create_Info& create_info) noexcept
 {
+    std::unique_lock<std::mutex> lock_guard(m_resource_mutex, std::defer_lock);
+    if (m_use_mutex)
+    {
+        lock_guard.lock();
+    }
+
     D3D12_RESOURCE_DESC1 resource_desc = {
         .Dimension = D3D12_RESOURCE_DIMENSION_BUFFER,
         .Alignment = 0,
@@ -172,6 +192,12 @@ void D3D12_Graphics_Device::destroy_buffer(Buffer* buffer) noexcept
 {
     if (!buffer) return;
 
+    std::unique_lock<std::mutex> lock_guard(m_resource_mutex, std::defer_lock);
+    if (m_use_mutex)
+    {
+        lock_guard.lock();
+    }
+
     auto d3d12_buffer = static_cast<D3D12_Buffer*>(buffer);
     d3d12_buffer->resource->Release();
     d3d12_buffer->allocation->Release();
@@ -185,10 +211,18 @@ std::expected<Shader_Blob*, Result> D3D12_Graphics_Device::create_shader_blob(vo
     static_assert(
         sizeof(decltype(Shader_Blob::data)::value_type) == sizeof(uint8_t),
         "Size of blob changed.");
+
     if (data == nullptr || size == 0)
     {
         return std::unexpected(Result::Error_Invalid_Parameters);
     }
+
+    std::unique_lock<std::mutex> lock_guard(m_resource_mutex, std::defer_lock);
+    if (m_use_mutex)
+    {
+        lock_guard.lock();
+    }
+
     auto blob = m_shader_blobs.acquire();
     blob->data.reserve(size);
     memcpy(blob->data.data(), data, size);
@@ -199,12 +233,24 @@ void D3D12_Graphics_Device::destroy_shader_blob(Shader_Blob* shader_blob) noexce
 {
     if (shader_blob == nullptr) return;
 
+    std::unique_lock<std::mutex> lock_guard(m_resource_mutex, std::defer_lock);
+    if (m_use_mutex)
+    {
+        lock_guard.lock();
+    }
+
     m_shader_blobs.release(shader_blob);
 }
 
 std::expected<Pipeline*, Result> D3D12_Graphics_Device::create_pipeline(
     const Graphics_Pipeline_Create_Info& create_info) noexcept
 {
+    std::unique_lock<std::mutex> lock_guard(m_resource_mutex, std::defer_lock);
+    if (m_use_mutex)
+    {
+        lock_guard.lock();
+    }
+
     core::d3d12::Graphics_Pipeline_Desc graphics_pipeline_stream = {
         .root_signature = { .data = m_context.bindless_root_signature },
         .vs = { .data = {} },
@@ -248,6 +294,12 @@ void D3D12_Graphics_Device::destroy_pipeline(Pipeline* pipeline) noexcept
 {
     if (pipeline == nullptr) return;
 
+    std::unique_lock<std::mutex> lock_guard(m_resource_mutex, std::defer_lock);
+    if (m_use_mutex)
+    {
+        lock_guard.lock();
+    }
+
     auto d3d12_pipeline = static_cast<D3D12_Pipeline*>(pipeline);
     if (d3d12_pipeline->pso)
         d3d12_pipeline->pso->Release();
@@ -259,17 +311,21 @@ void D3D12_Graphics_Device::destroy_pipeline(Pipeline* pipeline) noexcept
 
 Result D3D12_Graphics_Device::submit(const Submit_Info& submit_info) noexcept
 {
+    std::mutex* queue_mutex = nullptr;
     ID3D12CommandQueue* command_queue = nullptr;
     switch (submit_info.queue_type)
     {
     case Queue_Type::Graphics:
         command_queue = m_context.direct_queue;
+        queue_mutex = &m_direct_queue_mutex;
         break;
     case Queue_Type::Compute:
         command_queue = m_context.compute_queue;
+        queue_mutex = &m_compute_queue_mutex;
         break;
     case Queue_Type::Copy:
         command_queue = m_context.copy_queue;
+        queue_mutex = &m_copy_queue_mutex;
         break;
     case Queue_Type::Video_Decode:
         [[fallthrough]]; // TODO: implement video queues
@@ -277,6 +333,11 @@ Result D3D12_Graphics_Device::submit(const Submit_Info& submit_info) noexcept
         [[fallthrough]];
     default:
         return Result::Error_Invalid_Parameters;
+    }
+    std::unique_lock<std::mutex> lock_guard(*queue_mutex, std::defer_lock);
+    if (m_use_mutex)
+    {
+        lock_guard.lock();
     }
 
     for (auto& wait_info : submit_info.wait_infos)

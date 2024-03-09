@@ -23,7 +23,8 @@ The RHI is designed to be as easy as possible to use if you're familiar with eit
 rhi::Graphics_API_Create_Info device_create_info = {
     .graphics_api = rhi::Graphics_API::D3D12,
     .enable_validation = true,
-    .enable_gpu_validation = false
+    .enable_gpu_validation = false,
+    .enable_locking = true
 };
 auto graphics_device = rhi::Graphics_Device::create(device_create_info);
 ```
@@ -33,6 +34,10 @@ All resources, like Fences, Buffers, Images, etc. are created using the newly cr
 The memory of those resources is owned by the `Graphics_Device`.
 Destruction, however, still needs to be managed by the user.
 Resources in use by the GPU may must not be destroyed - such destructions need to be protected by a fence.
+If `rhi::Graphics_API_Create_Info::enable_locking` was set to `true`, then resources may be created and destroyed from multiple threads at the same time.
+Locking does only lock creation and destruction of resources, not reads, as most resources are completely read-only except when creating views, which is also a guarded process.
+This does mean that a resource may be destroyed whilst it is being read so it does not solve lifetime races.
+However, the address stays valid so this will not cause an illegal access.
 ```cpp
 #include <rhi/resource.hpp>
 // ...

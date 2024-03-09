@@ -63,6 +63,7 @@ struct Graphics_Device_Create_Info
     Graphics_API graphics_api;
     bool enable_validation;
     bool enable_gpu_validation;
+    bool enable_locking;
 };
 
 class Graphics_Device

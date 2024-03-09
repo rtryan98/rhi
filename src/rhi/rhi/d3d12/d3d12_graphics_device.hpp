@@ -5,6 +5,7 @@
 #include "rhi/d3d12/d3d12_resource.hpp"
 
 #include <core/d3d12/d3d12_device.hpp>
+#include <mutex>
 
 namespace D3D12MA
 {
@@ -84,8 +85,9 @@ public:
     [[nodiscard]] const Indirect_Signatures& get_indirect_signatures() const noexcept;
 
 private:
-    void release_bindless_index(uint32_t index, D3D12_DESCRIPTOR_HEAP_TYPE type) noexcept;
+    // Only use inside resource creation and destruction. Not guarded by mutex.
     [[nodiscard]] uint32_t create_bindless_index(D3D12_DESCRIPTOR_HEAP_TYPE type) noexcept;
+    void release_bindless_index(uint32_t index, D3D12_DESCRIPTOR_HEAP_TYPE type) noexcept;
 
     [[nodiscard]] Descriptor_Increment_Sizes acquire_descriptor_increment_sizes() noexcept;
     [[nodiscard]] Indirect_Signatures create_execute_indirect_signatures() noexcept;
@@ -98,6 +100,12 @@ private:
 
     Descriptor_Increment_Sizes m_descriptor_increment_sizes;
     Indirect_Signatures m_indirect_signatures;
+
+    bool m_use_mutex;
+    std::mutex m_resource_mutex;
+    std::mutex m_direct_queue_mutex;
+    std::mutex m_compute_queue_mutex;
+    std::mutex m_copy_queue_mutex;
 
     Array_Vector<D3D12_Fence, ARRAY_VECTOR_SIZE> m_fences;
     Array_Vector<D3D12_Buffer, ARRAY_VECTOR_SIZE> m_buffers;
