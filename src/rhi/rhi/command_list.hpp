@@ -14,6 +14,12 @@ struct Pipeline;
 enum class Queue_Type;
 enum class Graphics_API;
 
+struct Render_Pass_Begin_Info
+{
+    std::span<Image*> color_attachments;
+    Image* depth_attachments;
+};
+
 enum class Pipeline_Bind_Point
 {
     Graphics,
@@ -21,9 +27,29 @@ enum class Pipeline_Bind_Point
     Ray_Tracing
 };
 
+enum class Queue_Type_Ownership_Transfer_Mode
+{
+    None,
+    Release,
+    Acquire
+};
+
 enum class Barrier_Image_Layout : uint64_t
 {
-
+    Undefined,
+    Present,
+    General,
+    Color_Attachment,
+    Depth_Stencil_Read_Only,
+    Depth_Stencil_Write,
+    Shader_Read_Only,
+    Copy_Src,
+    Copy_Dst,
+    Resolve_Src,
+    Resolve_Dst,
+    Shading_Rate_Attachment,
+    Video_Read,
+    Video_Write
 };
 
 enum class Barrier_Pipeline_Stage : uint64_t
@@ -63,6 +89,7 @@ enum class Barrier_Pipeline_Stage : uint64_t
 
 enum class Barrier_Access : uint64_t
 {
+    // Use Vulkan flags, translate to D3D12 flags (more conservative)
     None                            = 0x0000000000ull,
     Indirect_Command_Read           = 0x0000000001ull,
     Index_Read                      = 0x0000000002ull,
@@ -99,8 +126,9 @@ struct Buffer_Barrier_Info
 
 struct Image_Barrier_Subresource_Range
 {
-    uint32_t index_or_first_mip_level;
-    uint32_t array_index;
+    uint32_t first_mip_level;
+    uint32_t mip_count;
+    uint32_t first_array_index;
     uint32_t array_size;
     uint32_t first_plane;
     uint32_t plane_count;
@@ -114,9 +142,12 @@ struct Image_Barrier_Info
     Barrier_Access access_after;
     Barrier_Image_Layout layout_before;
     Barrier_Image_Layout layout_after;
+    // Only relevant if `queue_type_ownership_transfer_mode` is not `None`.
+    Queue_Type queue_type_ownership_transfer_target_queue;
+    Queue_Type_Ownership_Transfer_Mode queue_type_ownership_transfer_mode;
     Image* image;
     Image_Barrier_Subresource_Range subresource_range;
-    bool discard; // D3D12 only - only usable if
+    bool discard; // D3D12 only - only usable if `layout_before` is `Undefined`.
 };
 
 struct Memory_Barrier_Info
@@ -173,7 +204,7 @@ public:
     virtual void draw_mesh_tasks_indirect_count(Buffer* buffer, uint64_t offset, uint32_t max_draw_count, Buffer* count_buffer, uint64_t count_offset) noexcept = 0;
 
     // State commands
-    virtual void begin_render_pass() noexcept = 0;
+    virtual void begin_render_pass(const Render_Pass_Begin_Info& begin_info) noexcept = 0;
     virtual void end_render_pass() noexcept = 0;
     virtual void set_pipeline(Pipeline* pipeline) noexcept = 0;
     virtual void set_push_constants(void* data, uint32_t size, Pipeline_Bind_Point bind_point) noexcept = 0;

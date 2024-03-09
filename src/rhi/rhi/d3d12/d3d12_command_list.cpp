@@ -10,6 +10,97 @@
 
 namespace rhi::d3d12
 {
+auto translate_barrier_Image_layout(
+    Barrier_Image_Layout layout,
+    Queue_Type queue_type)
+{
+    switch (layout)
+    {
+    case Barrier_Image_Layout::Undefined:
+        return D3D12_BARRIER_LAYOUT_UNDEFINED;
+    case Barrier_Image_Layout::Present:
+        return D3D12_BARRIER_LAYOUT_PRESENT;
+    case Barrier_Image_Layout::General:
+        switch (queue_type)
+        {
+        case Queue_Type::Graphics:
+            return D3D12_BARRIER_LAYOUT_DIRECT_QUEUE_COMMON;
+        case Queue_Type::Compute:
+            return D3D12_BARRIER_LAYOUT_COMPUTE_QUEUE_COMMON;
+        case Queue_Type::Video_Decode:
+            return D3D12_BARRIER_LAYOUT_VIDEO_QUEUE_COMMON;
+        case Queue_Type::Video_Encode:
+            return D3D12_BARRIER_LAYOUT_VIDEO_QUEUE_COMMON;
+        default:
+            return D3D12_BARRIER_LAYOUT_COMMON;
+        }
+    case Barrier_Image_Layout::Color_Attachment:
+        return D3D12_BARRIER_LAYOUT_RENDER_TARGET;
+    case Barrier_Image_Layout::Depth_Stencil_Read_Only:
+        return D3D12_BARRIER_LAYOUT_DEPTH_STENCIL_READ;
+    case Barrier_Image_Layout::Depth_Stencil_Write:
+        return D3D12_BARRIER_LAYOUT_DEPTH_STENCIL_WRITE;
+    case Barrier_Image_Layout::Shader_Read_Only:
+        switch (queue_type)
+        {
+        case Queue_Type::Graphics:
+            return D3D12_BARRIER_LAYOUT_DIRECT_QUEUE_SHADER_RESOURCE;
+        case Queue_Type::Compute:
+            return D3D12_BARRIER_LAYOUT_COMPUTE_QUEUE_SHADER_RESOURCE;
+        default:
+            return D3D12_BARRIER_LAYOUT_SHADER_RESOURCE;
+        };
+    case Barrier_Image_Layout::Copy_Src:
+        switch (queue_type)
+        {
+        case Queue_Type::Graphics:
+            return D3D12_BARRIER_LAYOUT_DIRECT_QUEUE_COPY_SOURCE;
+        case Queue_Type::Compute:
+            return D3D12_BARRIER_LAYOUT_COMPUTE_QUEUE_COPY_SOURCE;
+        default:
+            return D3D12_BARRIER_LAYOUT_COPY_SOURCE;
+        }
+    case Barrier_Image_Layout::Copy_Dst:
+        switch (queue_type)
+        {
+        case Queue_Type::Graphics:
+            return D3D12_BARRIER_LAYOUT_DIRECT_QUEUE_COPY_DEST;
+        case Queue_Type::Compute:
+            return D3D12_BARRIER_LAYOUT_COMPUTE_QUEUE_COPY_DEST;
+        default:
+            return D3D12_BARRIER_LAYOUT_COPY_DEST;
+        }
+    case Barrier_Image_Layout::Resolve_Src:
+        return D3D12_BARRIER_LAYOUT_RESOLVE_SOURCE;
+    case Barrier_Image_Layout::Resolve_Dst:
+        return D3D12_BARRIER_LAYOUT_RESOLVE_DEST;
+    case Barrier_Image_Layout::Shading_Rate_Attachment:
+        return D3D12_BARRIER_LAYOUT_SHADING_RATE_SOURCE;
+    case Barrier_Image_Layout::Video_Read:
+        switch (queue_type)
+        {
+        case Queue_Type::Video_Decode:
+            return D3D12_BARRIER_LAYOUT_VIDEO_DECODE_READ;
+        case Queue_Type::Video_Encode:
+            return D3D12_BARRIER_LAYOUT_VIDEO_ENCODE_READ;
+        default:
+            return D3D12_BARRIER_LAYOUT_UNDEFINED;
+        }
+    case Barrier_Image_Layout::Video_Write:
+        switch (queue_type)
+        {
+        case Queue_Type::Video_Decode:
+            return D3D12_BARRIER_LAYOUT_VIDEO_DECODE_WRITE;
+        case Queue_Type::Video_Encode:
+            return D3D12_BARRIER_LAYOUT_VIDEO_ENCODE_WRITE;
+        default:
+            return D3D12_BARRIER_LAYOUT_UNDEFINED;
+        }
+    default:
+        return D3D12_BARRIER_LAYOUT_UNDEFINED;
+    }
+}
+
 auto translate_barrier_pipeline_stage_flags(Barrier_Pipeline_Stage stage)
 {
     auto check_stage = [stage](auto flag)
@@ -160,18 +251,20 @@ void D3D12_Command_List::barrier(const Barrier_Info& barrier_info) noexcept
 {
     uint32_t num_barrier_groups = 0;
     std::array<D3D12_BARRIER_GROUP, 3> barrier_groups = {};
-    std::array<std::vector<D3D12_BUFFER_BARRIER>, 3> barrier_lists = {};
+    std::vector<D3D12_BUFFER_BARRIER> buffer_barriers = {};
+    std::vector<D3D12_TEXTURE_BARRIER> texture_barriers = {};
+    std::vector<D3D12_GLOBAL_BARRIER> global_barriers = {};
 
     if (barrier_info.buffer_barriers.size() > 0)
     {
         auto& barrier_group = barrier_groups[num_barrier_groups];
         barrier_group.Type = D3D12_BARRIER_TYPE_BUFFER;
         barrier_group.NumBarriers = uint32_t(barrier_info.buffer_barriers.size());
-        auto& barrier_list = barrier_lists[num_barrier_groups];
-        barrier_list.reserve(barrier_group.NumBarriers);
+        buffer_barriers.reserve(barrier_group.NumBarriers);
+        barrier_group.pBufferBarriers = buffer_barriers.data();
         for (const auto& buffer_barrier : barrier_info.buffer_barriers)
         {
-            barrier_list.push_back( D3D12_BUFFER_BARRIER {
+            buffer_barriers.push_back( D3D12_BUFFER_BARRIER {
                 .SyncBefore = translate_barrier_pipeline_stage_flags(buffer_barrier.stage_before),
                 .SyncAfter = translate_barrier_pipeline_stage_flags(buffer_barrier.stage_after),
                 .AccessBefore = translate_barrier_access_flags(buffer_barrier.access_before),
@@ -179,6 +272,90 @@ void D3D12_Command_List::barrier(const Barrier_Info& barrier_info) noexcept
                 .pResource = static_cast<D3D12_Buffer*>(buffer_barrier.buffer)->resource,
                 .Offset = 0ull,
                 .Size = ~0ull
+                });
+        }
+
+        num_barrier_groups += 1;
+    }
+
+    if (barrier_info.image_barriers.size() > 0)
+    {
+        auto& barrier_group = barrier_groups[num_barrier_groups];
+        barrier_group.Type = D3D12_BARRIER_TYPE_TEXTURE;
+        barrier_group.NumBarriers = uint32_t(barrier_info.image_barriers.size());
+        texture_barriers.reserve(barrier_group.NumBarriers);
+        barrier_group.pTextureBarriers = texture_barriers.data();
+
+        for (const auto& texture_barrier : barrier_info.image_barriers)
+        {
+            auto queue_type_before = m_queue_type;
+            auto queue_type_after = m_queue_type;
+
+            switch (texture_barrier.queue_type_ownership_transfer_mode)
+            {
+            case Queue_Type_Ownership_Transfer_Mode::Acquire:
+                queue_type_after = texture_barrier.queue_type_ownership_transfer_target_queue;
+                break;
+            case Queue_Type_Ownership_Transfer_Mode::Release:
+                queue_type_before = texture_barrier.queue_type_ownership_transfer_target_queue;
+                break;
+            default:
+                break;
+            }
+
+            auto layout_before = translate_barrier_Image_layout(
+                texture_barrier.layout_before, queue_type_before);
+            auto layout_after = translate_barrier_Image_layout(
+                texture_barrier.layout_after, queue_type_after);
+
+            if (m_queue_type != queue_type_after)
+            {
+                layout_after = D3D12_BARRIER_LAYOUT_COMMON;
+            }
+            if (m_queue_type != queue_type_before)
+            {
+                layout_before = D3D12_BARRIER_LAYOUT_COMMON;
+            }
+
+            texture_barriers.push_back(D3D12_TEXTURE_BARRIER{
+                .SyncBefore = translate_barrier_pipeline_stage_flags(texture_barrier.stage_before),
+                .SyncAfter = translate_barrier_pipeline_stage_flags(texture_barrier.stage_after),
+                .AccessBefore = translate_barrier_access_flags(texture_barrier.access_before),
+                .AccessAfter = translate_barrier_access_flags(texture_barrier.access_after),
+                .LayoutBefore = layout_before,
+                .LayoutAfter = layout_after,
+                .pResource = static_cast<D3D12_Image*>(texture_barrier.image)->resource,
+                .Subresources = {
+                    .IndexOrFirstMipLevel = texture_barrier.subresource_range.first_mip_level,
+                    .NumMipLevels = texture_barrier.subresource_range.mip_count,
+                    .FirstArraySlice = texture_barrier.subresource_range.first_array_index,
+                    .NumArraySlices = texture_barrier.subresource_range.array_size,
+                    .FirstPlane = texture_barrier.subresource_range.first_plane,
+                    .NumPlanes = texture_barrier.subresource_range.plane_count
+                },
+                .Flags = texture_barrier.discard
+                    ? D3D12_TEXTURE_BARRIER_FLAG_DISCARD
+                    : D3D12_TEXTURE_BARRIER_FLAG_NONE
+                });
+        }
+
+        num_barrier_groups += 1;
+    }
+
+    if (barrier_info.memory_barriers.size() > 0)
+    {
+        auto& barrier_group = barrier_groups[num_barrier_groups];
+        barrier_group.Type = D3D12_BARRIER_TYPE_GLOBAL;
+        barrier_group.NumBarriers = uint32_t(barrier_info.memory_barriers.size());
+        global_barriers.reserve(barrier_group.NumBarriers);
+        barrier_group.pGlobalBarriers = global_barriers.data();
+        for (const auto& global_barrier : barrier_info.memory_barriers)
+        {
+            global_barriers.push_back(D3D12_GLOBAL_BARRIER{
+                .SyncBefore = translate_barrier_pipeline_stage_flags(global_barrier.stage_before),
+                .SyncAfter = translate_barrier_pipeline_stage_flags(global_barrier.stage_after),
+                .AccessBefore = translate_barrier_access_flags(global_barrier.access_before),
+                .AccessAfter = translate_barrier_access_flags(global_barrier.access_after),
                 });
         }
 

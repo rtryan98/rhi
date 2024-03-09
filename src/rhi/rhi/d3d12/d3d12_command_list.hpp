@@ -47,7 +47,7 @@ public:
     virtual void draw_mesh_tasks_indirect_count(Buffer* buffer, uint64_t offset, uint32_t max_draw_count, Buffer* count_buffer, uint64_t count_offset) noexcept override;
 
     // State commands
-    virtual void begin_render_pass() noexcept override;
+    virtual void begin_render_pass(const Render_Pass_Begin_Info& begin_info) noexcept override;
     virtual void end_render_pass() noexcept override;
     virtual void set_pipeline(Pipeline* pipeline) noexcept override;
     virtual void set_push_constants(void* data, uint32_t size, Pipeline_Bind_Point bind_point) noexcept override;
