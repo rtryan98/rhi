@@ -53,6 +53,9 @@ if(${RHI_BUILD_VULKAN})
         RHI_GRAPHICS_API_VULKAN
     )
 endif()
+if(NOT ${RHI_BUILD_D3D12} AND NOT ${RHI_BUILD_VULKAN})
+    message(WARNING "No graphics API backend is being built. RHI will be unusable.")
+endif()
 
 add_subdirectory(src)
 get_target_property(RHI_SOURCES rhi SOURCES)

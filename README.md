@@ -15,8 +15,15 @@ Rendering Hardware Interface for D3D12 and Vulkan.
 
 ## Usage
 The RHI is designed to be as easy as possible to use if you're familiar with either Vulkan or D3D12.
+To begin using the RHI, you first need to link to it.
+```cmake
+add_subdirectory(<path/to/rhi>)
+target_link_libraries(<your_target> PUBLIC rhi)
+```
+Once linked you can start using the RHI in your code.
 
 ### Device Creation
+The first step in using it is to create a `Graphics_Device`.
 ```cpp
 #include <rhi/graphics_device.hpp>
 // ...
