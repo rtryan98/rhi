@@ -84,7 +84,7 @@ public:
     virtual [[nodiscard]] std::expected<Buffer*, Result> create_buffer(
         const Buffer_Create_Info& create_info) noexcept = 0;
     virtual [[nodiscard]] std::expected<Buffer_View*, Result> create_buffer_view(
-        const Buffer_View_Create_Info& create_info) noexcept = 0;
+        Buffer* buffer, const Buffer_View_Create_Info& create_info) noexcept = 0;
     virtual void destroy_buffer(Buffer* buffer) noexcept = 0;
 
     virtual [[nodiscard]] std::expected<Image*, Result> create_image(

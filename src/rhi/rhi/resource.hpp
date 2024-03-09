@@ -23,18 +23,23 @@ struct Buffer_Create_Info
 struct Buffer
 {
     uint32_t bindless_index;
+    uint64_t size;
+    Memory_Heap_Type heap_type;
     Buffer_View* next_buffer_view;
     void* data;
 };
 
 struct Buffer_View_Create_Info
 {
-
+    uint64_t size;
+    uint64_t offset;
 };
 
 struct Buffer_View
 {
     uint32_t bindless_index;
+    uint64_t size;
+    uint64_t offset;
     Buffer* buffer;
     Buffer_View* next_buffer_view;
 };

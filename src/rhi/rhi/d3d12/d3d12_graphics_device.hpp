@@ -49,7 +49,7 @@ public:
     virtual [[nodiscard]] std::expected<Buffer*, Result> create_buffer(
         const Buffer_Create_Info& create_info) noexcept override;
     virtual [[nodiscard]] std::expected<Buffer_View*, Result> create_buffer_view(
-        const Buffer_View_Create_Info& create_info) noexcept override;
+        Buffer* buffer, const Buffer_View_Create_Info& create_info) noexcept override;
     virtual void destroy_buffer(Buffer* buffer) noexcept override;
 
     virtual [[nodiscard]] std::expected<Image*, Result> create_image(
@@ -109,6 +109,7 @@ private:
 
     Array_Vector<D3D12_Fence, ARRAY_VECTOR_SIZE> m_fences;
     Array_Vector<D3D12_Buffer, ARRAY_VECTOR_SIZE> m_buffers;
+    Array_Vector<Buffer_View, ARRAY_VECTOR_SIZE> m_buffer_views;
     Array_Vector<D3D12_Image, ARRAY_VECTOR_SIZE> m_images;
     Array_Vector<D3D12_Sampler, ARRAY_VECTOR_SIZE> m_samplers;
     Array_Vector<Shader_Blob, ARRAY_VECTOR_SIZE> m_shader_blobs;
