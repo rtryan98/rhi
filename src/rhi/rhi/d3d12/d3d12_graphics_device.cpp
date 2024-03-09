@@ -223,6 +223,14 @@ std::expected<Buffer_View*, Result> D3D12_Graphics_Device::create_buffer_view(
     buffer_view->buffer = buffer;
     buffer_view->next_buffer_view = nullptr;
 
+    auto srv_uav_word_offset = buffer_view->offset >> 2; // counting number of 4 byte elements.
+    auto srv_desc = core::d3d12::make_raw_buffer_srv(buffer_view->size);
+    srv_desc.Buffer.FirstElement = srv_uav_word_offset;
+    auto uav_desc = core::d3d12::make_raw_buffer_uav(buffer_view->size);
+    uav_desc.Buffer.FirstElement = srv_uav_word_offset;
+    create_srv_and_uav(static_cast<D3D12_Buffer*>(buffer_view->buffer)->resource,
+        buffer_view->bindless_index, &srv_desc, &uav_desc);
+
     return buffer_view;
 }
 
