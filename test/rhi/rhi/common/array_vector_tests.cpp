@@ -124,3 +124,65 @@ TEST_CASE("Array_Vector<Dummy>::Iterator:, single bucket, max elements", "[Array
 
     REQUIRE(count == SIZE);
 }
+
+TEST_CASE("Array_Vector<Dummy>::Iterator:, multiple buckets, less than max elements", "[Array_Vector]")
+{
+    constexpr auto BUCKET_SIZE = 16;
+    constexpr auto TOTAL_SIZE = BUCKET_SIZE * 2;
+    constexpr auto ADDED_ELEMENT_COUNT = BUCKET_SIZE + BUCKET_SIZE / 2;
+    constexpr auto REMOVED_ELEMENT_COUNT = BUCKET_SIZE;
+    constexpr auto FINAL_COUNT = ADDED_ELEMENT_COUNT - REMOVED_ELEMENT_COUNT;
+
+    auto array_vector = rhi::Array_Vector<Dummy, BUCKET_SIZE>();
+
+    std::array<Dummy*, TOTAL_SIZE> array_of_dummies = {};
+    for (auto i = 0; i < ADDED_ELEMENT_COUNT; ++i)
+    {
+        auto dummy = array_vector.acquire();
+        dummy->foo = true;
+        array_of_dummies[i] = dummy;
+    }
+    for (auto i = 0; i < REMOVED_ELEMENT_COUNT; ++i)
+    {
+        array_vector.release(array_of_dummies[i]);
+    }
+
+    auto count = 0;
+    for (auto& dummy : array_vector)
+    {
+        count += dummy.foo;
+    }
+
+    REQUIRE(count == FINAL_COUNT);
+}
+
+TEST_CASE("Array_Vector<Dummy>::Iterator:, multiple buckets, max elements", "[Array_Vector]")
+{
+    constexpr auto BUCKET_SIZE = 16;
+    constexpr auto TOTAL_SIZE = BUCKET_SIZE * 2;
+    constexpr auto ADDED_ELEMENT_COUNT = TOTAL_SIZE;
+    constexpr auto REMOVED_ELEMENT_COUNT = BUCKET_SIZE;
+    constexpr auto FINAL_COUNT = ADDED_ELEMENT_COUNT - REMOVED_ELEMENT_COUNT;
+
+    auto array_vector = rhi::Array_Vector<Dummy, BUCKET_SIZE>();
+
+    std::array<Dummy*, TOTAL_SIZE> array_of_dummies = {};
+    for (auto i = 0; i < ADDED_ELEMENT_COUNT; ++i)
+    {
+        auto dummy = array_vector.acquire();
+        dummy->foo = true;
+        array_of_dummies[i] = dummy;
+    }
+    for (auto i = 0; i < REMOVED_ELEMENT_COUNT; ++i)
+    {
+        array_vector.release(array_of_dummies[i]);
+    }
+
+    auto count = 0;
+    for (auto& dummy : array_vector)
+    {
+        count += dummy.foo;
+    }
+
+    REQUIRE(count == FINAL_COUNT);
+}
