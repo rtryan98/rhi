@@ -188,12 +188,12 @@ std::expected<Buffer*, Result> D3D12_Graphics_Device::create_buffer(const Buffer
     auto buffer = m_buffers.acquire();
     buffer->size = create_info.size;
     buffer->heap_type = create_info.heap;
-    buffer->next_buffer_view = m_buffer_views.acquire();
-    buffer->next_buffer_view->bindless_index = create_bindless_index(D3D12_DESCRIPTOR_HEAP_TYPE_CBV_SRV_UAV);
-    buffer->next_buffer_view->size = buffer->size;
-    buffer->next_buffer_view->offset = 0;
-    buffer->next_buffer_view->buffer = buffer;
-    buffer->next_buffer_view->next_buffer_view = nullptr;
+    buffer->buffer_view = m_buffer_views.acquire();
+    buffer->buffer_view->bindless_index = create_bindless_index(D3D12_DESCRIPTOR_HEAP_TYPE_CBV_SRV_UAV);
+    buffer->buffer_view->size = buffer->size;
+    buffer->buffer_view->offset = 0;
+    buffer->buffer_view->buffer = buffer;
+    buffer->buffer_view->next_buffer_view = nullptr;
     buffer->data = mapped_data;
     buffer->resource = resource;
     buffer->allocation = allocation;
@@ -224,8 +224,8 @@ std::expected<Buffer_View*, Result> D3D12_Graphics_Device::create_buffer_view(
     buffer_view->size = create_info.size;
     buffer_view->offset = create_info.offset;
     buffer_view->buffer = buffer;
-    buffer_view->next_buffer_view = buffer->next_buffer_view;
-    buffer->next_buffer_view = buffer_view;
+    buffer_view->next_buffer_view = buffer->buffer_view;
+    buffer->buffer_view = buffer_view;
 
     auto srv_uav_word_offset = buffer_view->offset >> 2; // counting number of 4 byte elements.
     auto srv_desc = core::d3d12::make_raw_buffer_srv(buffer_view->size);
@@ -252,7 +252,7 @@ void D3D12_Graphics_Device::destroy_buffer(Buffer* buffer) noexcept
     d3d12_buffer->resource->Release();
     d3d12_buffer->allocation->Release();
 
-    auto next_buffer_view = buffer->next_buffer_view;
+    auto next_buffer_view = buffer->buffer_view;
     while (next_buffer_view != nullptr)
     {
         auto current_buffer_view = next_buffer_view;
@@ -278,7 +278,7 @@ void D3D12_Graphics_Device::destroy_image(Image* image) noexcept
     d3d12_image->resource->Release();
     d3d12_image->allocation->Release();
 
-    auto next_image_view = image->next_image_view;
+    auto next_image_view = image->image_view;
     while (next_image_view != nullptr)
     {
         auto current_image_view = next_image_view;
@@ -536,7 +536,7 @@ void D3D12_Graphics_Device::create_initial_buffer_descriptors(D3D12_Buffer* buff
 {
     auto srv_desc = core::d3d12::make_raw_buffer_srv(buffer->size);
     auto uav_desc = core::d3d12::make_raw_buffer_uav(buffer->size);
-    create_srv_and_uav(buffer->resource, buffer->next_buffer_view->bindless_index, &srv_desc, &uav_desc);
+    create_srv_and_uav(buffer->resource, buffer->buffer_view->bindless_index, &srv_desc, &uav_desc);
 }
 
 void D3D12_Graphics_Device::create_srv_and_uav(

@@ -86,6 +86,7 @@ public:
 
 private:
     void create_initial_buffer_descriptors(D3D12_Buffer* buffer) noexcept;
+    void create_initial_image_descriptors(D3D12_Image* image) noexcept;
 
     void create_srv_and_uav(
         ID3D12Resource* resource,
