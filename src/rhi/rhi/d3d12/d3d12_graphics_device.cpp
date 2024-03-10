@@ -94,6 +94,7 @@ D3D12_Graphics_Device::~D3D12_Graphics_Device() noexcept
     core::d3d12::await_context(&m_context);
 
     // Release everything that was not released by the user
+    // TODO: Should this be done or should a leak be mentioned by the validation layer instead?
     for (auto& buffer : m_buffers)
     {
         buffer.resource->Release();

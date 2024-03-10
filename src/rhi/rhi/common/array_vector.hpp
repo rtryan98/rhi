@@ -22,7 +22,7 @@ public:
         : m_data()
         , m_current_head(nullptr)
     {
-        m_data.push_back({});
+        m_data.push_back(std::make_unique<Count_Array>());
     }
 
     Array_Vector(const Array_Vector& other) = delete;
@@ -63,7 +63,7 @@ public:
 
     Iterator end() noexcept
     {
-        return Iterator(m_data, m_data.size() - 1, m_data[m_data.size() - 1]->element_count);
+        return Iterator(m_data, m_data.size() - 1, SIZE);
     }
 
 private:
@@ -142,28 +142,35 @@ public:
         }
 
     private:
-        bool is_done() noexcept
-        {
-            return m_current_element == m_data[m_data.size() - 1]->element_count
-                && m_current_bucket == m_data.size() - 1;
-        }
-
         void next_element() noexcept
         {
-            do
+            auto next_element = m_current_element;
+            auto next_bucket = m_current_bucket;
+            bool is_element_alive = false;
+
+            while (next_bucket != m_data.size() && !is_element_alive)
             {
                 // Check the next element
-                m_current_element += 1;
+                next_element += 1;
 
-                // If the end of the current bucket is reached go to the next bucket
-                if (m_current_element == SIZE)
+                if (next_element == SIZE)
                 {
-                    m_current_element = 0;
-                    m_current_bucket += 1;
+                    if (next_bucket < m_data.size() - 1)
+                    {
+                        next_bucket += 1;
+                        next_element = 0;
+                    }
+                    else
+                    {
+                        break;
+                    }
                 }
 
-                // Short circuit if end is reached
-            } while (!is_done() && !m_data[m_current_bucket]->array[m_current_element].alive);
+                is_element_alive = m_data[next_bucket]->array[next_element].alive;
+            };
+
+            m_current_element = next_element;
+            m_current_bucket = next_bucket;
         }
 
     private:
