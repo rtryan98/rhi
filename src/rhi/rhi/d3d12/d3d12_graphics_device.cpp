@@ -194,10 +194,11 @@ std::expected<Buffer*, Result> D3D12_Graphics_Device::create_buffer(const Buffer
     buffer->buffer_view->size = buffer->size;
     buffer->buffer_view->offset = 0;
     buffer->buffer_view->buffer = buffer;
-    buffer->buffer_view->next_buffer_view = nullptr;
+    static_cast<D3D12_Buffer_View*>(buffer->buffer_view)->next_buffer_view = nullptr;
     buffer->data = mapped_data;
     buffer->resource = resource;
     buffer->allocation = allocation;
+    buffer->buffer_view_linked_list_head = nullptr;
 
     create_initial_buffer_descriptors(buffer);
 
@@ -225,8 +226,8 @@ std::expected<Buffer_View*, Result> D3D12_Graphics_Device::create_buffer_view(
     buffer_view->size = create_info.size;
     buffer_view->offset = create_info.offset;
     buffer_view->buffer = buffer;
-    buffer_view->next_buffer_view = buffer->buffer_view;
-    buffer->buffer_view = buffer_view;
+    buffer_view->next_buffer_view = static_cast<D3D12_Buffer*>(buffer)->buffer_view_linked_list_head;
+    static_cast<D3D12_Buffer*>(buffer)->buffer_view_linked_list_head = buffer_view;
 
     auto srv_uav_word_offset = buffer_view->offset >> 2; // counting number of 4 byte elements.
     auto srv_desc = core::d3d12::make_raw_buffer_srv(buffer_view->size);
@@ -253,7 +254,8 @@ void D3D12_Graphics_Device::destroy_buffer(Buffer* buffer) noexcept
     d3d12_buffer->resource->Release();
     d3d12_buffer->allocation->Release();
 
-    auto next_buffer_view = buffer->buffer_view;
+    release_bindless_index(buffer->buffer_view->bindless_index, D3D12_DESCRIPTOR_HEAP_TYPE_CBV_SRV_UAV);
+    auto next_buffer_view = d3d12_buffer->buffer_view_linked_list_head;
     while (next_buffer_view != nullptr)
     {
         auto current_buffer_view = next_buffer_view;
@@ -285,6 +287,12 @@ std::expected<Image*, Result> D3D12_Graphics_Device::create_image(const Image_Cr
     if (uint32_t(create_info.usage & Image_Usage::Unordered_Access) > 0)
     {
         flags |= D3D12_RESOURCE_FLAG_ALLOW_UNORDERED_ACCESS;
+    }
+    // illegal to be both color and depth attachment.
+    if ((create_info.usage & (Image_Usage::Color_Attachment | Image_Usage::Depth_Stencil_Attachment))
+        == (Image_Usage::Color_Attachment | Image_Usage::Depth_Stencil_Attachment))
+    {
+        return std::unexpected(Result::Error_Invalid_Parameters);
     }
 
     bool is_array_type = false;
@@ -348,16 +356,37 @@ std::expected<Image*, Result> D3D12_Graphics_Device::create_image(const Image_Cr
     image->image_view = m_image_views.acquire();
     image->image_view->bindless_index = create_bindless_index(D3D12_DESCRIPTOR_HEAP_TYPE_CBV_SRV_UAV);
     image->image_view->image = image;
-    image->image_view->next_image_view = nullptr;
     static_cast<D3D12_Image_View*>(image->image_view)->rtv_dsv_index = is_rtv
         ? create_bindless_index(D3D12_DESCRIPTOR_HEAP_TYPE_RTV)
         : is_dsv
             ? create_bindless_index(D3D12_DESCRIPTOR_HEAP_TYPE_DSV)
             : 0;
+    static_cast<D3D12_Image_View*>(image->image_view)->next_image_view = nullptr;
     image->resource = resource;
     image->allocation = allocation;
+    image->image_view_linked_list_head = nullptr;
 
     return image;
+}
+
+std::expected<Image_View*, Result> D3D12_Graphics_Device::create_image_view(
+    Image* image, const Image_View_Create_Info& create_info) noexcept
+{
+    if (!image) return std::unexpected(Result::Error_Invalid_Parameters);
+
+    std::unique_lock<std::mutex> lock_guard(m_resource_mutex, std::defer_lock);
+    if (m_use_mutex)
+    {
+        lock_guard.lock();
+    }
+
+    auto d3d12_image = static_cast<D3D12_Image*>(image);
+    auto image_view = m_image_views.acquire();
+
+    image_view->next_image_view = d3d12_image->image_view_linked_list_head;
+    d3d12_image->image_view_linked_list_head = image_view;
+
+    return image_view;
 }
 
 void D3D12_Graphics_Device::destroy_image(Image* image) noexcept
@@ -374,7 +403,19 @@ void D3D12_Graphics_Device::destroy_image(Image* image) noexcept
     d3d12_image->resource->Release();
     d3d12_image->allocation->Release();
 
-    auto next_image_view = image->image_view;
+    release_bindless_index(d3d12_image->image_view->bindless_index, D3D12_DESCRIPTOR_HEAP_TYPE_CBV_SRV_UAV);
+    if (bool(image->usage & Image_Usage::Color_Attachment))
+    {
+        release_bindless_index(static_cast<D3D12_Image_View*>(d3d12_image->image_view)->rtv_dsv_index,
+            D3D12_DESCRIPTOR_HEAP_TYPE_RTV);
+    }
+    if (bool(image->usage & Image_Usage::Depth_Stencil_Attachment))
+    {
+        release_bindless_index(static_cast<D3D12_Image_View*>(d3d12_image->image_view)->rtv_dsv_index,
+            D3D12_DESCRIPTOR_HEAP_TYPE_DSV);
+    }
+
+    auto next_image_view = d3d12_image->image_view_linked_list_head;
     while (next_image_view != nullptr)
     {
         auto current_image_view = next_image_view;

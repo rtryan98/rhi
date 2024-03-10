@@ -11,21 +11,32 @@ class Allocation;
 
 namespace rhi::d3d12
 {
+struct D3D12_Buffer_View;
+struct D3D12_Image_View;
+
 struct D3D12_Buffer : public Buffer
 {
     ID3D12Resource2* resource;
     D3D12MA::Allocation* allocation;
+    D3D12_Buffer_View* buffer_view_linked_list_head;
+};
+
+struct D3D12_Buffer_View : public Buffer_View
+{
+    D3D12_Buffer_View* next_buffer_view;
 };
 
 struct D3D12_Image : public Image
 {
     ID3D12Resource2* resource;
     D3D12MA::Allocation* allocation;
+    D3D12_Image_View* image_view_linked_list_head;
 };
 
 struct D3D12_Image_View : public Image_View
 {
     uint32_t rtv_dsv_index;
+    D3D12_Image_View* next_image_view;
 };
 
 struct D3D12_Sampler : public Sampler

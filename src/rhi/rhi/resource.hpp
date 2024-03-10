@@ -139,7 +139,6 @@ struct Buffer_View
     uint64_t size;
     uint64_t offset;
     Buffer* buffer;
-    Buffer_View* next_buffer_view;
 };
 
 struct Image_Create_Info
@@ -188,7 +187,6 @@ struct Image_View
 {
     uint32_t bindless_index;
     Image* image;
-    Image_View* next_image_view;
 };
 
 struct Sampler_Create_Info

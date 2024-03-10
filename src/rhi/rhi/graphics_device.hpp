@@ -90,7 +90,7 @@ public:
     virtual [[nodiscard]] std::expected<Image*, Result> create_image(
         const Image_Create_Info& create_info) noexcept = 0;
     virtual [[nodiscard]] std::expected<Image_View*, Result> create_image_view(
-        const Image_View_Create_Info& create_info) noexcept = 0;
+        Image* image, const Image_View_Create_Info& create_info) noexcept = 0;
     virtual void destroy_image(Image* image) noexcept = 0;
 
     virtual [[nodiscard]] std::expected<Sampler*, Result> create_sampler(
