@@ -72,6 +72,7 @@ D3D12_Graphics_Device::D3D12_Graphics_Device(const Graphics_Device_Create_Info& 
         .sampler_descriptor_heap_size = D3D12_MAX_SHADER_VISIBLE_SAMPLER_HEAP_SIZE,
         .rtv_descriptor_heap_size = MAX_RTV_DSV_DESCRIPTORS,
         .dsv_descriptor_heap_size = MAX_RTV_DSV_DESCRIPTORS,
+        .push_constant_size = 64,
         .static_samplers = {}
     };
     core::d3d12::create_d3d12_context(context_create_info, &m_context);
@@ -262,6 +263,101 @@ void D3D12_Graphics_Device::destroy_buffer(Buffer* buffer) noexcept
     }
 
     m_buffers.release(d3d12_buffer);
+}
+
+std::expected<Image*, Result> D3D12_Graphics_Device::create_image(const Image_Create_Info& create_info) noexcept
+{
+    std::unique_lock<std::mutex> lock_guard(m_resource_mutex, std::defer_lock);
+    if (m_use_mutex)
+    {
+        lock_guard.lock();
+    }
+
+    D3D12_RESOURCE_FLAGS flags = D3D12_RESOURCE_FLAG_NONE;
+    if (uint32_t(create_info.usage & Image_Usage::Color_Attachment) > 0)
+    {
+        flags |= D3D12_RESOURCE_FLAG_ALLOW_RENDER_TARGET;
+    }
+    if (uint32_t(create_info.usage & Image_Usage::Depth_Stencil_Attachment) > 0)
+    {
+        flags |= D3D12_RESOURCE_FLAG_ALLOW_DEPTH_STENCIL;
+    }
+    if (uint32_t(create_info.usage & Image_Usage::Unordered_Access) > 0)
+    {
+        flags |= D3D12_RESOURCE_FLAG_ALLOW_UNORDERED_ACCESS;
+    }
+
+    bool is_array_type = false;
+    switch (create_info.primary_view_type)
+    {
+    case Image_View_Type::Texture_1D_Array:
+        [[fallthrough]];
+    case Image_View_Type::Texture_2D_Array:
+        [[fallthrough]];
+    case Image_View_Type::Texture_2D_MS_Array:
+        [[fallthrough]];
+    case Image_View_Type::Texture_Cube_Array:
+        is_array_type = true;
+        break;
+    default:
+        break;
+    }
+
+    bool is_rtv = false;
+    bool is_dsv = false;
+
+    D3D12_RESOURCE_DESC1 resource_desc = {
+        .Dimension = D3D12_RESOURCE_DIMENSION_BUFFER,
+        .Alignment = 0,
+        .Width = create_info.width,
+        .Height = create_info.height,
+        .DepthOrArraySize = is_array_type ? uint16_t(create_info.array_size) : uint16_t(create_info.depth),
+        .MipLevels = create_info.mip_levels,
+        .Format = translate_format(create_info.format),
+        .SampleDesc = {.Count = 1, .Quality = 0 }, // TODO: implement MS textures for D3D12 Backend.
+        .Layout = D3D12_TEXTURE_LAYOUT_UNKNOWN,
+        .Flags = flags,
+        .SamplerFeedbackMipRegion = {}
+    };
+    D3D12MA::ALLOCATION_DESC allocation_desc = {
+        .Flags = D3D12MA::ALLOCATION_FLAG_NONE,
+        .HeapType = D3D12_HEAP_TYPE_DEFAULT,
+        .ExtraHeapFlags = D3D12_HEAP_FLAG_NONE,
+        .CustomPool = nullptr,
+        .pPrivateData = nullptr
+    };
+    D3D12MA::Allocation* allocation = nullptr;
+    ID3D12Resource2* resource = nullptr;
+    auto result = result_from_hresult(m_allocator->CreateResource3(
+        &allocation_desc, &resource_desc, D3D12_BARRIER_LAYOUT_UNDEFINED,
+        nullptr, 0, nullptr, &allocation, IID_PPV_ARGS(&resource)));
+    if (result != Result::Success)
+    {
+        return std::unexpected(result);
+    }
+
+    auto image = m_images.acquire();
+    image->format = create_info.format;
+    image->width = create_info.width;
+    image->height = create_info.height;
+    image->depth = create_info.depth;
+    image->array_size = create_info.array_size;
+    image->mip_levels = create_info.mip_levels;
+    image->usage = create_info.usage;
+    image->primary_view_type = create_info.primary_view_type;
+    image->image_view = m_image_views.acquire();
+    image->image_view->bindless_index = create_bindless_index(D3D12_DESCRIPTOR_HEAP_TYPE_CBV_SRV_UAV);
+    image->image_view->image = image;
+    image->image_view->next_image_view = nullptr;
+    static_cast<D3D12_Image_View*>(image->image_view)->rtv_dsv_index = is_rtv
+        ? create_bindless_index(D3D12_DESCRIPTOR_HEAP_TYPE_RTV)
+        : is_dsv
+            ? create_bindless_index(D3D12_DESCRIPTOR_HEAP_TYPE_DSV)
+            : 0;
+    image->resource = resource;
+    image->allocation = allocation;
+
+    return image;
 }
 
 void D3D12_Graphics_Device::destroy_image(Image* image) noexcept
@@ -539,6 +635,43 @@ void D3D12_Graphics_Device::create_initial_buffer_descriptors(D3D12_Buffer* buff
     create_srv_and_uav(buffer->resource, buffer->buffer_view->bindless_index, &srv_desc, &uav_desc);
 }
 
+void D3D12_Graphics_Device::create_initial_image_descriptors(D3D12_Image* image) noexcept
+{
+    auto format = translate_format(image->format);
+    uint32_t depth_or_array_size = image->depth > image->array_size ? image->depth : image->array_size;
+    auto srv_desc = core::d3d12::make_full_texture_srv(
+        format,
+        translate_view_type_srv(image->primary_view_type),
+        depth_or_array_size);
+    auto uav_desc = core::d3d12::make_full_texture_uav(
+        format,
+        translate_view_type_uav(image->primary_view_type),
+        depth_or_array_size,
+        0, 0);
+    auto rtv_desc = core::d3d12::make_full_texture_rtv(
+        format,
+        translate_view_type_rtv(image->primary_view_type),
+        depth_or_array_size,
+        0, 0);
+    auto dsv_desc = core::d3d12::make_full_texture_dsv(
+        format,
+        translate_view_type_dsv(image->primary_view_type),
+        depth_or_array_size,
+        0);
+
+    bool image_has_srv = bool(image->usage & Image_Usage::Sampled);
+    bool image_has_uav = bool(image->usage & Image_Usage::Unordered_Access);
+    bool image_has_rtv = bool(image->usage & Image_Usage::Color_Attachment);
+    bool image_has_dsv = bool(image->usage & Image_Usage::Depth_Stencil_Attachment);
+
+    create_srv_uav_rtv_dsv(image->resource, image->image_view->bindless_index,
+        image_has_srv ? &srv_desc : nullptr,
+        image_has_uav ? &uav_desc : nullptr,
+        static_cast<D3D12_Image_View*>(image->image_view)->rtv_dsv_index,
+        image_has_rtv ? &rtv_desc : nullptr,
+        image_has_dsv ? &dsv_desc : nullptr);
+}
+
 void D3D12_Graphics_Device::create_srv_and_uav(
     ID3D12Resource* resource,
     uint32_t bindless_index,
@@ -557,6 +690,32 @@ void D3D12_Graphics_Device::create_srv_and_uav(
         D3D12_CPU_DESCRIPTOR_HANDLE cpu_handle = m_context.resource_descriptor_heap->GetCPUDescriptorHandleForHeapStart();
         cpu_handle.ptr += (bindless_index + 1) * m_descriptor_increment_sizes.resource;
         m_context.device->CreateUnorderedAccessView(resource, nullptr, uav_desc, cpu_handle);
+    }
+}
+
+void D3D12_Graphics_Device::create_srv_uav_rtv_dsv(
+    ID3D12Resource* resource,
+    uint32_t bindless_index,
+    const D3D12_SHADER_RESOURCE_VIEW_DESC* srv_desc,
+    const D3D12_UNORDERED_ACCESS_VIEW_DESC* uav_desc,
+    uint32_t rtv_dsv_index,
+    const D3D12_RENDER_TARGET_VIEW_DESC* rtv_desc,
+    const D3D12_DEPTH_STENCIL_VIEW_DESC* dsv_desc) noexcept
+{
+    create_srv_and_uav(resource, bindless_index, srv_desc, uav_desc);
+
+    if (rtv_desc)
+    {
+        D3D12_CPU_DESCRIPTOR_HANDLE cpu_handle = m_context.rtv_descriptor_heap->GetCPUDescriptorHandleForHeapStart();
+        cpu_handle.ptr += (rtv_dsv_index) * m_descriptor_increment_sizes.rtv;
+        m_context.device->CreateRenderTargetView(resource, rtv_desc, cpu_handle);
+    }
+
+    if (dsv_desc)
+    {
+        D3D12_CPU_DESCRIPTOR_HANDLE cpu_handle = m_context.dsv_descriptor_heap->GetCPUDescriptorHandleForHeapStart();
+        cpu_handle.ptr += (rtv_dsv_index)*m_descriptor_increment_sizes.dsv;
+        m_context.device->CreateDepthStencilView(resource, dsv_desc, cpu_handle);
     }
 }
 

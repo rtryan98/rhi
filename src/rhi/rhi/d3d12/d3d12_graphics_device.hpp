@@ -94,6 +94,15 @@ private:
         const D3D12_SHADER_RESOURCE_VIEW_DESC* srv_desc,
         const D3D12_UNORDERED_ACCESS_VIEW_DESC* uav_desc) noexcept;
 
+    void create_srv_uav_rtv_dsv(
+        ID3D12Resource* resource,
+        uint32_t bindless_index,
+        const D3D12_SHADER_RESOURCE_VIEW_DESC* srv_desc,
+        const D3D12_UNORDERED_ACCESS_VIEW_DESC* uav_desc,
+        uint32_t rtv_dsv_index,
+        const D3D12_RENDER_TARGET_VIEW_DESC* rtv_desc,
+        const D3D12_DEPTH_STENCIL_VIEW_DESC* dsv_desc) noexcept;
+
     // Only use inside resource creation and destruction. Not guarded by mutex.
     [[nodiscard]] uint32_t create_bindless_index(D3D12_DESCRIPTOR_HEAP_TYPE type) noexcept;
     void release_bindless_index(uint32_t index, D3D12_DESCRIPTOR_HEAP_TYPE type) noexcept;

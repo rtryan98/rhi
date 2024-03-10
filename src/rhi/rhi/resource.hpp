@@ -84,13 +84,26 @@ enum class Image_Component_Swizzle
     A
 };
 
-enum class Image_Usage
+enum class Image_Usage : uint32_t
 {
     Sampled = 0x00000004,
     Unordered_Access = 0x00000008,
     Color_Attachment = 0x00000010,
     Depth_Stencil_Attachment = 0x00000020,
     Shading_Rate_Attachment = 0x00000100
+};
+
+enum class Image_View_Type
+{
+    Texture_1D,
+    Texture_1D_Array,
+    Texture_2D,
+    Texture_2D_Array,
+    Texture_2D_MS,
+    Texture_2D_MS_Array,
+    Texture_3D,
+    Texture_Cube,
+    Texture_Cube_Array
 };
 
 enum class Memory_Heap_Type
@@ -135,9 +148,10 @@ struct Image_Create_Info
     uint32_t width;
     uint32_t height;
     uint32_t depth;
-    uint16_t array_layers;
+    uint16_t array_size;
     uint16_t mip_levels;
     Image_Usage usage;
+    Image_View_Type primary_view_type;
 };
 
 struct Image
@@ -146,9 +160,10 @@ struct Image
     uint32_t width;
     uint32_t height;
     uint32_t depth;
-    uint16_t array_layers;
+    uint16_t array_size;
     uint16_t mip_levels;
     Image_Usage usage;
+    Image_View_Type primary_view_type;
     Image_View* image_view;
 };
 

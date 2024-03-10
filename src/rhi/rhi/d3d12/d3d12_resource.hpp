@@ -38,4 +38,8 @@ struct D3D12_Pipeline : public Pipeline
 };
 
 DXGI_FORMAT translate_format(Image_Format format) noexcept;
+D3D12_SRV_DIMENSION translate_view_type_srv(Image_View_Type type) noexcept;
+D3D12_UAV_DIMENSION translate_view_type_uav(Image_View_Type type) noexcept;
+D3D12_RTV_DIMENSION translate_view_type_rtv(Image_View_Type type) noexcept;
+D3D12_DSV_DIMENSION translate_view_type_dsv(Image_View_Type type) noexcept;
 }
