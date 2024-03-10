@@ -92,6 +92,30 @@ D3D12_Graphics_Device::D3D12_Graphics_Device(const Graphics_Device_Create_Info& 
 D3D12_Graphics_Device::~D3D12_Graphics_Device() noexcept
 {
     core::d3d12::await_context(&m_context);
+
+    // Release everything that was not released by the user
+    for (auto& buffer : m_buffers)
+    {
+        buffer.resource->Release();
+        buffer.allocation->Release();
+    }
+    for (auto& image : m_images)
+    {
+        image.resource->Release();
+        image.allocation->Release();
+    }
+    for (auto& pipeline : m_pipelines)
+    {
+        if (pipeline.type == Pipeline_Type::Ray_Tracing)
+        {
+            pipeline.rtpso->Release();
+        }
+        else
+        {
+            pipeline.pso->Release();
+        }
+    }
+
     m_indirect_signatures.draw_indirect->Release();
     m_indirect_signatures.draw_indexed_indirect->Release();
     m_indirect_signatures.draw_mesh_tasks_indirect->Release();
