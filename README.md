@@ -5,7 +5,8 @@ Rendering Hardware Interface for D3D12 and Vulkan.
 - [Building](#building)
 - [Usage](#usage)
     - [Device Creation](#device-creation)
-    - [Resource Creation](#resources)
+    - [Resources](#resources)
+    - [Resource Views](#resource-views)
 
 ## Building
 1. Clone the repository: `git clone https://github.com/rtryan98/rhi.git --recurse-submodules --shallow-submodules`.
@@ -55,4 +56,18 @@ rhi::Buffer_Create_Info buffer_create_info = {
     .heap = rhi::Memory_Heap_Type::GPU
 };
 auto buffer = graphics_device->create_buffer(buffer_create_info);
+```
+
+### Resource Views
+Buffers and Images can be suballocated by utilizing their respective Views.
+A `Buffer_View` is a view of a `Buffer`, starting at an offset (which must be a multiple of 4 bytes) from the source `Buffer` and having its own size.
+An `Image_View` is a view of an `Image`, starting at an offset array level and mip level as well as containing its own component mapping.
+Both `Buffer_View`s and `Image_View`s are all implicitly destroyed when their respective parent `Buffer` or `Image` is destroyed.
+Both `Buffer_View`s and `Image_View`s have their own set of bindless indices, making something like small buffer suballocation easily possible.
+```cpp
+rhi::Buffer_View_Create_Info buffer_view_create_info = {
+    .size = /* Calculate size ...*/,
+    .offset = /* Calculate offset ...*/
+};
+auto buffer_view = graphics_device->create_buffer_view(buffer, buffer_view_create_info);
 ```
