@@ -419,7 +419,7 @@ void D3D12_Command_List::copy_buffer(
 
 void D3D12_Command_List::fill_buffer(Buffer_View* dst, uint32_t value) noexcept
 {
-    if (dst && !dst->buffer) return;
+    if (!dst || !dst->buffer) return;
 
     auto d3d12_dst = static_cast<D3D12_Buffer*>(dst->buffer);
     uint32_t values[4] = { value, value, value, value };
