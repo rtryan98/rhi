@@ -7,6 +7,7 @@ Rendering Hardware Interface for D3D12 and Vulkan.
     - [Device Creation](#device-creation)
     - [Resources](#resources)
     - [Resource Views](#resource-views)
+- [Legal](#legal)
 
 ## Building
 1. Clone the repository: `git clone https://github.com/rtryan98/rhi.git --recurse-submodules --shallow-submodules`.
@@ -72,3 +73,10 @@ rhi::Buffer_View_Create_Info buffer_view_create_info = {
 };
 auto buffer_view = graphics_device->create_buffer_view(buffer, buffer_view_create_info);
 ```
+
+## Legal
+This project is licensed under the MIT license.
+However, it makes of the DirectX 12 Agility SDK and WinPixEventRuntime which both have their own licenses.
+Building RHI automatically downloads those libraries and as such by building the RHI you must also agree to those licenses.
+- [DirectX 12 Agility SDK License](https://www.nuget.org/packages/Microsoft.Direct3D.D3D12/1.613.0/License)
+- [WinPixEventRuntime License](https://www.nuget.org/packages/WinPixEventRuntime/1.0.231030001/License)
