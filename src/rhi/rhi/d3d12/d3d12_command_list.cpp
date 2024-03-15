@@ -614,8 +614,7 @@ void D3D12_Command_List::set_scissor(
 void D3D12_Command_List::set_viewport(
     float x, float y,
     float width, float height,
-    float min_depth, float max_depth,
-    [[maybe_unused]] bool vk_invert_viewport) noexcept
+    float min_depth, float max_depth) noexcept
 {
     D3D12_VIEWPORT viewport = {
         .TopLeftX = x,

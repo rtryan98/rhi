@@ -47,8 +47,8 @@ enum class Barrier_Image_Layout : uint64_t
     Shader_Read_Only,
     Copy_Src,
     Copy_Dst,
-    Resolve_Src,
-    Resolve_Dst,
+    // Resolve_Src,
+    // Resolve_Dst,
     Shading_Rate_Attachment,
     Video_Read,
     Video_Write
@@ -209,9 +209,15 @@ public:
     virtual void begin_render_pass(const Render_Pass_Begin_Info& begin_info) noexcept = 0;
     virtual void end_render_pass() noexcept = 0;
     virtual void set_pipeline(Pipeline* pipeline) noexcept = 0;
+
+    template<typename T>
+    void set_push_constants(const T& data, Pipeline_Bind_Point bind_point) noexcept
+    {
+        set_push_constants(&data, uint32_t(sizeof(data)), bind_point);
+    }
     virtual void set_push_constants(void* data, uint32_t size, Pipeline_Bind_Point bind_point) noexcept = 0;
     virtual void set_scissor(int32_t x, int32_t y, uint32_t width, uint32_t height) noexcept = 0;
-    virtual void set_viewport(float x, float y, float width, float height, float min_depth, float max_depth, [[maybe_unused]] bool vk_invert_viewport = true) noexcept = 0;
+    virtual void set_viewport(float x, float y, float width, float height, float min_depth, float max_depth) noexcept = 0;
 
 protected:
     Queue_Type m_queue_type;
