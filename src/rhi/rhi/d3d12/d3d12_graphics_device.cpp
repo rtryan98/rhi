@@ -28,7 +28,7 @@ Result result_from_hresult(HRESULT hresult) noexcept
     }
 }
 
-D3D12_HEAP_TYPE d3d12_heap_type_from_memory_heap_type(Memory_Heap_Type heap_type) noexcept
+D3D12_HEAP_TYPE translate_heap_type(Memory_Heap_Type heap_type) noexcept
 {
     switch (heap_type)
     {
@@ -190,7 +190,7 @@ std::expected<Buffer*, Result> D3D12_Graphics_Device::create_buffer(const Buffer
     };
     D3D12MA::ALLOCATION_DESC allocation_desc = {
         .Flags = D3D12MA::ALLOCATION_FLAG_NONE,
-        .HeapType = d3d12_heap_type_from_memory_heap_type(create_info.heap),
+        .HeapType = translate_heap_type(create_info.heap),
         .ExtraHeapFlags = D3D12_HEAP_FLAG_NONE,
         .CustomPool = nullptr,
         .pPrivateData = nullptr
@@ -488,6 +488,194 @@ void D3D12_Graphics_Device::destroy_shader_blob(Shader_Blob* shader_blob) noexce
     m_shader_blobs.release(shader_blob);
 }
 
+D3D12_SHADER_BYTECODE translate_shader_blob_safe(Shader_Blob* blob)
+{
+    D3D12_SHADER_BYTECODE bytecode = {};
+    if (blob)
+    {
+        bytecode.BytecodeLength = blob->data.size();
+        bytecode.pShaderBytecode = blob->data.data();
+    }
+    return bytecode;
+}
+
+D3D12_FILL_MODE translate_fill_mode(Fill_Mode fill_mode)
+{
+    return fill_mode == Fill_Mode::Solid
+        ? D3D12_FILL_MODE_SOLID
+        : D3D12_FILL_MODE_WIREFRAME;
+}
+
+D3D12_CULL_MODE translate_cull_mode(Cull_Mode cull_mode)
+{
+    switch (cull_mode)
+    {
+    case rhi::Cull_Mode::None:
+        return D3D12_CULL_MODE_NONE;
+    case rhi::Cull_Mode::Front:
+        return D3D12_CULL_MODE_FRONT;
+    case rhi::Cull_Mode::Back:
+        return D3D12_CULL_MODE_BACK;
+    default:
+        return D3D12_CULL_MODE_NONE;
+    }
+    return D3D12_CULL_MODE_NONE;
+}
+
+D3D12_RASTERIZER_DESC1 translate_rasterizer_desc(const Pipeline_Rasterization_State_Info& raster_info)
+{
+    D3D12_RASTERIZER_DESC1 result = {
+        .FillMode = translate_fill_mode(raster_info.fill_mode),
+        .CullMode = translate_cull_mode(raster_info.cull_mode),
+        .FrontCounterClockwise = raster_info.winding_order == Winding_Order::Front_Face_CCW ? true : false,
+        .DepthBias = raster_info.depth_bias,
+        .DepthBiasClamp = raster_info.depth_bias_clamp,
+        .SlopeScaledDepthBias = raster_info.depth_bias_slope_scale,
+        .DepthClipEnable = raster_info.depth_clip_enable,
+        .MultisampleEnable = false,
+        .AntialiasedLineEnable = false,
+        .ForcedSampleCount = 0,
+        .ConservativeRaster = D3D12_CONSERVATIVE_RASTERIZATION_MODE_OFF
+    };
+    return result;
+}
+
+D3D12_BLEND translate_blend(Blend_Factor blend_factor)
+{
+    switch (blend_factor)
+    {
+    case Blend_Factor::Zero:
+        return D3D12_BLEND_ZERO;
+    case Blend_Factor::One:
+        return D3D12_BLEND_ONE;
+    case Blend_Factor::Src_Color:
+        return D3D12_BLEND_SRC_COLOR;
+    case Blend_Factor::One_Minus_Src_Color:
+        return D3D12_BLEND_INV_SRC_COLOR;
+    case Blend_Factor::Dst_Color:
+        return D3D12_BLEND_DEST_COLOR;
+    case Blend_Factor::One_Minus_Dst_Color:
+        return D3D12_BLEND_INV_DEST_COLOR;
+    case Blend_Factor::Src_Alpha:
+        return D3D12_BLEND_SRC_ALPHA;
+    case Blend_Factor::One_Minus_Src_Alpha:
+        return D3D12_BLEND_INV_SRC_ALPHA;
+    case Blend_Factor::Dst_Alpha:
+        return D3D12_BLEND_DEST_ALPHA;
+    case Blend_Factor::One_Minus_Dst_Alpha:
+        return D3D12_BLEND_INV_DEST_ALPHA;
+    case Blend_Factor::Constant_Color:
+        return D3D12_BLEND_BLEND_FACTOR;
+    case Blend_Factor::One_Minus_Constant_Color:
+        return D3D12_BLEND_INV_BLEND_FACTOR;
+    case Blend_Factor::Constant_Alpha:
+        return D3D12_BLEND_ALPHA_FACTOR;
+    case Blend_Factor::One_Minus_Constant_Alpha:
+        return D3D12_BLEND_INV_ALPHA_FACTOR;
+    case Blend_Factor::Src1_Color:
+        return D3D12_BLEND_SRC1_COLOR;
+    case Blend_Factor::One_Minus_Src1_Color:
+        return D3D12_BLEND_INV_SRC1_COLOR;
+    case Blend_Factor::Src1_Alpha:
+        return D3D12_BLEND_SRC1_ALPHA;
+    case Blend_Factor::One_Minus_Src1_Alpha:
+        return D3D12_BLEND_INV_SRC1_ALPHA;
+    default:
+        return D3D12_BLEND_ZERO;
+    }
+}
+
+D3D12_BLEND_OP translate_blend_op(Blend_Op blend_op)
+{
+    return std::bit_cast<D3D12_BLEND_OP>(blend_op);
+}
+
+D3D12_LOGIC_OP translate_logic_op(Logic_Op logic_op)
+{
+    return std::bit_cast<D3D12_LOGIC_OP>(logic_op);
+}
+
+uint8_t translate_renter_target_write_mask(Color_Component components)
+{
+    return static_cast<uint8_t>(components);
+}
+
+D3D12_RENDER_TARGET_BLEND_DESC translate_render_target_blend_desc(
+    const Pipeline_Color_Attachment_Blend_Info& attachment_blend_info)
+{
+    D3D12_RENDER_TARGET_BLEND_DESC result = {
+        .BlendEnable = attachment_blend_info.blend_enable,
+        .LogicOpEnable = attachment_blend_info.logic_op_enable,
+        .SrcBlend = translate_blend(attachment_blend_info.color_src_blend),
+        .DestBlend = translate_blend(attachment_blend_info.color_dst_blend),
+        .BlendOp = translate_blend_op(attachment_blend_info.color_blend_op),
+        .SrcBlendAlpha = translate_blend(attachment_blend_info.alpha_src_blend),
+        .DestBlendAlpha = translate_blend(attachment_blend_info.alpha_dst_blend),
+        .BlendOpAlpha = translate_blend_op(attachment_blend_info.alpha_blend_op),
+        .LogicOp = translate_logic_op(attachment_blend_info.logic_op),
+        .RenderTargetWriteMask = translate_renter_target_write_mask(attachment_blend_info.color_write_mask)
+    };
+    return result;
+}
+
+D3D12_BLEND_DESC translate_blend_state_desc(const Pipeline_Blend_State_Info& blend_info)
+{
+    D3D12_BLEND_DESC result = {
+        .AlphaToCoverageEnable = false,
+        .IndependentBlendEnable = blend_info.independent_blend_enable,
+        .RenderTarget = {}
+    };
+    for (auto i = 0; i < blend_info.color_attachments.size(); ++i)
+    {
+        result.RenderTarget[i] = translate_render_target_blend_desc(blend_info.color_attachments[i]);
+    }
+    return result;
+}
+
+D3D12_COMPARISON_FUNC translate_comparison_func(Comparison_Func comparison_func)
+{
+    return std::bit_cast<D3D12_COMPARISON_FUNC>(comparison_func);
+}
+
+D3D12_STENCIL_OP translate_stencil_op(Stencil_Op stencil_op)
+{
+    return std::bit_cast<D3D12_STENCIL_OP>(stencil_op);
+}
+
+D3D12_DEPTH_STENCILOP_DESC1 translate_depth_stencilop_desc(const Pipeline_Depth_Stencil_Op_Info& ds_op_info)
+{
+    D3D12_DEPTH_STENCILOP_DESC1 result = {
+        .StencilFailOp = translate_stencil_op(ds_op_info.fail),
+        .StencilDepthFailOp = translate_stencil_op(ds_op_info.depth_fail),
+        .StencilPassOp = translate_stencil_op(ds_op_info.pass),
+        .StencilFunc = translate_comparison_func(ds_op_info.comparison_func),
+        .StencilReadMask = ds_op_info.stencil_read_mask,
+        .StencilWriteMask = ds_op_info.stencil_write_mask
+    };
+    return result;
+}
+
+D3D12_DEPTH_STENCIL_DESC2 translate_depth_stencil_desc(const Pipeline_Depth_Stencil_State_Info& ds_info)
+{
+    D3D12_DEPTH_STENCIL_DESC2 result = {
+        .DepthEnable = ds_info.depth_enable,
+        .DepthWriteMask = ds_info.depth_enable ? D3D12_DEPTH_WRITE_MASK_ALL : D3D12_DEPTH_WRITE_MASK_ZERO,
+        .DepthFunc = translate_comparison_func(ds_info.comparison_func),
+        .StencilEnable = ds_info.stencil_enable,
+        .FrontFace = translate_depth_stencilop_desc(ds_info.stencil_front_face),
+        .BackFace = translate_depth_stencilop_desc(ds_info.stencil_back_face),
+        .DepthBoundsTestEnable = ds_info.depth_bounds_test_mode == Depth_Bounds_Test_Mode::Disabled
+            ? false
+            : true
+    };
+    return result;
+}
+
+D3D12_PRIMITIVE_TOPOLOGY_TYPE translate_primitive_topology_type(Primitive_Topology_Type topology)
+{
+    return std::bit_cast<D3D12_PRIMITIVE_TOPOLOGY_TYPE>(topology);
+}
+
 std::expected<Pipeline*, Result> D3D12_Graphics_Device::create_pipeline(
     const Graphics_Pipeline_Create_Info& create_info) noexcept
 {
@@ -499,25 +687,30 @@ std::expected<Pipeline*, Result> D3D12_Graphics_Device::create_pipeline(
 
     core::d3d12::Graphics_Pipeline_Desc graphics_pipeline_stream = {
         .root_signature = { .data = m_context.bindless_root_signature },
-        .vs = { .data = {} },
-        .hs = { .data = {} },
-        .ds = { .data = {} },
-        .gs = { .data = {} },
-        .ps = { .data = {} },
+        .vs = { .data = translate_shader_blob_safe(create_info.vs) },
+        .hs = { .data = translate_shader_blob_safe(create_info.hs) },
+        .ds = { .data = translate_shader_blob_safe(create_info.ds) },
+        .gs = { .data = translate_shader_blob_safe(create_info.gs) },
+        .ps = { .data = translate_shader_blob_safe(create_info.ps) },
         .stream_output = { .data = {} },
-        .blend_state = { .data = {} },
-        .sample_mask = { .data = {} },
-        .rasterizer_state = { .data = {} },
-        .depth_stencil_state = { .data = {} },
+        .blend_state = { .data = translate_blend_state_desc(create_info.blend_state_info)},
+        .sample_mask = { .data = ~0u },
+        .rasterizer_state = { .data = translate_rasterizer_desc(create_info.rasterizer_state_info)},
+        .depth_stencil_state = { .data = translate_depth_stencil_desc(create_info.depth_stencil_info)},
         .input_layout_desc = { .data = {} },
-        .primitive_topology_type = { .data = {} },
-        .render_target_formats = { .data = {} },
-        .depth_stencil_format = { .data = {} },
-        .sample_desc = { .data = {} },
+        .primitive_topology_type = { .data = translate_primitive_topology_type(create_info.primitive_topology) },
+        .render_target_formats = { .data = { .NumRenderTargets = create_info.color_attachment_count } },
+        .depth_stencil_format = { .data = translate_format(create_info.depth_stencil_format)},
+        .sample_desc = { .data = { .Count = 1, .Quality = 0 } },
         .node_mask = { .data = { 0 } },
         .cached_pso = { .data = {} },
         .flags = { .data = { D3D12_PIPELINE_STATE_FLAG_NONE } },
     };
+    for (auto i = 0; i < PIPELINE_COLOR_ATTACHMENTS_MAX; ++i)
+    {
+        graphics_pipeline_stream.render_target_formats.data.RTFormats[i] = translate_format(
+            create_info.color_attachment_formats[i]);
+    }
     D3D12_PIPELINE_STATE_STREAM_DESC stream_desc = {
         .SizeInBytes = sizeof(graphics_pipeline_stream),
         .pPipelineStateSubobjectStream = &graphics_pipeline_stream
@@ -531,6 +724,89 @@ std::expected<Pipeline*, Result> D3D12_Graphics_Device::create_pipeline(
 
     auto pipeline = m_pipelines.acquire();
     pipeline->type = Pipeline_Type::Vertex_Shading;
+    pipeline->vertex_shading_info = create_info;
+    pipeline->pso = pso;
+    pipeline->rtpso = nullptr;
+    return pipeline;
+}
+
+std::expected<Pipeline*, Result> D3D12_Graphics_Device::create_pipeline(
+    const Compute_Pipeline_Create_Info& create_info) noexcept
+{
+    std::unique_lock<std::mutex> lock_guard(m_resource_mutex, std::defer_lock);
+    if (m_use_mutex)
+    {
+        lock_guard.lock();
+    }
+
+    D3D12_COMPUTE_PIPELINE_STATE_DESC compute_pipeline_desc = {
+        .pRootSignature = m_context.bindless_root_signature,
+        .CS = translate_shader_blob_safe(create_info.cs),
+        .NodeMask = 0,
+        .CachedPSO = {},
+        .Flags = D3D12_PIPELINE_STATE_FLAG_NONE
+    };
+    ID3D12PipelineState* pso;
+    auto result = result_from_hresult(m_context.device->CreateComputePipelineState(
+        &compute_pipeline_desc, IID_PPV_ARGS(&pso)));
+    if (result != Result::Success)
+    {
+        return std::unexpected(result);
+    }
+
+    auto pipeline = m_pipelines.acquire();
+    pipeline->type = Pipeline_Type::Compute;
+    pipeline->compute_shading_info = create_info;
+    pipeline->pso = pso;
+    pipeline->rtpso = nullptr;
+    return pipeline;
+}
+
+std::expected<Pipeline*, Result> D3D12_Graphics_Device::create_pipeline(
+    const Mesh_Shading_Pipeline_Create_Info& create_info) noexcept
+{
+    std::unique_lock<std::mutex> lock_guard(m_resource_mutex, std::defer_lock);
+    if (m_use_mutex)
+    {
+        lock_guard.lock();
+    }
+
+    core::d3d12::Mesh_Shader_Pipeline_Desc mesh_pipeline_stream = {
+        .root_signature = {.data = m_context.bindless_root_signature },
+        .as = {.data = translate_shader_blob_safe(create_info.ts) },
+        .ms = {.data = translate_shader_blob_safe(create_info.ms) },
+        .blend_state = {.data = translate_blend_state_desc(create_info.blend_state_info)},
+        .sample_mask = {.data = ~0u },
+        .rasterizer_state = {.data = translate_rasterizer_desc(create_info.rasterizer_state_info)},
+        .depth_stencil_state = {.data = translate_depth_stencil_desc(create_info.depth_stencil_info)},
+        .input_layout_desc = {.data = {} },
+        .primitive_topology_type = {.data = translate_primitive_topology_type(create_info.primitive_topology) },
+        .render_target_formats = {.data = {.NumRenderTargets = create_info.color_attachment_count } },
+        .depth_stencil_format = {.data = translate_format(create_info.depth_stencil_format)},
+        .sample_desc = {.data = {.Count = 1, .Quality = 0 } },
+        .node_mask = {.data = { 0 } },
+        .cached_pso = {.data = {} },
+        .flags = {.data = { D3D12_PIPELINE_STATE_FLAG_NONE } },
+    };
+    for (auto i = 0; i < PIPELINE_COLOR_ATTACHMENTS_MAX; ++i)
+    {
+        mesh_pipeline_stream.render_target_formats.data.RTFormats[i] = translate_format(
+            create_info.color_attachment_formats[i]);
+    }
+    D3D12_PIPELINE_STATE_STREAM_DESC stream_desc = {
+        .SizeInBytes = sizeof(mesh_pipeline_stream),
+        .pPipelineStateSubobjectStream = &mesh_pipeline_stream
+    };
+    ID3D12PipelineState* pso = nullptr;
+    auto result = result_from_hresult(m_context.device->CreatePipelineState(&stream_desc, IID_PPV_ARGS(&pso)));
+    if (result != Result::Success)
+    {
+        return std::unexpected(result);
+    }
+
+    auto pipeline = m_pipelines.acquire();
+    pipeline->type = Pipeline_Type::Mesh_Shading;
+    pipeline->mesh_shading_info = create_info;
     pipeline->pso = pso;
     pipeline->rtpso = nullptr;
     return pipeline;

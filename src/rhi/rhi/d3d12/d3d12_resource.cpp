@@ -134,4 +134,112 @@ DXGI_FORMAT translate_format(Image_Format format) noexcept
         return DXGI_FORMAT_UNKNOWN;
     }
 }
+
+D3D12_SRV_DIMENSION translate_view_type_srv(Image_View_Type type) noexcept
+{
+    switch (type)
+    {
+    case Image_View_Type::Texture_1D:
+        return D3D12_SRV_DIMENSION_TEXTURE1D;
+    case Image_View_Type::Texture_1D_Array:
+        return D3D12_SRV_DIMENSION_TEXTURE1DARRAY;
+    case Image_View_Type::Texture_2D:
+        return D3D12_SRV_DIMENSION_TEXTURE2D;
+    case Image_View_Type::Texture_2D_Array:
+        return D3D12_SRV_DIMENSION_TEXTURE2DARRAY;
+    case Image_View_Type::Texture_2D_MS:
+        return D3D12_SRV_DIMENSION_TEXTURE2DMS;
+    case Image_View_Type::Texture_2D_MS_Array:
+        return D3D12_SRV_DIMENSION_TEXTURE2DMSARRAY;
+    case Image_View_Type::Texture_3D:
+        return D3D12_SRV_DIMENSION_TEXTURE3D;
+    case Image_View_Type::Texture_Cube:
+        return D3D12_SRV_DIMENSION_TEXTURECUBE;
+    case Image_View_Type::Texture_Cube_Array:
+        return D3D12_SRV_DIMENSION_TEXTURECUBEARRAY;
+    default:
+        return D3D12_SRV_DIMENSION_UNKNOWN;
+    }
+}
+
+D3D12_UAV_DIMENSION translate_view_type_uav(Image_View_Type type) noexcept
+{
+    switch (type)
+    {
+    case Image_View_Type::Texture_1D:
+        return D3D12_UAV_DIMENSION_TEXTURE1D;
+    case Image_View_Type::Texture_1D_Array:
+        return D3D12_UAV_DIMENSION_TEXTURE1DARRAY;
+    case Image_View_Type::Texture_2D:
+        return D3D12_UAV_DIMENSION_TEXTURE2D;
+    case Image_View_Type::Texture_2D_Array:
+        return D3D12_UAV_DIMENSION_TEXTURE2DARRAY;
+    case Image_View_Type::Texture_2D_MS:
+        return D3D12_UAV_DIMENSION_TEXTURE2DMS;
+    case Image_View_Type::Texture_2D_MS_Array:
+        return D3D12_UAV_DIMENSION_TEXTURE2DMSARRAY;
+    case Image_View_Type::Texture_3D:
+        return D3D12_UAV_DIMENSION_TEXTURE3D;
+    case Image_View_Type::Texture_Cube:
+        return D3D12_UAV_DIMENSION_TEXTURE2DARRAY;
+    case Image_View_Type::Texture_Cube_Array:
+        return D3D12_UAV_DIMENSION_TEXTURE2DARRAY;
+    default:
+        return D3D12_UAV_DIMENSION_UNKNOWN;
+    }
+}
+
+D3D12_RTV_DIMENSION translate_view_type_rtv(Image_View_Type type) noexcept
+{
+    switch (type)
+    {
+    case Image_View_Type::Texture_1D:
+        return D3D12_RTV_DIMENSION_TEXTURE1D;
+    case Image_View_Type::Texture_1D_Array:
+        return D3D12_RTV_DIMENSION_TEXTURE1DARRAY;
+    case Image_View_Type::Texture_2D:
+        return D3D12_RTV_DIMENSION_TEXTURE2D;
+    case Image_View_Type::Texture_2D_Array:
+        return D3D12_RTV_DIMENSION_TEXTURE2DARRAY;
+    case Image_View_Type::Texture_2D_MS:
+        return D3D12_RTV_DIMENSION_TEXTURE2DMS;
+    case Image_View_Type::Texture_2D_MS_Array:
+        return D3D12_RTV_DIMENSION_TEXTURE2DMSARRAY;
+    case Image_View_Type::Texture_3D:
+        return D3D12_RTV_DIMENSION_TEXTURE3D;
+    case Image_View_Type::Texture_Cube:
+        return D3D12_RTV_DIMENSION_TEXTURE2DARRAY;
+    case Image_View_Type::Texture_Cube_Array:
+        return D3D12_RTV_DIMENSION_TEXTURE2DARRAY;
+    default:
+        return D3D12_RTV_DIMENSION_TEXTURE1D;
+    }
+}
+
+D3D12_DSV_DIMENSION translate_view_type_dsv(Image_View_Type type) noexcept
+{
+    switch (type)
+    {
+    case Image_View_Type::Texture_1D:
+        return D3D12_DSV_DIMENSION_TEXTURE1D;
+    case Image_View_Type::Texture_1D_Array:
+        return D3D12_DSV_DIMENSION_TEXTURE1DARRAY;
+    case Image_View_Type::Texture_2D:
+        return D3D12_DSV_DIMENSION_TEXTURE2D;
+    case Image_View_Type::Texture_2D_Array:
+        return D3D12_DSV_DIMENSION_TEXTURE2DARRAY;
+    case Image_View_Type::Texture_2D_MS:
+        return D3D12_DSV_DIMENSION_TEXTURE2DMS;
+    case Image_View_Type::Texture_2D_MS_Array:
+        return D3D12_DSV_DIMENSION_TEXTURE2DMSARRAY;
+    // case Image_View_Type::Texture_3D:
+    //     return D3D12_DSV_DIMENSION_UNKNOWN;
+    case Image_View_Type::Texture_Cube:
+        return D3D12_DSV_DIMENSION_UNKNOWN;
+    case Image_View_Type::Texture_Cube_Array:
+        return D3D12_DSV_DIMENSION_UNKNOWN;
+    default:
+        return D3D12_DSV_DIMENSION_UNKNOWN;
+    }
+}
 }

@@ -70,10 +70,10 @@ auto translate_barrier_Image_layout(
         default:
             return D3D12_BARRIER_LAYOUT_COPY_DEST;
         }
-    case Barrier_Image_Layout::Resolve_Src:
-        return D3D12_BARRIER_LAYOUT_RESOLVE_SOURCE;
-    case Barrier_Image_Layout::Resolve_Dst:
-        return D3D12_BARRIER_LAYOUT_RESOLVE_DEST;
+    // case Barrier_Image_Layout::Resolve_Src:
+    //     return D3D12_BARRIER_LAYOUT_RESOLVE_SOURCE;
+    // case Barrier_Image_Layout::Resolve_Dst:
+    //     return D3D12_BARRIER_LAYOUT_RESOLVE_DEST;
     case Barrier_Image_Layout::Shading_Rate_Attachment:
         return D3D12_BARRIER_LAYOUT_SHADING_RATE_SOURCE;
     case Barrier_Image_Layout::Video_Read:
@@ -576,7 +576,35 @@ void D3D12_Command_List::set_pipeline(Pipeline* pipeline) noexcept
     else
     {
         m_cmd->SetPipelineState(d3d12_pipeline->pso);
+        switch (pipeline->type)
+        {
+        case Pipeline_Type::Vertex_Shading:
+            if (pipeline->vertex_shading_info.depth_stencil_info.depth_bounds_test_mode == Depth_Bounds_Test_Mode::Static)
+            {
+                set_depth_bounds(
+                    pipeline->vertex_shading_info.depth_stencil_info.depth_bounds_min,
+                    pipeline->vertex_shading_info.depth_stencil_info.depth_bounds_max
+                );
+            }
+            break;
+        case Pipeline_Type::Mesh_Shading:
+            if (pipeline->mesh_shading_info.depth_stencil_info.depth_bounds_test_mode == Depth_Bounds_Test_Mode::Static)
+            {
+                set_depth_bounds(
+                    pipeline->mesh_shading_info.depth_stencil_info.depth_bounds_min,
+                    pipeline->mesh_shading_info.depth_stencil_info.depth_bounds_max
+                );
+            }
+            break;
+        default:
+            break;
+        }
     }
+}
+
+void D3D12_Command_List::set_depth_bounds(float min, float max) noexcept
+{
+    m_cmd->OMSetDepthBounds(min, max);
 }
 
 void D3D12_Command_List::set_push_constants(

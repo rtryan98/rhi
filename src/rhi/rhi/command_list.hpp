@@ -209,7 +209,7 @@ public:
     virtual void begin_render_pass(const Render_Pass_Begin_Info& begin_info) noexcept = 0;
     virtual void end_render_pass() noexcept = 0;
     virtual void set_pipeline(Pipeline* pipeline) noexcept = 0;
-
+    virtual void set_depth_bounds(float min, float max) noexcept = 0;
     template<typename T>
     void set_push_constants(const T& data, Pipeline_Bind_Point bind_point) noexcept
     {
