@@ -37,7 +37,7 @@ TEST_CASE("Array_Vector<Dummy>: Acquire and release element, single bucket", "[A
     REQUIRE(dummy->foo == false);
 }
 
-TEST_CASE("Array_Vector<Dummy>: Internal linked list - acquire-release-acquire", "[Array_Vector]")
+TEST_CASE("Array_Vector<Dummy>: Internal linked list - pointer stability", "[Array_Vector]")
 {
     auto array_vector = rhi::Array_Vector<Dummy, 2>();
     auto dummy_1 = array_vector.acquire();
@@ -48,7 +48,7 @@ TEST_CASE("Array_Vector<Dummy>: Internal linked list - acquire-release-acquire",
     REQUIRE(dummy_1 == dummy_2);
 }
 
-TEST_CASE("Array_Vector<Dummy>: Internal linked list - acquire-release-acquire, multiple buckets", "[Array_Vector]")
+TEST_CASE("Array_Vector<Dummy>: Internal linked list - pointer stability, multiple buckets", "[Array_Vector]")
 {
     auto array_vector = rhi::Array_Vector<Dummy, 2>();
     auto dummy_1 = array_vector.acquire();
