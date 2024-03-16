@@ -19,7 +19,7 @@ enum class Graphics_API;
 struct Render_Pass_Begin_Info
 {
     std::span<Image_View*> color_attachments;
-    Image_View* depth_attachments;
+    Image_View* depth_attachment;
 };
 
 enum class Pipeline_Bind_Point

@@ -559,9 +559,33 @@ void D3D12_Command_List::draw_mesh_tasks_indirect_count(
         max_draw_count, d3d12_buffer->resource, offset, d3d12_count_buffer->resource, count_offset);
 }
 
+void D3D12_Command_List::begin_render_pass(const Render_Pass_Begin_Info& begin_info) noexcept
+{
+    uint32_t render_target_count = uint32_t(begin_info.color_attachments.size());
+    std::array<D3D12_CPU_DESCRIPTOR_HANDLE, PIPELINE_COLOR_ATTACHMENTS_MAX> render_target_descriptors = {};
+    for (auto i = 0; i < begin_info.color_attachments.size(); ++i)
+    {
+        if (begin_info.color_attachments[i] != nullptr)
+        {
+            render_target_descriptors[i] = m_device->get_cpu_descriptor_handle(
+                static_cast<D3D12_Image_View*>(begin_info.depth_attachment)->rtv_dsv_index,
+                D3D12_DESCRIPTOR_HEAP_TYPE_RTV);
+        }
+    }
+    D3D12_CPU_DESCRIPTOR_HANDLE ds_descriptor = begin_info.depth_attachment
+        ? m_device->get_cpu_descriptor_handle(static_cast<D3D12_Image_View*>(begin_info.depth_attachment)->rtv_dsv_index,
+            D3D12_DESCRIPTOR_HEAP_TYPE_DSV)
+        : D3D12_CPU_DESCRIPTOR_HANDLE{};
+    m_cmd->OMSetRenderTargets(
+        render_target_count,
+        render_target_descriptors.data(),
+        false,
+        begin_info.depth_attachment ? &ds_descriptor : nullptr);
+}
+
 void D3D12_Command_List::end_render_pass() noexcept
 {
-    m_cmd->EndRenderPass();
+    // No-op in D3D12
 }
 
 void D3D12_Command_List::set_pipeline(Pipeline* pipeline) noexcept
