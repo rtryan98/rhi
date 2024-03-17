@@ -235,6 +235,26 @@ enum class Color_Component
     Enable_All = R_Bit | G_Bit | B_Bit | A_Bit
 };
 
+enum class Sampler_Filter
+{
+    Nearest = 0,
+    Linear = 1
+};
+
+enum class Sampler_Reduction_Type
+{
+    Standard,
+    Comparison
+};
+
+enum class Image_Sample_Address_Mode
+{
+    Wrap = 1,
+    Mirror = 2,
+    Clamp = 3,
+    Border = 4
+};
+
 struct Buffer_Create_Info
 {
     uint64_t size;
@@ -313,7 +333,19 @@ struct Image_View
 
 struct Sampler_Create_Info
 {
-
+    Sampler_Filter filter_min;
+    Sampler_Filter filter_mag;
+    Sampler_Filter filter_mip;
+    Image_Sample_Address_Mode address_mode_u;
+    Image_Sample_Address_Mode address_mode_v;
+    Image_Sample_Address_Mode address_mode_w;
+    float mip_lod_bias;
+    uint32_t max_anisotropy;
+    Comparison_Func comparison_func;
+    std::array<float, 4> border_color;
+    float min_lod;
+    float max_lod;
+    bool anisotropy_enable; // Note: forces min/mag/mip filter to linear
 };
 
 struct Sampler

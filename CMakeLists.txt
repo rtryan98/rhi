@@ -39,16 +39,24 @@ set_target_properties(
     CXX_STANDARD 23
 )
 if(${RHI_BUILD_D3D12})
-    target_compile_definitions(rhi PUBLIC
+    target_compile_definitions(
+        rhi PUBLIC
         RHI_GRAPHICS_API_D3D12
     )
+    target_compile_definitions(
+        rhi PRIVATE
+        WIN32_LEAN_AND_MEAN
+        NOMINMAX
+    )
     if(${RHI_USE_PIX})
-        target_compile_definitions(rhi PUBLIC
+        target_compile_definitions(
+            rhi PUBLIC
             USE_PIX)
     endif()
 endif()
 if(${RHI_BUILD_VULKAN})
-    target_compile_definitions(rhi PUBLIC
+    target_compile_definitions(
+        rhi PUBLIC
         RHI_GRAPHICS_API_VULKAN
     )
 endif()

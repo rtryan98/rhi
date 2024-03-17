@@ -28,6 +28,21 @@ Result result_from_hresult(HRESULT hresult) noexcept
     }
 }
 
+Result wait_result_from_dword(DWORD dword) noexcept
+{
+    switch (dword)
+    {
+    case WAIT_OBJECT_0:
+        return Result::Success;
+    case WAIT_TIMEOUT:
+        return Result::Wait_Timeout;
+    case WAIT_FAILED:
+        return Result::Error_Wait_Failed;
+    default:
+        return Result::Error_Unknown;
+    }
+}
+
 D3D12_HEAP_TYPE translate_heap_type(Memory_Heap_Type heap_type) noexcept
 {
     switch (heap_type)
@@ -41,6 +56,11 @@ D3D12_HEAP_TYPE translate_heap_type(Memory_Heap_Type heap_type) noexcept
     default:
         return D3D12_HEAP_TYPE_DEFAULT;
     }
+}
+
+Result D3D12_Fence::get_status(uint64_t value) noexcept
+{
+    return wait_result_from_dword(core::d3d12::await_fence(fence, value, 0));
 }
 
 D3D12_Graphics_Device::D3D12_Graphics_Device(const Graphics_Device_Create_Info& create_info) noexcept
@@ -123,6 +143,32 @@ D3D12_Graphics_Device::~D3D12_Graphics_Device() noexcept
     m_indirect_signatures.dispatch_indirect->Release();
     m_allocator->Release();
     core::d3d12::destroy_d3d12_context(&m_context);
+}
+
+Result D3D12_Graphics_Device::wait_idle() noexcept
+{
+    return wait_result_from_dword(core::d3d12::await_context(&m_context));
+}
+
+Result D3D12_Graphics_Device::queue_wait_idle(Queue_Type queue, uint64_t timeout) noexcept
+{
+    ID3D12CommandQueue* command_queue = nullptr;
+    switch (queue)
+    {
+    case Queue_Type::Graphics:
+        command_queue = m_context.direct_queue;
+        break;
+    case Queue_Type::Compute:
+        command_queue = m_context.compute_queue;
+        break;
+    case Queue_Type::Copy:
+        command_queue = m_context.copy_queue;
+        break;
+    default: // TODO: implement video queues
+        command_queue = m_context.direct_queue;
+        break;
+    }
+    return wait_result_from_dword(core::d3d12::await_queue(m_context.device, command_queue, timeout));
 }
 
 Graphics_API D3D12_Graphics_Device::get_graphics_api() const noexcept
@@ -215,7 +261,7 @@ std::expected<Buffer*, Result> D3D12_Graphics_Device::create_buffer(const Buffer
     buffer->size = create_info.size;
     buffer->heap_type = create_info.heap;
     buffer->buffer_view = m_buffer_views.acquire();
-    buffer->buffer_view->bindless_index = create_bindless_index(D3D12_DESCRIPTOR_HEAP_TYPE_CBV_SRV_UAV);
+    buffer->buffer_view->bindless_index = create_descriptor_index(D3D12_DESCRIPTOR_HEAP_TYPE_CBV_SRV_UAV);
     buffer->buffer_view->size = buffer->size;
     buffer->buffer_view->offset = 0;
     buffer->buffer_view->buffer = buffer;
@@ -247,7 +293,7 @@ std::expected<Buffer_View*, Result> D3D12_Graphics_Device::create_buffer_view(
     }
 
     auto buffer_view = m_buffer_views.acquire();
-    buffer_view->bindless_index = create_bindless_index(D3D12_DESCRIPTOR_HEAP_TYPE_CBV_SRV_UAV);
+    buffer_view->bindless_index = create_descriptor_index(D3D12_DESCRIPTOR_HEAP_TYPE_CBV_SRV_UAV);
     buffer_view->size = create_info.size;
     buffer_view->offset = create_info.offset;
     buffer_view->buffer = buffer;
@@ -279,12 +325,12 @@ void D3D12_Graphics_Device::destroy_buffer(Buffer* buffer) noexcept
     d3d12_buffer->resource->Release();
     d3d12_buffer->allocation->Release();
 
-    release_bindless_index(buffer->buffer_view->bindless_index, D3D12_DESCRIPTOR_HEAP_TYPE_CBV_SRV_UAV);
+    release_descriptor_index(buffer->buffer_view->bindless_index, D3D12_DESCRIPTOR_HEAP_TYPE_CBV_SRV_UAV);
     auto next_buffer_view = d3d12_buffer->buffer_view_linked_list_head;
     while (next_buffer_view != nullptr)
     {
         auto current_buffer_view = next_buffer_view;
-        release_bindless_index(current_buffer_view->bindless_index, D3D12_DESCRIPTOR_HEAP_TYPE_CBV_SRV_UAV);
+        release_descriptor_index(current_buffer_view->bindless_index, D3D12_DESCRIPTOR_HEAP_TYPE_CBV_SRV_UAV);
         next_buffer_view = current_buffer_view->next_buffer_view;
         m_buffer_views.release(current_buffer_view);
     }
@@ -379,12 +425,12 @@ std::expected<Image*, Result> D3D12_Graphics_Device::create_image(const Image_Cr
     image->usage = create_info.usage;
     image->primary_view_type = create_info.primary_view_type;
     image->image_view = m_image_views.acquire();
-    image->image_view->bindless_index = create_bindless_index(D3D12_DESCRIPTOR_HEAP_TYPE_CBV_SRV_UAV);
+    image->image_view->bindless_index = create_descriptor_index(D3D12_DESCRIPTOR_HEAP_TYPE_CBV_SRV_UAV);
     image->image_view->image = image;
     static_cast<D3D12_Image_View*>(image->image_view)->rtv_dsv_index = is_rtv
-        ? create_bindless_index(D3D12_DESCRIPTOR_HEAP_TYPE_RTV)
+        ? create_descriptor_index(D3D12_DESCRIPTOR_HEAP_TYPE_RTV)
         : is_dsv
-            ? create_bindless_index(D3D12_DESCRIPTOR_HEAP_TYPE_DSV)
+            ? create_descriptor_index(D3D12_DESCRIPTOR_HEAP_TYPE_DSV)
             : 0;
     static_cast<D3D12_Image_View*>(image->image_view)->next_image_view = nullptr;
     image->resource = resource;
@@ -428,15 +474,15 @@ void D3D12_Graphics_Device::destroy_image(Image* image) noexcept
     d3d12_image->resource->Release();
     d3d12_image->allocation->Release();
 
-    release_bindless_index(d3d12_image->image_view->bindless_index, D3D12_DESCRIPTOR_HEAP_TYPE_CBV_SRV_UAV);
+    release_descriptor_index(d3d12_image->image_view->bindless_index, D3D12_DESCRIPTOR_HEAP_TYPE_CBV_SRV_UAV);
     if (bool(image->usage & Image_Usage::Color_Attachment))
     {
-        release_bindless_index(static_cast<D3D12_Image_View*>(d3d12_image->image_view)->rtv_dsv_index,
+        release_descriptor_index(static_cast<D3D12_Image_View*>(d3d12_image->image_view)->rtv_dsv_index,
             D3D12_DESCRIPTOR_HEAP_TYPE_RTV);
     }
     if (bool(image->usage & Image_Usage::Depth_Stencil_Attachment))
     {
-        release_bindless_index(static_cast<D3D12_Image_View*>(d3d12_image->image_view)->rtv_dsv_index,
+        release_descriptor_index(static_cast<D3D12_Image_View*>(d3d12_image->image_view)->rtv_dsv_index,
             D3D12_DESCRIPTOR_HEAP_TYPE_DSV);
     }
 
@@ -444,12 +490,81 @@ void D3D12_Graphics_Device::destroy_image(Image* image) noexcept
     while (next_image_view != nullptr)
     {
         auto current_image_view = next_image_view;
-        release_bindless_index(current_image_view->bindless_index, D3D12_DESCRIPTOR_HEAP_TYPE_CBV_SRV_UAV);
+        release_descriptor_index(current_image_view->bindless_index, D3D12_DESCRIPTOR_HEAP_TYPE_CBV_SRV_UAV);
         next_image_view = current_image_view->next_image_view;
         m_image_views.release(current_image_view);
     }
 
     m_images.release(d3d12_image);
+}
+
+D3D12_TEXTURE_ADDRESS_MODE translate_texture_address_mode(Image_Sample_Address_Mode address_mode) noexcept
+{
+    switch (address_mode)
+    {
+    case Image_Sample_Address_Mode::Wrap:
+        return D3D12_TEXTURE_ADDRESS_MODE_WRAP;
+    case Image_Sample_Address_Mode::Mirror:
+        return D3D12_TEXTURE_ADDRESS_MODE_MIRROR;
+    case Image_Sample_Address_Mode::Clamp:
+        return D3D12_TEXTURE_ADDRESS_MODE_CLAMP;
+    case Image_Sample_Address_Mode::Border:
+        return D3D12_TEXTURE_ADDRESS_MODE_BORDER;
+    default:
+        return D3D12_TEXTURE_ADDRESS_MODE_WRAP;
+    }
+}
+
+std::expected<Sampler*, Result> D3D12_Graphics_Device::create_sampler(const Sampler_Create_Info& create_info) noexcept
+{
+    std::unique_lock<std::mutex> lock_guard(m_resource_mutex, std::defer_lock);
+    if (m_use_mutex)
+    {
+        lock_guard.lock();
+    }
+
+    auto sampler = m_samplers.acquire();
+    D3D12_SAMPLER_DESC sampler_desc = {
+        .Filter = translate_filter(
+            create_info.filter_min,
+            create_info.filter_mag,
+            create_info.filter_mip,
+            create_info.anisotropy_enable),
+        .AddressU = translate_texture_address_mode(create_info.address_mode_u),
+        .AddressV = translate_texture_address_mode(create_info.address_mode_v),
+        .AddressW = translate_texture_address_mode(create_info.address_mode_w),
+        .MipLODBias = create_info.mip_lod_bias,
+        .MaxAnisotropy = create_info.max_anisotropy,
+        .ComparisonFunc = translate_comparison_func(create_info.comparison_func),
+        .BorderColor = {
+            create_info.border_color[0],
+            create_info.border_color[1],
+            create_info.border_color[2],
+            create_info.border_color[3]
+        },
+        .MinLOD = create_info.min_lod,
+        .MaxLOD = create_info.max_lod
+    };
+    auto descriptor_index = create_descriptor_index(D3D12_DESCRIPTOR_HEAP_TYPE_SAMPLER);
+    auto dest_descriptor = get_cpu_descriptor_handle(descriptor_index, D3D12_DESCRIPTOR_HEAP_TYPE_SAMPLER);
+    m_context.device->CreateSampler(&sampler_desc, dest_descriptor);
+    sampler->bindless_index = descriptor_index;
+    return sampler;
+}
+
+void D3D12_Graphics_Device::destroy_sampler(Sampler* sampler) noexcept
+{
+    if (!sampler) return;
+
+    std::unique_lock<std::mutex> lock_guard(m_resource_mutex, std::defer_lock);
+    if (m_use_mutex)
+    {
+        lock_guard.lock();
+    }
+
+    auto d3d12_sampler = static_cast<D3D12_Sampler*>(sampler);
+    release_descriptor_index(d3d12_sampler->bindless_index, D3D12_DESCRIPTOR_HEAP_TYPE_SAMPLER);
+    m_samplers.release(d3d12_sampler);
 }
 
 std::expected<Shader_Blob*, Result> D3D12_Graphics_Device::create_shader_blob(void* data, uint64_t size) noexcept
@@ -486,194 +601,6 @@ void D3D12_Graphics_Device::destroy_shader_blob(Shader_Blob* shader_blob) noexce
     }
 
     m_shader_blobs.release(shader_blob);
-}
-
-D3D12_SHADER_BYTECODE translate_shader_blob_safe(Shader_Blob* blob)
-{
-    D3D12_SHADER_BYTECODE bytecode = {};
-    if (blob)
-    {
-        bytecode.BytecodeLength = blob->data.size();
-        bytecode.pShaderBytecode = blob->data.data();
-    }
-    return bytecode;
-}
-
-D3D12_FILL_MODE translate_fill_mode(Fill_Mode fill_mode)
-{
-    return fill_mode == Fill_Mode::Solid
-        ? D3D12_FILL_MODE_SOLID
-        : D3D12_FILL_MODE_WIREFRAME;
-}
-
-D3D12_CULL_MODE translate_cull_mode(Cull_Mode cull_mode)
-{
-    switch (cull_mode)
-    {
-    case rhi::Cull_Mode::None:
-        return D3D12_CULL_MODE_NONE;
-    case rhi::Cull_Mode::Front:
-        return D3D12_CULL_MODE_FRONT;
-    case rhi::Cull_Mode::Back:
-        return D3D12_CULL_MODE_BACK;
-    default:
-        return D3D12_CULL_MODE_NONE;
-    }
-    return D3D12_CULL_MODE_NONE;
-}
-
-D3D12_RASTERIZER_DESC1 translate_rasterizer_desc(const Pipeline_Rasterization_State_Info& raster_info)
-{
-    D3D12_RASTERIZER_DESC1 result = {
-        .FillMode = translate_fill_mode(raster_info.fill_mode),
-        .CullMode = translate_cull_mode(raster_info.cull_mode),
-        .FrontCounterClockwise = raster_info.winding_order == Winding_Order::Front_Face_CCW ? true : false,
-        .DepthBias = raster_info.depth_bias,
-        .DepthBiasClamp = raster_info.depth_bias_clamp,
-        .SlopeScaledDepthBias = raster_info.depth_bias_slope_scale,
-        .DepthClipEnable = raster_info.depth_clip_enable,
-        .MultisampleEnable = false,
-        .AntialiasedLineEnable = false,
-        .ForcedSampleCount = 0,
-        .ConservativeRaster = D3D12_CONSERVATIVE_RASTERIZATION_MODE_OFF
-    };
-    return result;
-}
-
-D3D12_BLEND translate_blend(Blend_Factor blend_factor)
-{
-    switch (blend_factor)
-    {
-    case Blend_Factor::Zero:
-        return D3D12_BLEND_ZERO;
-    case Blend_Factor::One:
-        return D3D12_BLEND_ONE;
-    case Blend_Factor::Src_Color:
-        return D3D12_BLEND_SRC_COLOR;
-    case Blend_Factor::One_Minus_Src_Color:
-        return D3D12_BLEND_INV_SRC_COLOR;
-    case Blend_Factor::Dst_Color:
-        return D3D12_BLEND_DEST_COLOR;
-    case Blend_Factor::One_Minus_Dst_Color:
-        return D3D12_BLEND_INV_DEST_COLOR;
-    case Blend_Factor::Src_Alpha:
-        return D3D12_BLEND_SRC_ALPHA;
-    case Blend_Factor::One_Minus_Src_Alpha:
-        return D3D12_BLEND_INV_SRC_ALPHA;
-    case Blend_Factor::Dst_Alpha:
-        return D3D12_BLEND_DEST_ALPHA;
-    case Blend_Factor::One_Minus_Dst_Alpha:
-        return D3D12_BLEND_INV_DEST_ALPHA;
-    case Blend_Factor::Constant_Color:
-        return D3D12_BLEND_BLEND_FACTOR;
-    case Blend_Factor::One_Minus_Constant_Color:
-        return D3D12_BLEND_INV_BLEND_FACTOR;
-    case Blend_Factor::Constant_Alpha:
-        return D3D12_BLEND_ALPHA_FACTOR;
-    case Blend_Factor::One_Minus_Constant_Alpha:
-        return D3D12_BLEND_INV_ALPHA_FACTOR;
-    case Blend_Factor::Src1_Color:
-        return D3D12_BLEND_SRC1_COLOR;
-    case Blend_Factor::One_Minus_Src1_Color:
-        return D3D12_BLEND_INV_SRC1_COLOR;
-    case Blend_Factor::Src1_Alpha:
-        return D3D12_BLEND_SRC1_ALPHA;
-    case Blend_Factor::One_Minus_Src1_Alpha:
-        return D3D12_BLEND_INV_SRC1_ALPHA;
-    default:
-        return D3D12_BLEND_ZERO;
-    }
-}
-
-D3D12_BLEND_OP translate_blend_op(Blend_Op blend_op)
-{
-    return std::bit_cast<D3D12_BLEND_OP>(blend_op);
-}
-
-D3D12_LOGIC_OP translate_logic_op(Logic_Op logic_op)
-{
-    return std::bit_cast<D3D12_LOGIC_OP>(logic_op);
-}
-
-uint8_t translate_renter_target_write_mask(Color_Component components)
-{
-    return static_cast<uint8_t>(components);
-}
-
-D3D12_RENDER_TARGET_BLEND_DESC translate_render_target_blend_desc(
-    const Pipeline_Color_Attachment_Blend_Info& attachment_blend_info)
-{
-    D3D12_RENDER_TARGET_BLEND_DESC result = {
-        .BlendEnable = attachment_blend_info.blend_enable,
-        .LogicOpEnable = attachment_blend_info.logic_op_enable,
-        .SrcBlend = translate_blend(attachment_blend_info.color_src_blend),
-        .DestBlend = translate_blend(attachment_blend_info.color_dst_blend),
-        .BlendOp = translate_blend_op(attachment_blend_info.color_blend_op),
-        .SrcBlendAlpha = translate_blend(attachment_blend_info.alpha_src_blend),
-        .DestBlendAlpha = translate_blend(attachment_blend_info.alpha_dst_blend),
-        .BlendOpAlpha = translate_blend_op(attachment_blend_info.alpha_blend_op),
-        .LogicOp = translate_logic_op(attachment_blend_info.logic_op),
-        .RenderTargetWriteMask = translate_renter_target_write_mask(attachment_blend_info.color_write_mask)
-    };
-    return result;
-}
-
-D3D12_BLEND_DESC translate_blend_state_desc(const Pipeline_Blend_State_Info& blend_info)
-{
-    D3D12_BLEND_DESC result = {
-        .AlphaToCoverageEnable = false,
-        .IndependentBlendEnable = blend_info.independent_blend_enable,
-        .RenderTarget = {}
-    };
-    for (auto i = 0; i < blend_info.color_attachments.size(); ++i)
-    {
-        result.RenderTarget[i] = translate_render_target_blend_desc(blend_info.color_attachments[i]);
-    }
-    return result;
-}
-
-D3D12_COMPARISON_FUNC translate_comparison_func(Comparison_Func comparison_func)
-{
-    return std::bit_cast<D3D12_COMPARISON_FUNC>(comparison_func);
-}
-
-D3D12_STENCIL_OP translate_stencil_op(Stencil_Op stencil_op)
-{
-    return std::bit_cast<D3D12_STENCIL_OP>(stencil_op);
-}
-
-D3D12_DEPTH_STENCILOP_DESC1 translate_depth_stencilop_desc(const Pipeline_Depth_Stencil_Op_Info& ds_op_info)
-{
-    D3D12_DEPTH_STENCILOP_DESC1 result = {
-        .StencilFailOp = translate_stencil_op(ds_op_info.fail),
-        .StencilDepthFailOp = translate_stencil_op(ds_op_info.depth_fail),
-        .StencilPassOp = translate_stencil_op(ds_op_info.pass),
-        .StencilFunc = translate_comparison_func(ds_op_info.comparison_func),
-        .StencilReadMask = ds_op_info.stencil_read_mask,
-        .StencilWriteMask = ds_op_info.stencil_write_mask
-    };
-    return result;
-}
-
-D3D12_DEPTH_STENCIL_DESC2 translate_depth_stencil_desc(const Pipeline_Depth_Stencil_State_Info& ds_info)
-{
-    D3D12_DEPTH_STENCIL_DESC2 result = {
-        .DepthEnable = ds_info.depth_enable,
-        .DepthWriteMask = ds_info.depth_enable ? D3D12_DEPTH_WRITE_MASK_ALL : D3D12_DEPTH_WRITE_MASK_ZERO,
-        .DepthFunc = translate_comparison_func(ds_info.comparison_func),
-        .StencilEnable = ds_info.stencil_enable,
-        .FrontFace = translate_depth_stencilop_desc(ds_info.stencil_front_face),
-        .BackFace = translate_depth_stencilop_desc(ds_info.stencil_back_face),
-        .DepthBoundsTestEnable = ds_info.depth_bounds_test_mode == Depth_Bounds_Test_Mode::Disabled
-            ? false
-            : true
-    };
-    return result;
-}
-
-D3D12_PRIMITIVE_TOPOLOGY_TYPE translate_primitive_topology_type(Primitive_Topology_Type topology)
-{
-    return std::bit_cast<D3D12_PRIMITIVE_TOPOLOGY_TYPE>(topology);
 }
 
 std::expected<Pipeline*, Result> D3D12_Graphics_Device::create_pipeline(

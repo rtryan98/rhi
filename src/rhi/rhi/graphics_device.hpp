@@ -24,6 +24,8 @@ enum class Graphics_API
 enum class Result
 {
     Success,
+    Wait_Timeout,
+    Error_Wait_Failed,
     Error_Out_Of_Memory,
     Error_Invalid_Parameters,
     Error_Device_Lost,
@@ -41,7 +43,9 @@ enum class Queue_Type
 };
 
 struct Fence
-{};
+{
+    virtual [[nodiscard]] Result get_status(uint64_t value) noexcept = 0;
+};
 
 struct Submit_Fence_Info
 {
@@ -75,6 +79,9 @@ public:
     Graphics_Device(Graphics_Device&& other) = delete;
     Graphics_Device& operator=(const Graphics_Device& other) = delete;
     Graphics_Device& operator=(Graphics_Device&& other) = delete;
+
+    virtual Result wait_idle() noexcept = 0;
+    virtual Result queue_wait_idle(Queue_Type queue, uint64_t timeout) noexcept = 0;
 
     virtual [[nodiscard]] Graphics_API get_graphics_api() const noexcept = 0;
 

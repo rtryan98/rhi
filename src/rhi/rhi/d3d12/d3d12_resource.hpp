@@ -48,9 +48,10 @@ struct D3D12_Pipeline : public Pipeline
     ID3D12StateObject* rtpso;
 };
 
-DXGI_FORMAT translate_format(Image_Format format) noexcept;
-D3D12_SRV_DIMENSION translate_view_type_srv(Image_View_Type type) noexcept;
-D3D12_UAV_DIMENSION translate_view_type_uav(Image_View_Type type) noexcept;
-D3D12_RTV_DIMENSION translate_view_type_rtv(Image_View_Type type) noexcept;
-D3D12_DSV_DIMENSION translate_view_type_dsv(Image_View_Type type) noexcept;
+[[nodiscard]] DXGI_FORMAT translate_format(Image_Format format) noexcept;
+[[nodiscard]] D3D12_SRV_DIMENSION translate_view_type_srv(Image_View_Type type) noexcept;
+[[nodiscard]] D3D12_UAV_DIMENSION translate_view_type_uav(Image_View_Type type) noexcept;
+[[nodiscard]] D3D12_RTV_DIMENSION translate_view_type_rtv(Image_View_Type type) noexcept;
+[[nodiscard]] D3D12_DSV_DIMENSION translate_view_type_dsv(Image_View_Type type) noexcept;
+[[nodiscard]] D3D12_FILTER translate_filter(Sampler_Filter min, Sampler_Filter mag, Sampler_Filter mip, bool aniso) noexcept;
 }

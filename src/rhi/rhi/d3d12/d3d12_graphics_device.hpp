@@ -33,6 +33,8 @@ struct Indirect_Signatures
 struct D3D12_Fence : public Fence
 {
     ID3D12Fence1* fence;
+
+    virtual [[nodiscard]] Result get_status(uint64_t value) noexcept override;
 };
 
 class D3D12_Graphics_Device final : public Graphics_Device
@@ -40,6 +42,9 @@ class D3D12_Graphics_Device final : public Graphics_Device
 public:
     D3D12_Graphics_Device(const Graphics_Device_Create_Info& create_info) noexcept;
     virtual ~D3D12_Graphics_Device() noexcept override;
+
+    virtual Result wait_idle() noexcept override;
+    virtual Result queue_wait_idle(Queue_Type queue, uint64_t timeout) noexcept override;
 
     virtual [[nodiscard]] Graphics_API get_graphics_api() const noexcept override;
 
@@ -104,8 +109,8 @@ private:
         const D3D12_DEPTH_STENCIL_VIEW_DESC* dsv_desc) noexcept;
 
     // Only use inside resource creation and destruction. Not guarded by mutex.
-    [[nodiscard]] uint32_t create_bindless_index(D3D12_DESCRIPTOR_HEAP_TYPE type) noexcept;
-    void release_bindless_index(uint32_t index, D3D12_DESCRIPTOR_HEAP_TYPE type) noexcept;
+    [[nodiscard]] uint32_t create_descriptor_index(D3D12_DESCRIPTOR_HEAP_TYPE type) noexcept;
+    void release_descriptor_index(uint32_t index, D3D12_DESCRIPTOR_HEAP_TYPE type) noexcept;
 
     [[nodiscard]] Descriptor_Increment_Sizes acquire_descriptor_increment_sizes() noexcept;
     [[nodiscard]] Indirect_Signatures create_execute_indirect_signatures() noexcept;

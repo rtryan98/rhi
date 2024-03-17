@@ -242,4 +242,59 @@ D3D12_DSV_DIMENSION translate_view_type_dsv(Image_View_Type type) noexcept
         return D3D12_DSV_DIMENSION_UNKNOWN;
     }
 }
+
+D3D12_FILTER_TYPE translate_filter_type(Sampler_Filter filter)
+{
+    if (filter == Sampler_Filter::Nearest)
+    {
+        return D3D12_FILTER_TYPE_POINT;
+    }
+    else
+    {
+        return D3D12_FILTER_TYPE_LINEAR;
+    }
+}
+
+D3D12_FILTER_REDUCTION_TYPE translate_filter_reduction_type(Sampler_Reduction_Type reduction)
+{
+    if (reduction == Sampler_Reduction_Type::Standard)
+    {
+        return D3D12_FILTER_REDUCTION_TYPE_STANDARD;
+    }
+    else
+    {
+        return D3D12_FILTER_REDUCTION_TYPE_COMPARISON;
+    }
+}
+
+#define RHI_D3D12_ENCODE_ANISOTROPIC_FILTER(mip, reduction) \
+    ( ( D3D12_FILTER ) ( \
+    D3D12_ANISOTROPIC_FILTERING_BIT | \
+    D3D12_ENCODE_BASIC_FILTER(  D3D12_FILTER_TYPE_LINEAR, \
+                                D3D12_FILTER_TYPE_LINEAR, \
+                                mip, \
+                                reduction ) ) )
+
+D3D12_FILTER translate_filter(
+    Sampler_Filter min,
+    Sampler_Filter mag,
+    Sampler_Filter mip,
+    Sampler_Reduction_Type reduction,
+    bool aniso) noexcept
+{
+    if (aniso)
+    {
+        return RHI_D3D12_ENCODE_ANISOTROPIC_FILTER(
+            translate_filter_type(mip),
+            translate_filter_reduction_type(reduction));
+    }
+    else
+    {
+        return D3D12_ENCODE_BASIC_FILTER(
+            translate_filter_type(min),
+            translate_filter_type(mag),
+            translate_filter_type(mip),
+            translate_filter_reduction_type(reduction));
+    }
+}
 }
