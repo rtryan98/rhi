@@ -53,21 +53,29 @@ struct D3D12_Pipeline : public Pipeline
 [[nodiscard]] D3D12_UAV_DIMENSION translate_view_type_uav(Image_View_Type type) noexcept;
 [[nodiscard]] D3D12_RTV_DIMENSION translate_view_type_rtv(Image_View_Type type) noexcept;
 [[nodiscard]] D3D12_DSV_DIMENSION translate_view_type_dsv(Image_View_Type type) noexcept;
-[[nodiscard]] D3D12_FILTER translate_filter(Sampler_Filter min, Sampler_Filter mag, Sampler_Filter mip, bool aniso) noexcept;
+[[nodiscard]] D3D12_FILTER translate_filter(
+    Sampler_Filter min, Sampler_Filter mag, Sampler_Filter mip,
+    Sampler_Reduction_Type reduction, bool aniso) noexcept;
 [[nodiscard]] D3D12_SHADER_BYTECODE translate_shader_blob_safe(Shader_Blob* blob) noexcept;
 [[nodiscard]] D3D12_FILL_MODE translate_fill_mode(Fill_Mode fill_mode) noexcept;
 [[nodiscard]] D3D12_CULL_MODE translate_cull_mode(Cull_Mode cull_mode) noexcept;
-[[nodiscard]] D3D12_RASTERIZER_DESC1 translate_rasterizer_desc(const Pipeline_Rasterization_State_Info& raster_info) noexcept;
+[[nodiscard]] D3D12_RASTERIZER_DESC1 translate_rasterizer_desc(
+    const Pipeline_Rasterization_State_Info& raster_info) noexcept;
 [[nodiscard]] D3D12_BLEND translate_blend(Blend_Factor blend_factor) noexcept;
 [[nodiscard]] D3D12_BLEND_OP translate_blend_op(Blend_Op blend_op) noexcept;
 [[nodiscard]] D3D12_LOGIC_OP translate_logic_op(Logic_Op logic_op) noexcept;
 [[nodiscard]] uint8_t translate_renter_target_write_mask(Color_Component components) noexcept;
 [[nodiscard]] D3D12_RENDER_TARGET_BLEND_DESC translate_render_target_blend_desc(
     const Pipeline_Color_Attachment_Blend_Info& attachment_blend_info) noexcept;
-[[nodiscard]] D3D12_BLEND_DESC translate_blend_state_desc(const Pipeline_Blend_State_Info& blend_info) noexcept;
+[[nodiscard]] D3D12_BLEND_DESC translate_blend_state_desc(
+    const Pipeline_Blend_State_Info& blend_info) noexcept;
 [[nodiscard]] D3D12_COMPARISON_FUNC translate_comparison_func(Comparison_Func comparison_func) noexcept;
 [[nodiscard]] D3D12_STENCIL_OP translate_stencil_op(Stencil_Op stencil_op) noexcept;
-[[nodiscard]] D3D12_DEPTH_STENCILOP_DESC1 translate_depth_stencilop_desc(const Pipeline_Depth_Stencil_Op_Info& ds_op_info) noexcept;
-[[nodiscard]] D3D12_DEPTH_STENCIL_DESC2 translate_depth_stencil_desc(const Pipeline_Depth_Stencil_State_Info& ds_info) noexcept;
-[[nodiscard]] D3D12_PRIMITIVE_TOPOLOGY_TYPE translate_primitive_topology_type(Primitive_Topology_Type topology) noexcept;
+[[nodiscard]] D3D12_DEPTH_STENCILOP_DESC1 translate_depth_stencilop_desc(
+    const Pipeline_Depth_Stencil_Op_Info& ds_op_info) noexcept;
+[[nodiscard]] D3D12_DEPTH_STENCIL_DESC2 translate_depth_stencil_desc(
+    const Pipeline_Depth_Stencil_State_Info& ds_info) noexcept;
+[[nodiscard]] D3D12_PRIMITIVE_TOPOLOGY_TYPE translate_primitive_topology_type(
+    Primitive_Topology_Type topology) noexcept;
+[[nodiscard]] Image_Format translate_image_format_to_dxgi_format(DXGI_FORMAT format) noexcept;
 }

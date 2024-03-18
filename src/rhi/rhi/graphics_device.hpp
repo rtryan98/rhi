@@ -10,6 +10,7 @@ namespace rhi
 {
 class Command_List;
 class Swapchain;
+struct Swapchain_Win32_Create_Info;
 
 enum class Graphics_API
 {
@@ -45,6 +46,7 @@ enum class Queue_Type
 struct Fence
 {
     virtual [[nodiscard]] Result get_status(uint64_t value) noexcept = 0;
+    virtual Result wait_for_value(uint64_t value) noexcept = 0;
 };
 
 struct Submit_Fence_Info
@@ -56,7 +58,8 @@ struct Submit_Fence_Info
 struct Submit_Info
 {
     Queue_Type queue_type;
-    Swapchain* swapchain; // May be nullptr.
+    Swapchain* wait_swapchain; // May be nullptr.
+    Swapchain* present_swapchain; // May be nullptr.
     std::span<Submit_Fence_Info> wait_infos;
     std::span<Command_List*> command_lists;
     std::span< Submit_Fence_Info> signal_infos;
@@ -84,6 +87,9 @@ public:
     virtual Result queue_wait_idle(Queue_Type queue, uint64_t timeout) noexcept = 0;
 
     virtual [[nodiscard]] Graphics_API get_graphics_api() const noexcept = 0;
+
+    virtual [[nodiscard]] std::unique_ptr<Swapchain> create_swapchain(
+        const Swapchain_Win32_Create_Info& create_info) noexcept = 0;
 
     virtual [[nodsicard]] std::expected<Fence*, Result> create_fence(uint64_t initial_value) noexcept = 0;
     virtual void destroy_fence(Fence* fence) noexcept = 0;

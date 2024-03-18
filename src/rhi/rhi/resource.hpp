@@ -27,6 +27,11 @@ enum class Image_Format
     R8G8B8A8_UINT = 41,
     R8G8B8A8_SINT = 42,
     R8G8B8A8_SRGB = 43,
+    B8G8R8A8_UNORM = 44,
+    B8G8R8A8_SNORM = 45,
+    B8G8R8A8_UINT = 48,
+    B8G8R8A8_SINT = 49,
+    B8G8R8A8_SRGB = 50,
     A2R10G10B10_UNORM_PACK32 = 58,
     R16_UNORM = 70,
     R16_SNORM = 71,
@@ -342,6 +347,7 @@ struct Sampler_Create_Info
     float mip_lod_bias;
     uint32_t max_anisotropy;
     Comparison_Func comparison_func;
+    Sampler_Reduction_Type reduction;
     std::array<float, 4> border_color;
     float min_lod;
     float max_lod;

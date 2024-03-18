@@ -35,6 +35,7 @@ struct D3D12_Fence : public Fence
     ID3D12Fence1* fence;
 
     virtual [[nodiscard]] Result get_status(uint64_t value) noexcept override;
+    virtual Result wait_for_value(uint64_t value) noexcept override;
 };
 
 class D3D12_Graphics_Device final : public Graphics_Device
@@ -47,6 +48,9 @@ public:
     virtual Result queue_wait_idle(Queue_Type queue, uint64_t timeout) noexcept override;
 
     virtual [[nodiscard]] Graphics_API get_graphics_api() const noexcept override;
+
+    virtual [[nodiscard]] std::unique_ptr<Swapchain> create_swapchain(
+        const Swapchain_Win32_Create_Info& create_info) noexcept override;
 
     virtual [[nodsicard]] std::expected<Fence*, Result> create_fence(uint64_t initial_value) noexcept override;
     virtual void destroy_fence(Fence* fence) noexcept override;
@@ -88,6 +92,14 @@ public:
 
     [[nodiscard]] uint32_t get_uav_from_bindless_index(uint32_t bindless_index) const noexcept;
     [[nodiscard]] const Indirect_Signatures& get_indirect_signatures() const noexcept;
+
+    [[nodiscard]] core::d3d12::D3D12_Context* get_context() noexcept;
+
+    [[nodiscard]] uint32_t create_descriptor_index_blocking(D3D12_DESCRIPTOR_HEAP_TYPE type) noexcept;
+    void release_descriptor_index_blocking(uint32_t index, D3D12_DESCRIPTOR_HEAP_TYPE type) noexcept;
+
+    [[nodiscard]] D3D12_Image* acquire_custom_allocated_image() noexcept;
+    void release_custom_allocated_image(D3D12_Image* image) noexcept;
 
 private:
     void create_initial_buffer_descriptors(D3D12_Buffer* buffer) noexcept;

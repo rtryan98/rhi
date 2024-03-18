@@ -7,6 +7,7 @@
 namespace rhi
 {
 constexpr static uint32_t INDIRECT_ARGUMENT_STRIDE = sizeof(uint32_t) * 8;
+constexpr static uint32_t PUSH_CONSTANT_MAX_SIZE = 128;
 
 struct Buffer;
 struct Buffer_View;
@@ -213,6 +214,7 @@ public:
     template<typename T>
     void set_push_constants(const T& data, Pipeline_Bind_Point bind_point) noexcept
     {
+        static_assert(sizeof(T) <= PUSH_CONSTANT_MAX_SIZE);
         set_push_constants(&data, uint32_t(sizeof(data)), bind_point);
     }
     virtual void set_push_constants(void* data, uint32_t size, Pipeline_Bind_Point bind_point) noexcept = 0;

@@ -1,5 +1,6 @@
-#include "d3d12_graphics_device.hpp"
-#include "d3d12_command_list.hpp"
+#include "rhi/d3d12/d3d12_graphics_device.hpp"
+#include "rhi/d3d12/d3d12_command_list.hpp"
+#include "rhi/d3d12/d3d12_swapchain.hpp"
 
 #include <core/d3d12/d3d12_pso.hpp>
 #include <core/d3d12/d3d12_descriptor_util.hpp>
@@ -63,6 +64,11 @@ Result D3D12_Fence::get_status(uint64_t value) noexcept
     return wait_result_from_dword(core::d3d12::await_fence(fence, value, 0));
 }
 
+Result D3D12_Fence::wait_for_value(uint64_t value) noexcept
+{
+    return wait_result_from_dword(core::d3d12::await_fence(fence, value, INFINITE));
+}
+
 D3D12_Graphics_Device::D3D12_Graphics_Device(const Graphics_Device_Create_Info& create_info) noexcept
     : Graphics_Device()
     , m_context{}
@@ -92,7 +98,7 @@ D3D12_Graphics_Device::D3D12_Graphics_Device(const Graphics_Device_Create_Info& 
         .sampler_descriptor_heap_size = D3D12_MAX_SHADER_VISIBLE_SAMPLER_HEAP_SIZE,
         .rtv_descriptor_heap_size = MAX_RTV_DSV_DESCRIPTORS,
         .dsv_descriptor_heap_size = MAX_RTV_DSV_DESCRIPTORS,
-        .push_constant_size = 64,
+        .push_constant_size = PUSH_CONSTANT_MAX_SIZE,
         .static_samplers = {}
     };
     core::d3d12::create_d3d12_context(context_create_info, &m_context);
@@ -117,23 +123,35 @@ D3D12_Graphics_Device::~D3D12_Graphics_Device() noexcept
     // TODO: Should this be done or should a leak be mentioned by the validation layer instead?
     for (auto& buffer : m_buffers)
     {
-        buffer.resource->Release();
-        buffer.allocation->Release();
+        if (buffer.resource && buffer.allocation)
+        {
+            buffer.resource->Release();
+            buffer.allocation->Release();
+        }
     }
     for (auto& image : m_images)
     {
-        image.resource->Release();
-        image.allocation->Release();
+        if (image.resource && image.allocation)
+        {
+            image.resource->Release();
+            image.allocation->Release();
+        }
     }
     for (auto& pipeline : m_pipelines)
     {
         if (pipeline.type == Pipeline_Type::Ray_Tracing)
         {
-            pipeline.rtpso->Release();
+            if (pipeline.rtpso)
+            {
+                pipeline.rtpso->Release();
+            }
         }
         else
         {
-            pipeline.pso->Release();
+            if (pipeline.pso)
+            {
+                pipeline.pso->Release();
+            }
         }
     }
 
@@ -174,6 +192,12 @@ Result D3D12_Graphics_Device::queue_wait_idle(Queue_Type queue, uint64_t timeout
 Graphics_API D3D12_Graphics_Device::get_graphics_api() const noexcept
 {
     return Graphics_API::D3D12;
+}
+
+std::unique_ptr<Swapchain> D3D12_Graphics_Device::create_swapchain(
+    const Swapchain_Win32_Create_Info& create_info) noexcept
+{
+    return std::make_unique<D3D12_Swapchain>(this, create_info);
 }
 
 std::expected<Fence*, Result> D3D12_Graphics_Device::create_fence(uint64_t initial_value) noexcept
@@ -529,6 +553,7 @@ std::expected<Sampler*, Result> D3D12_Graphics_Device::create_sampler(const Samp
             create_info.filter_min,
             create_info.filter_mag,
             create_info.filter_mip,
+            create_info.reduction,
             create_info.anisotropy_enable),
         .AddressU = translate_texture_address_mode(create_info.address_mode_u),
         .AddressV = translate_texture_address_mode(create_info.address_mode_v),
@@ -962,6 +987,54 @@ void D3D12_Graphics_Device::create_srv_and_uav(
     }
 }
 
+uint32_t D3D12_Graphics_Device::create_descriptor_index_blocking(D3D12_DESCRIPTOR_HEAP_TYPE type) noexcept
+{
+    std::unique_lock<std::mutex> lock_guard(m_resource_mutex, std::defer_lock);
+    if (m_use_mutex)
+    {
+        lock_guard.lock();
+    }
+
+    return create_descriptor_index(type);
+}
+
+void D3D12_Graphics_Device::release_descriptor_index_blocking(uint32_t index, D3D12_DESCRIPTOR_HEAP_TYPE type) noexcept
+{
+    std::unique_lock<std::mutex> lock_guard(m_resource_mutex, std::defer_lock);
+    if (m_use_mutex)
+    {
+        lock_guard.lock();
+    }
+
+    release_descriptor_index(index, type);
+}
+
+D3D12_Image* D3D12_Graphics_Device::acquire_custom_allocated_image() noexcept
+{
+    std::unique_lock<std::mutex> lock_guard(m_resource_mutex, std::defer_lock);
+    if (m_use_mutex)
+    {
+        lock_guard.lock();
+    }
+
+    auto image = m_images.acquire();
+    image->image_view = m_image_views.acquire();
+
+    return image;
+}
+
+void D3D12_Graphics_Device::release_custom_allocated_image(D3D12_Image* image) noexcept
+{
+    std::unique_lock<std::mutex> lock_guard(m_resource_mutex, std::defer_lock);
+    if (m_use_mutex)
+    {
+        lock_guard.lock();
+    }
+
+    m_image_views.release(static_cast<D3D12_Image_View*>(image->image_view));
+    m_images.release(image);
+}
+
 void D3D12_Graphics_Device::create_srv_uav_rtv_dsv(
     ID3D12Resource* resource,
     uint32_t bindless_index,
@@ -1042,5 +1115,10 @@ Indirect_Signatures D3D12_Graphics_Device::create_execute_indirect_signatures() 
         IID_PPV_ARGS(&result.dispatch_indirect));
 
     return result;
+}
+
+core::d3d12::D3D12_Context* D3D12_Graphics_Device::get_context() noexcept
+{
+    return &m_context;
 }
 }

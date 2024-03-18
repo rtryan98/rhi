@@ -488,4 +488,135 @@ D3D12_PRIMITIVE_TOPOLOGY_TYPE translate_primitive_topology_type(Primitive_Topolo
 {
     return std::bit_cast<D3D12_PRIMITIVE_TOPOLOGY_TYPE>(topology);
 }
+
+Image_Format translate_image_format_to_dxgi_format(DXGI_FORMAT format) noexcept
+{
+    switch (format)
+    {
+    case DXGI_FORMAT_UNKNOWN:
+        return Image_Format::Undefined;
+    case DXGI_FORMAT_R32G32B32A32_FLOAT:
+        return Image_Format::R32G32B32A32_SFLOAT;
+    case DXGI_FORMAT_R32G32B32A32_UINT:
+        return Image_Format::R32G32B32A32_UINT;
+    case DXGI_FORMAT_R32G32B32A32_SINT:
+        return Image_Format::R32G32B32A32_SINT;
+    case DXGI_FORMAT_R16G16B16A16_FLOAT:
+        return Image_Format::R16G16B16A16_SFLOAT;
+    case DXGI_FORMAT_R16G16B16A16_UNORM:
+        return Image_Format::R16G16B16A16_UNORM;
+    case DXGI_FORMAT_R16G16B16A16_UINT:
+        return Image_Format::R16G16B16A16_UINT;
+    case DXGI_FORMAT_R16G16B16A16_SNORM:
+        return Image_Format::R16G16B16A16_SNORM;
+    case DXGI_FORMAT_R16G16B16A16_SINT:
+        return Image_Format::R16G16B16A16_SINT;
+    case DXGI_FORMAT_R32G32_FLOAT:
+        return Image_Format::R32G32_SFLOAT;
+    case DXGI_FORMAT_R32G32_UINT:
+        return Image_Format::R32G32_UINT;
+    case DXGI_FORMAT_R32G32_SINT:
+        return Image_Format::R32G32_SINT;
+    case DXGI_FORMAT_D32_FLOAT_S8X24_UINT:
+        return Image_Format::D32_SFLOAT_S8_UINT;
+    case DXGI_FORMAT_R10G10B10A2_UNORM:
+        return Image_Format::A2R10G10B10_UNORM_PACK32; // TODO: reversed?
+    case DXGI_FORMAT_R11G11B10_FLOAT:
+        return Image_Format::B10G11R11_UFLOAT_PACK32;
+    case DXGI_FORMAT_R8G8B8A8_UNORM:
+        return Image_Format::R8G8B8A8_UNORM;
+    case DXGI_FORMAT_R8G8B8A8_UNORM_SRGB:
+        return Image_Format::R8G8B8A8_SRGB;
+    case DXGI_FORMAT_R8G8B8A8_UINT:
+        return Image_Format::R8G8B8A8_UINT;
+    case DXGI_FORMAT_R8G8B8A8_SNORM:
+        return Image_Format::R8G8B8A8_SNORM;
+    case DXGI_FORMAT_R8G8B8A8_SINT:
+        return Image_Format::R8G8B8A8_SINT;
+    case DXGI_FORMAT_R16G16_FLOAT:
+        return Image_Format::R16G16_SFLOAT;
+    case DXGI_FORMAT_R16G16_UNORM:
+        return Image_Format::R16G16_UNORM;
+    case DXGI_FORMAT_R16G16_UINT:
+        return Image_Format::R16G16_UINT;
+    case DXGI_FORMAT_R16G16_SNORM:
+        return Image_Format::R16G16_SNORM;
+    case DXGI_FORMAT_R16G16_SINT:
+        return Image_Format::R16G16_SINT;
+    case DXGI_FORMAT_D32_FLOAT:
+        return Image_Format::D32_SFLOAT;
+    case DXGI_FORMAT_R32_FLOAT:
+        return Image_Format::R32_SFLOAT;
+    case DXGI_FORMAT_R32_UINT:
+        return Image_Format::R32_UINT;
+    case DXGI_FORMAT_R32_SINT:
+        return Image_Format::R32_SINT;
+    case DXGI_FORMAT_D24_UNORM_S8_UINT:
+        return Image_Format::D24_UNORM_S8_UINT;
+    case DXGI_FORMAT_R8G8_UNORM:
+        return Image_Format::R8G8_UNORM;
+    case DXGI_FORMAT_R8G8_UINT:
+        return Image_Format::R8G8_UINT;
+    case DXGI_FORMAT_R8G8_SNORM:
+        return Image_Format::R8G8_SNORM;
+    case DXGI_FORMAT_R8G8_SINT:
+        return Image_Format::R8G8_SINT;
+    case DXGI_FORMAT_R16_FLOAT:
+        return Image_Format::R16_SFLOAT;
+    case DXGI_FORMAT_D16_UNORM:
+        return Image_Format::D16_UNORM;
+    case DXGI_FORMAT_R16_UNORM:
+        return Image_Format::R16_UNORM;
+    case DXGI_FORMAT_R16_UINT:
+        return Image_Format::R16_UINT;
+    case DXGI_FORMAT_R16_SNORM:
+        return Image_Format::R16_SNORM;
+    case DXGI_FORMAT_R16_SINT:
+        return Image_Format::R16_SINT;
+    case DXGI_FORMAT_R8_UNORM:
+        return Image_Format::R8_UNORM;
+    case DXGI_FORMAT_R8_UINT:
+        return Image_Format::R8_UINT;
+    case DXGI_FORMAT_R8_SNORM:
+        return Image_Format::R8_SNORM;
+    case DXGI_FORMAT_R8_SINT:
+        return Image_Format::R8_SINT;
+    case DXGI_FORMAT_R9G9B9E5_SHAREDEXP:
+        return Image_Format::E5B9G9R9_UFLOAT_PACK32;
+    case DXGI_FORMAT_BC1_UNORM:
+        return Image_Format::BC1_RGBA_UNORM_BLOCK;
+    case DXGI_FORMAT_BC1_UNORM_SRGB:
+        return Image_Format::BC1_RGBA_SRGB_BLOCK;
+    case DXGI_FORMAT_BC2_UNORM:
+        return Image_Format::BC2_UNORM_BLOCK;
+    case DXGI_FORMAT_BC2_UNORM_SRGB:
+        return Image_Format::BC2_SRGB_BLOCK;
+    case DXGI_FORMAT_BC3_UNORM:
+        return Image_Format::BC3_UNORM_BLOCK;
+    case DXGI_FORMAT_BC3_UNORM_SRGB:
+        return Image_Format::BC3_SRGB_BLOCK;
+    case DXGI_FORMAT_BC4_UNORM:
+        return Image_Format::BC4_UNORM_BLOCK;
+    case DXGI_FORMAT_BC4_SNORM:
+        return Image_Format::BC4_SNORM_BLOCK;
+    case DXGI_FORMAT_BC5_UNORM:
+        return Image_Format::BC5_UNORM_BLOCK;
+    case DXGI_FORMAT_BC5_SNORM:
+        return Image_Format::BC5_SNORM_BLOCK;
+    case DXGI_FORMAT_B8G8R8A8_UNORM:
+        return Image_Format::B8G8R8A8_UNORM;
+    case DXGI_FORMAT_B8G8R8A8_UNORM_SRGB:
+        return Image_Format::B8G8R8A8_SRGB;
+    case DXGI_FORMAT_BC6H_UF16:
+        return Image_Format::BC6H_UFLOAT_BLOCK;
+    case DXGI_FORMAT_BC6H_SF16:
+        return Image_Format::BC6H_SFLOAT_BLOCK;
+    case DXGI_FORMAT_BC7_UNORM:
+        return Image_Format::BC7_UNORM_BLOCK;
+    case DXGI_FORMAT_BC7_UNORM_SRGB:
+        return Image_Format::BC7_SRGB_BLOCK;
+    default:
+        return Image_Format::Undefined;
+    }
+}
 }

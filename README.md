@@ -4,9 +4,9 @@ Rendering Hardware Interface for D3D12 and Vulkan.
 ## Table of Contents
 - [Building](#building)
 - [Usage](#usage)
-    - [Device Creation](#device-creation)
-    - [Resources](#resources)
-    - [Resource Views](#resource-views)
+    - [Graphics Device](#graphics-device)
+    - [Buffers, Images and Samplers](#buffers-images-and-samplers)
+    - [Swapchain](#swapchain)
 - [Legal](#legal)
 
 ## Building
@@ -27,8 +27,9 @@ target_link_libraries(<your_target> PUBLIC rhi)
 ```
 Once linked you can start using the RHI in your code.
 
-### Device Creation
-The first step in using it is to create a `Graphics_Device`.
+### Graphics Device
+To get started with using the RHI, the first thing that needs to be created is the `Graphics_Device`.
+Validation layers for both D3D12 and Vulkan can be enabled and the instance can be created with internal locks as well.
 ```cpp
 #include <rhi/graphics_device.hpp>
 // ...
@@ -36,42 +37,92 @@ rhi::Graphics_API_Create_Info device_create_info = {
     .graphics_api = rhi::Graphics_API::D3D12,
     .enable_validation = true,
     .enable_gpu_validation = false,
-    .enable_locking = true
+    .enable_locking = false
 };
 auto graphics_device = rhi::Graphics_Device::create(device_create_info);
 ```
+If the `Graphics_Device` instance was created with `enable_locking` set to `true`, then all resource creation and destruction member functions as well as `Command_List` submission will be synchronized properly.
+This does not solve any lifetime issues that may arise however, so destroying a resource that may be read is invalid.
+When the `Graphics_Device` is destroyed all resources created from it will be invalidated and released with the exception of `Swapchain`s and `Command_Pool`s and their corresponding `Command_List`s.
 
-### Resources
-All resources, like Fences, Buffers, Images, etc. are created using the newly created `Graphics_Device`.
-The memory of those resources is owned by the `Graphics_Device`.
-Destruction, however, still needs to be managed by the user.
-Resources in use by the GPU may must not be destroyed - such destructions need to be protected by a fence.
-If `rhi::Graphics_API_Create_Info::enable_locking` was set to `true`, then resources may be created and destroyed from multiple threads at the same time.
-Locking does only lock creation and destruction of resources, not reads, as most resources are completely read-only except when creating views, which is also a guarded process.
-This does mean that a resource may be destroyed whilst it is being read so it does not solve lifetime races.
-However, the address stays valid so this will not cause an illegal access.
+### Buffers, Images and Samplers
+Creating resources is simplified compared to the D3D12 and Vulkan counterpart.
+`Buffer`s, `Image`s and `Sampler`s are created using the `Graphics_Device`.
+For example
 ```cpp
-#include <rhi/resource.hpp>
-// ...
 rhi::Buffer_Create_Info buffer_create_info = {
     .size = 1ull << 16,
-    .heap = rhi::Memory_Heap_Type::GPU
+    .heap = Memory_Heap_Type::GPU
 };
 auto buffer = graphics_device->create_buffer(buffer_create_info);
 ```
+Once the resource (excluding samplers) is created a corresponding default view is also created.
+The default view is across the entire resource if applicable.
+One exception is UAVs of images with multiple mip levels, in which case the first mip level is only taken.
+Further exceptions are Render Target Views and Depth Stencil Views of Images where only the first array layer and first mip level is used.
+Both `Buffer_View`s and `Image_View`s consist of a `bindless_index` which can be used in a shader to access the resource.
+Further views can be created using the `Graphics_Device`.
+Additional views will have their own `bindless_index`.
+Views are destroyed and invalidated when their parent is destroyed.
 
-### Resource Views
-Buffers and Images can be suballocated by utilizing their respective Views.
-A `Buffer_View` is a view of a `Buffer`, starting at an offset (which must be a multiple of 4 bytes) from the source `Buffer` and having its own size.
-An `Image_View` is a view of an `Image`, starting at an offset array level and mip level as well as containing its own component mapping.
-Both `Buffer_View`s and `Image_View`s are all implicitly destroyed when their respective parent `Buffer` or `Image` is destroyed.
-Both `Buffer_View`s and `Image_View`s have their own set of bindless indices, making something like small buffer suballocation easily possible.
+Samplers do not have views.
+However, they directly contain their corresponding `bindless_index`.
+
+### Swapchain
+Next up is creating a `Swapchain` to render to.
+This is done via a `Graphics_Device`.
 ```cpp
-rhi::Buffer_View_Create_Info buffer_view_create_info = {
-    .size = /* Calculate size ...*/,
-    .offset = /* Calculate offset ...*/
+#include <rhi/swapchain.hpp>
+// ...
+rhi::Swapchain_Win32_Create_Info swapchain_create_info = {
+    .hwnd = /* your HWND */,
+    .preferred_format = Image_Format::R8G8B8A8_UNORM,
+    .image_count = 3,
+    .present_mode = Present_Mode::Immediate
 };
-auto buffer_view = graphics_device->create_buffer_view(buffer, buffer_view_create_info);
+auto swapchain = graphics_device->create_swapchain(swapchain_create_info);
+```
+Once the `Swapchain` is created we get access to the actually used `Image_Format` which may deviate from the `preferred_format` we have provided, for example `Image_Format::R8G8B8A8_UNORM` may become `Image_Format::B8G8R8A8_UNORM` when using Vulkan.
+This query is useful for creating graphics pipelines that directly render onto the swapchain.
+
+In your render loop you'll have to use the following functions: `Swapchain::query_resize`, `Swapchain::acquire_next_image`, `Swapchain::get_current_image_view` and `Swapchain::present`.
+The `Image_View` pointers are stable but not synchronized even when the `Graphics_Device` was created with `.enable_locking = true`.
+This means that whilst reading them is safe, the user must ensure that those `Image_View`s are not used whilst the swapchain is being resized.
+A typical render loop may look like this:
+```cpp
+while (do_render)
+{
+    // Handle inputs etc.
+
+    // Assuming frame is handled by user
+    auto& frame = frames[current_frame_index];
+    frame.fence->wait_for_value(frame.fence_value);
+    auto swapchain_resize_info = swapchain->query_resize();
+    if (swapchain_resize_info.is_size_changed)
+    {
+        /* Resize your window-size dependent resources.
+         * There is no need to explicitly synchronize the GPU.
+         * If a resize happens all queues are synchronized with the CPU.
+         */
+    }
+    swapchain->acquire_next_image();
+
+    // Render things onto swapchain...
+    auto swapchain_view = swapchain->get_current_image_view();
+
+    /* Only one submit, we want to wait for the image to be available and we want to present after submitting.
+     * `wait_swapchain` is a pointer to a swapchain that is being used in the current submit. Used for synchronizing image acquisition.
+     * `present_swapchain` is a pointer to a swapchain that will be used for presentation after the submit. Used for synchronization.
+     */
+    rhi::Submit_Info submit_info = {
+        .queue_type = Queue_Type::Graphics,
+        .wait_swapchain = swapchain.get(),
+        .present_swapchain = swapchain.get(),
+        // ...
+    };
+    device->submit(submit_info);
+    swapchain->present();
+}
 ```
 
 ## Legal
