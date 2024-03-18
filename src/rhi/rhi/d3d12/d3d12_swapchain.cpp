@@ -24,7 +24,7 @@ D3D12_Swapchain::D3D12_Swapchain(D3D12_Graphics_Device* graphics_device, const S
         .AlphaMode = DXGI_ALPHA_MODE_UNSPECIFIED,
         .Flags = create_info.present_mode == Present_Mode::Vsync
             ? DXGI_SWAP_CHAIN_FLAG_ALLOW_TEARING
-            : 0
+            : 0u
     };
     IDXGISwapChain1* swapchain1 = nullptr;
     auto context = graphics_device->get_context();
