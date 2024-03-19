@@ -359,9 +359,21 @@ struct Sampler
     uint32_t bindless_index;
 };
 
+struct Shader_Blob_Create_Info
+{
+    void* data;
+    uint64_t data_size;
+    uint32_t groups_x;
+    uint32_t groups_y;
+    uint32_t groups_z;
+};
+
 struct Shader_Blob
 {
     std::vector<uint8_t> data;
+    uint32_t groups_x;
+    uint32_t groups_y;
+    uint32_t groups_z;
 };
 
 struct Pipeline_Rasterization_State_Info

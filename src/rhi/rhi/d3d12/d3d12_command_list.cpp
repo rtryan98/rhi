@@ -242,6 +242,11 @@ auto translate_barrier_access_flags(Barrier_Access access)
     return result;
 }
 
+D3D12_Command_List::D3D12_Command_List(D3D12_Command_List_Underlying_Type cmd, D3D12_Graphics_Device* device) noexcept
+    : m_cmd(cmd)
+    , m_device(device)
+{}
+
 Graphics_API D3D12_Command_List::get_graphics_api() const noexcept
 {
     return Graphics_API::D3D12;
@@ -682,5 +687,80 @@ void D3D12_Command_List::set_viewport(
 ID3D12GraphicsCommandList7* D3D12_Command_List::get_internal_command_list() const noexcept
 {
     return m_cmd;
+}
+
+D3D12_COMMAND_LIST_TYPE translate_command_list_type(Queue_Type queue_type)
+{
+    switch (queue_type)
+    {
+    case Queue_Type::Graphics:
+        return D3D12_COMMAND_LIST_TYPE_DIRECT;
+    case Queue_Type::Compute:
+        return D3D12_COMMAND_LIST_TYPE_COMPUTE;
+    case Queue_Type::Copy:
+        return D3D12_COMMAND_LIST_TYPE_COPY;
+    case Queue_Type::Video_Decode:
+        return D3D12_COMMAND_LIST_TYPE_VIDEO_DECODE;
+    case Queue_Type::Video_Encode:
+        return D3D12_COMMAND_LIST_TYPE_VIDEO_ENCODE;
+    default:
+        return D3D12_COMMAND_LIST_TYPE_NONE;
+    }
+}
+
+D3D12_Command_Pool::D3D12_Command_Pool(
+    D3D12_Graphics_Device* device,
+    const Command_Pool_Create_Info& create_info) noexcept
+    : m_type(translate_command_list_type(create_info.queue_type))
+    , m_allocator(nullptr)
+    , m_device(device)
+    , m_unused()
+    , m_used()
+{
+    device->get_context()->device->CreateCommandAllocator(
+        m_type,
+        IID_PPV_ARGS(&m_allocator));
+}
+
+D3D12_Command_Pool::~D3D12_Command_Pool() noexcept
+{
+    for (auto cmd : m_unused)
+    {
+        cmd->Release();
+    }
+    for (auto cmd : m_used)
+    {
+        cmd->Release();
+    }
+    m_allocator->Release();
+    m_command_lists.clear();
+}
+
+void D3D12_Command_Pool::reset() noexcept
+{
+    m_unused.insert(m_unused.end(), m_used.begin(), m_used.end());
+    m_used.clear();
+    m_command_lists.clear();
+    m_allocator->Reset();
+}
+
+Command_List* D3D12_Command_Pool::acquire_command_list() noexcept
+{
+    D3D12_Command_List_Underlying_Type cmd = nullptr;
+    if (m_unused.empty())
+    {
+        m_device->get_context()->device->CreateCommandList1(
+            0,
+            m_type,
+            D3D12_COMMAND_LIST_FLAG_NONE,
+            IID_PPV_ARGS(&cmd));
+    }
+    else
+    {
+        cmd = m_unused.back();
+        m_unused.pop_back();
+    }
+    cmd->Reset(m_allocator, nullptr);
+    return m_command_lists.emplace_back(std::make_unique<D3D12_Command_List>(cmd, m_device)).get();
 }
 }

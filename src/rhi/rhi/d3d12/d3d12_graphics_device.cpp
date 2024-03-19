@@ -200,6 +200,12 @@ std::unique_ptr<Swapchain> D3D12_Graphics_Device::create_swapchain(
     return std::make_unique<D3D12_Swapchain>(this, create_info);
 }
 
+std::unique_ptr<Command_Pool> D3D12_Graphics_Device::create_command_pool(
+    const Command_Pool_Create_Info& create_info) noexcept
+{
+    return std::make_unique<D3D12_Command_Pool>(this, create_info);
+}
+
 std::expected<Fence*, Result> D3D12_Graphics_Device::create_fence(uint64_t initial_value) noexcept
 {
     std::unique_lock<std::mutex> lock_guard(m_resource_mutex, std::defer_lock);
@@ -592,13 +598,14 @@ void D3D12_Graphics_Device::destroy_sampler(Sampler* sampler) noexcept
     m_samplers.release(d3d12_sampler);
 }
 
-std::expected<Shader_Blob*, Result> D3D12_Graphics_Device::create_shader_blob(void* data, uint64_t size) noexcept
+std::expected<Shader_Blob*, Result> D3D12_Graphics_Device::create_shader_blob(
+    const Shader_Blob_Create_Info& create_info) noexcept
 {
     static_assert(
         sizeof(decltype(Shader_Blob::data)::value_type) == sizeof(uint8_t),
         "Size of blob changed.");
 
-    if (data == nullptr || size == 0)
+    if (create_info.data == nullptr || create_info.data_size == 0)
     {
         return std::unexpected(Result::Error_Invalid_Parameters);
     }
@@ -610,8 +617,11 @@ std::expected<Shader_Blob*, Result> D3D12_Graphics_Device::create_shader_blob(vo
     }
 
     auto blob = m_shader_blobs.acquire();
-    blob->data.reserve(size);
-    memcpy(blob->data.data(), data, size);
+    blob->data.reserve(create_info.data_size);
+    blob->groups_x = create_info.groups_x;
+    blob->groups_y = create_info.groups_y;
+    blob->groups_z = create_info.groups_z;
+    memcpy(blob->data.data(), create_info.data, create_info.data_size);
     return blob;
 }
 

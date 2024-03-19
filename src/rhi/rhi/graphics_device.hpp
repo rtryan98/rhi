@@ -1,6 +1,7 @@
 #pragma once
 
 #include "rhi/resource.hpp"
+#include "rhi/command_list.hpp"
 
 #include <memory>
 #include <expected>
@@ -62,7 +63,7 @@ struct Submit_Info
     Swapchain* present_swapchain; // May be nullptr.
     std::span<Submit_Fence_Info> wait_infos;
     std::span<Command_List*> command_lists;
-    std::span< Submit_Fence_Info> signal_infos;
+    std::span<Submit_Fence_Info> signal_infos;
 };
 
 struct Graphics_Device_Create_Info
@@ -90,6 +91,8 @@ public:
 
     virtual [[nodiscard]] std::unique_ptr<Swapchain> create_swapchain(
         const Swapchain_Win32_Create_Info& create_info) noexcept = 0;
+    virtual [[nodiscard]] std::unique_ptr<Command_Pool> create_command_pool(
+        const Command_Pool_Create_Info& create_info) noexcept = 0;
 
     virtual [[nodsicard]] std::expected<Fence*, Result> create_fence(uint64_t initial_value) noexcept = 0;
     virtual void destroy_fence(Fence* fence) noexcept = 0;
@@ -111,7 +114,7 @@ public:
     virtual void destroy_sampler(Sampler* sampler) noexcept = 0;
 
     virtual [[nodiscard]] std::expected<Shader_Blob*, Result> create_shader_blob(
-        void* data, uint64_t size) noexcept = 0;
+        const Shader_Blob_Create_Info& create_info) noexcept = 0;
     virtual void destroy_shader_blob(Shader_Blob* shader_blob) noexcept = 0;
 
     virtual [[nodiscard]] std::expected<Pipeline*, Result> create_pipeline(const Graphics_Pipeline_Create_Info& create_info) noexcept = 0;

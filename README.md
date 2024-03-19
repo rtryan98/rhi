@@ -6,6 +6,9 @@ Rendering Hardware Interface for D3D12 and Vulkan.
 - [Usage](#usage)
     - [Graphics Device](#graphics-device)
     - [Buffers, Images and Samplers](#buffers-images-and-samplers)
+    - [Shader Blobs and Pipelines](#shader-blobs-and-pipelines)
+    - [Command Pools and Command Lists](#command-pools-and-command-lists)
+    - [Fences](#fences)
     - [Swapchain](#swapchain)
 - [Legal](#legal)
 
@@ -68,6 +71,44 @@ Views are destroyed and invalidated when their parent is destroyed.
 Samplers do not have views.
 However, they directly contain their corresponding `bindless_index`.
 
+### Shader Blobs and Pipelines
+To make use of `Pipeline`s, we first need `Shader_Blob`s.
+Those are created using the `Graphics_Device`.
+```cpp
+rhi::Shader_Blob_Create_Info shader_blob_create_info = {
+    .data = compute_shader_data,
+    .data_size = compute_shader_data_size,
+    .groups_x = 512, // Optional to keep track of the group size for compute/task/mesh shaders
+    .groups_y = 1,
+    .groups_z = 1
+};
+auto shader_blob = graphics_device->create_shader_blob(shader_blob_create_info);
+
+rhi::Compute_Pipeline_Create_Info pipeline_create_info = {
+    .cs = shader_blob
+};
+auto compute_pipeline = graphics_device->create_pipeline(pipeline_create_info);
+```
+It is up to the user to pass the correct shader data for the respective API.
+This means DXIL for D3D12 and Spir-V for Vulkan.
+To help select the correct shader binary the function `Graphics_Device::get_graphics_api` was added.
+
+### Command Pools and Command Lists
+`Command_Pool`s are required to create `Command_List`s.
+A `Command_Pool` is created using the `Graphics_Device`.
+`Command_Pool`s are thread-affine and in a multi-threading scenario multiple instances should be created.
+They are also not frame-aware so multiple instances need to be created per frame-in-flight.
+The `Command_List` acquired via `Command_Pool::acquire_command_list` is transient and must not be kept across multiple frames.
+
+`Command_List`s offer most of the common D3D12 and Vulkan commands.
+Some additional API-specific commands are available and are postfixed with their API.
+Those commands must not be called when the API does not match.
+
+### Fences
+`Fence`s are a direct mapping of D3D12s fences and Vulkans timeline semaphores.
+A `Fence` is created using the `Graphics_Device`.
+They can be waited on and their state can be queried against a value.
+
 ### Swapchain
 Next up is creating a `Swapchain` to render to.
 This is done via a `Graphics_Device`.
@@ -106,19 +147,28 @@ while (do_render)
          */
     }
     swapchain->acquire_next_image();
+    frame.command_pool->reset();
+    auto cmd = frame.command_pool->acquire_command_list();
 
     // Render things onto swapchain...
     auto swapchain_view = swapchain->get_current_image_view();
 
+    Submit_Fence_Info signal_info = {
+        .fence = frame.fence,
+        .value = ++frame.fence_value
+    };
     /* Only one submit, we want to wait for the image to be available and we want to present after submitting.
-     * `wait_swapchain` is a pointer to a swapchain that is being used in the current submit. Used for synchronizing image acquisition.
-     * `present_swapchain` is a pointer to a swapchain that will be used for presentation after the submit. Used for synchronization.
+     * `wait_swapchain` is a pointer to a swapchain that is being used in the current submit.
+     * This is used for synchronizing swapchain image acquisition with command list execution.
+     * `present_swapchain` is a pointer to a swapchain that will be used for presentation after the submit.
+     * This is used for synchronizing end of command list execution with swapchain image presentation.
      */
     rhi::Submit_Info submit_info = {
         .queue_type = Queue_Type::Graphics,
         .wait_swapchain = swapchain.get(),
         .present_swapchain = swapchain.get(),
-        // ...
+        .command_lists = std::span<Command_List*>{ cmd, 1 },
+        .signal_infos = std::span<Submit_Fence_Info>{ &signal_info, 1 }
     };
     device->submit(submit_info);
     swapchain->present();

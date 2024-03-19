@@ -3,14 +3,19 @@
 #include "rhi/command_list.hpp"
 
 #include <agility_sdk/d3d12.h>
+#include <memory>
 
 namespace rhi::d3d12
 {
+using D3D12_Command_List_Underlying_Type = ID3D12GraphicsCommandList7*;
+
 class D3D12_Graphics_Device;
 
 class D3D12_Command_List final : public Command_List
 {
 public:
+    D3D12_Command_List(D3D12_Command_List_Underlying_Type cmd, D3D12_Graphics_Device* device) noexcept;
+
     // Meta commands
     virtual [[nodiscard]] Graphics_API get_graphics_api() const noexcept override;
 
@@ -55,10 +60,28 @@ public:
     virtual void set_scissor(int32_t x, int32_t y, uint32_t width, uint32_t height) noexcept override;
     virtual void set_viewport(float x, float y, float width, float height, float min_depth, float max_depth) noexcept override;
 
-    [[nodiscard]] ID3D12GraphicsCommandList7* get_internal_command_list() const noexcept;
+    [[nodiscard]] D3D12_Command_List_Underlying_Type get_internal_command_list() const noexcept;
 
 private:
-    ID3D12GraphicsCommandList7* m_cmd;
+    D3D12_Command_List_Underlying_Type m_cmd;
     D3D12_Graphics_Device* m_device;
+};
+
+class D3D12_Command_Pool final : public Command_Pool
+{
+public:
+    D3D12_Command_Pool(D3D12_Graphics_Device* device, const Command_Pool_Create_Info& create_info) noexcept;
+    ~D3D12_Command_Pool() noexcept;
+
+    virtual void reset() noexcept override;
+    virtual Command_List* acquire_command_list() noexcept override;
+
+private:
+    D3D12_COMMAND_LIST_TYPE m_type;
+    ID3D12CommandAllocator* m_allocator;
+    D3D12_Graphics_Device* m_device;
+    std::vector<D3D12_Command_List_Underlying_Type> m_used;
+    std::vector<D3D12_Command_List_Underlying_Type> m_unused;
+    std::vector<std::unique_ptr<D3D12_Command_List>> m_command_lists;
 };
 }

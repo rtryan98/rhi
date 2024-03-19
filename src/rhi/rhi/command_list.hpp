@@ -3,6 +3,7 @@
 #include <core/common/bitmask.hpp>
 #include <cstdint>
 #include <span>
+#include <vector>
 
 namespace rhi
 {
@@ -224,6 +225,22 @@ public:
 protected:
     Queue_Type m_queue_type;
 };
+
+struct Command_Pool_Create_Info
+{
+    Queue_Type queue_type;
+};
+
+class Command_Pool
+{
+public:
+    virtual void reset() noexcept = 0;
+    virtual Command_List* acquire_command_list() noexcept = 0;
+
+protected:
+    Command_Pool() noexcept = default;
+};
+
 }
 
 template<>
