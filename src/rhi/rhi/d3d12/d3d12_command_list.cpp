@@ -422,6 +422,110 @@ void D3D12_Command_List::copy_buffer(
     m_cmd->CopyBufferRegion(d3d12_dst->resource, dst_offset, d3d12_src->resource, src_offset, size);
 }
 
+uint32_t calculate_subresource(
+    uint32_t mip_level,
+    uint32_t first_array_index,
+    uint32_t plane_slice,
+    uint32_t mip_levels,
+    uint32_t array_layer_count)
+{
+    return mip_level + (first_array_index * mip_levels) + (plane_slice * mip_levels * array_layer_count);
+}
+
+void D3D12_Command_List::copy_buffer_to_image(
+    Buffer* src, uint64_t src_offset,
+    Image* dst, const Offset_3D& dst_offset, const Extent_3D& dst_extent,
+    uint32_t dst_mip_level, uint32_t dst_array_index) noexcept
+{
+    if (!src || !dst) return;
+
+    D3D12_TEXTURE_COPY_LOCATION copy_src = {
+        .pResource = static_cast<D3D12_Buffer*>(src)->resource,
+        .Type = D3D12_TEXTURE_COPY_TYPE_PLACED_FOOTPRINT,
+        .PlacedFootprint = {
+            .Offset = src_offset,
+            .Footprint = {
+                .Format = translate_format(dst->format),
+                .Width = dst_extent.x,
+                .Height = dst_extent.y,
+                .Depth = dst_extent.z,
+                .RowPitch = dst_extent.x
+            }
+        }
+    };
+    D3D12_TEXTURE_COPY_LOCATION copy_dst = {
+        .pResource = static_cast<D3D12_Image*>(dst)->resource,
+        .Type = D3D12_TEXTURE_COPY_TYPE_SUBRESOURCE_INDEX,
+        .SubresourceIndex = calculate_subresource(
+            dst_mip_level, dst_array_index, 0, dst->mip_levels, dst->array_size)
+    }; // TODO: handle plane count when multi-plane textures are added
+    m_cmd->CopyTextureRegion(
+        &copy_dst,
+        dst_offset.x, dst_offset.y, dst_offset.z,
+        &copy_src,
+        nullptr);
+}
+
+void D3D12_Command_List::copy_image(
+    Image* src, uint32_t src_mip_level, uint32_t src_array_index,
+    Image* dst, const Offset_3D& dst_offset, uint32_t dst_mip_level, uint32_t dst_array_index,
+    const Extent_3D& extent) noexcept
+{
+    if (!src || !dst) return;
+
+    D3D12_TEXTURE_COPY_LOCATION copy_src = {
+        .pResource = static_cast<D3D12_Image*>(src)->resource,
+        .Type = D3D12_TEXTURE_COPY_TYPE_SUBRESOURCE_INDEX,
+        .SubresourceIndex = calculate_subresource(
+            src_mip_level, src_array_index, 0, src->mip_levels, src->array_size)
+    };
+    D3D12_TEXTURE_COPY_LOCATION copy_dst = {
+        .pResource = static_cast<D3D12_Image*>(dst)->resource,
+        .Type = D3D12_TEXTURE_COPY_TYPE_SUBRESOURCE_INDEX,
+        .SubresourceIndex = calculate_subresource(
+            dst_mip_level, dst_array_index, 0, dst->mip_levels, dst->array_size)
+    };
+    m_cmd->CopyTextureRegion(
+        &copy_dst,
+        dst_offset.x, dst_offset.y, dst_offset.z,
+        &copy_src,
+        nullptr);
+}
+
+void D3D12_Command_List::copy_image_to_buffer(
+    Image* src, const Offset_3D& src_offset, const Extent_3D& src_extent,
+    uint32_t src_mip_level, uint32_t src_array_index,
+    Buffer* dst, uint64_t dst_offset) noexcept
+{
+    if (!src || !dst) return;
+
+    D3D12_TEXTURE_COPY_LOCATION copy_src = {
+        .pResource = static_cast<D3D12_Image*>(src)->resource,
+        .Type = D3D12_TEXTURE_COPY_TYPE_SUBRESOURCE_INDEX,
+        .SubresourceIndex = calculate_subresource(
+            src_mip_level, src_array_index, 0, src->mip_levels, src->array_size)
+    }; // TODO: handle plane count when multi-plane textures are added
+    D3D12_TEXTURE_COPY_LOCATION copy_dst = {
+        .pResource = static_cast<D3D12_Buffer*>(dst)->resource,
+        .Type = D3D12_TEXTURE_COPY_TYPE_PLACED_FOOTPRINT,
+        .PlacedFootprint = {
+            .Offset = dst_offset,
+            .Footprint = {
+                .Format = translate_format(src->format),
+                .Width = src_extent.x,
+                .Height = src_extent.y,
+                .Depth = src_extent.z,
+                .RowPitch = src_extent.x
+            }
+        }
+    };
+    m_cmd->CopyTextureRegion(
+        &copy_dst,
+        0, 0, 0,
+        &copy_src,
+        nullptr);
+}
+
 void D3D12_Command_List::fill_buffer(Buffer_View* dst, uint32_t value) noexcept
 {
     if (!dst || !dst->buffer) return;

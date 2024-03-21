@@ -169,6 +169,20 @@ struct Barrier_Info
     std::span<Memory_Barrier_Info> memory_barriers;
 };
 
+struct Offset_3D
+{
+    int32_t x;
+    int32_t y;
+    int32_t z;
+};
+
+struct Extent_3D
+{
+    uint32_t x;
+    uint32_t y;
+    uint32_t z;
+};
+
 class Command_List
 {
 public:
@@ -186,9 +200,18 @@ public:
 
     // Copy commands
     virtual void copy_buffer(Buffer* src, uint64_t src_offset, Buffer* dst, uint64_t dst_offset, uint64_t size) noexcept = 0;
-    virtual void copy_buffer_to_image() noexcept = 0;
-    virtual void copy_image() noexcept = 0;
-    virtual void copy_image_to_buffer() noexcept = 0;
+    virtual void copy_buffer_to_image(
+        Buffer* src, uint64_t src_offset,
+        Image* dst, const Offset_3D& dst_offset, const Extent_3D& dst_extent,
+        uint32_t dst_mip_level, uint32_t dst_array_index) noexcept = 0;
+    virtual void copy_image(
+        Image* src, uint32_t src_mip_level, uint32_t src_array_index,
+        Image* dst, const Offset_3D& dst_offset, uint32_t dst_mip_level, uint32_t dst_array_index,
+        const Extent_3D& extent) noexcept = 0; // No src_offset because D3D12 does not support it
+    virtual void copy_image_to_buffer(
+        Image* src, const Offset_3D& src_offset, const Extent_3D& src_extent,
+        uint32_t src_mip_level, uint32_t src_array_index,
+        Buffer* dst, uint64_t dst_offset) noexcept = 0;
     virtual void fill_buffer(Buffer_View* dst, uint32_t value) noexcept = 0;
 
     // Debug commands
