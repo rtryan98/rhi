@@ -467,7 +467,7 @@ void D3D12_Command_List::copy_buffer_to_image(
 }
 
 void D3D12_Command_List::copy_image(
-    Image* src, uint32_t src_mip_level, uint32_t src_array_index,
+    Image* src, const Offset_3D& src_offset, uint32_t src_mip_level, uint32_t src_array_index,
     Image* dst, const Offset_3D& dst_offset, uint32_t dst_mip_level, uint32_t dst_array_index,
     const Extent_3D& extent) noexcept
 {
@@ -485,11 +485,19 @@ void D3D12_Command_List::copy_image(
         .SubresourceIndex = calculate_subresource(
             dst_mip_level, dst_array_index, 0, dst->mip_levels, dst->array_size)
     };
+    D3D12_BOX copy_box = {
+        .left = src_offset.x,
+        .top = src_offset.y,
+        .front = src_offset.z,
+        .right = src_offset.x + extent.x,
+        .bottom = src_offset.y + extent.y,
+        .back = src_offset.z + extent.z
+    };
     m_cmd->CopyTextureRegion(
         &copy_dst,
         dst_offset.x, dst_offset.y, dst_offset.z,
         &copy_src,
-        nullptr);
+        &copy_box);
 }
 
 void D3D12_Command_List::copy_image_to_buffer(
@@ -519,11 +527,19 @@ void D3D12_Command_List::copy_image_to_buffer(
             }
         }
     };
+    D3D12_BOX copy_box = {
+        .left = src_offset.x,
+        .top = src_offset.y,
+        .front = src_offset.z,
+        .right = src_offset.x + src_extent.x,
+        .bottom = src_offset.y + src_extent.y,
+        .back = src_offset.z + src_extent.z
+    };
     m_cmd->CopyTextureRegion(
         &copy_dst,
         0, 0, 0,
         &copy_src,
-        nullptr);
+        &copy_box);
 }
 
 void D3D12_Command_List::fill_buffer(Buffer_View* dst, uint32_t value) noexcept

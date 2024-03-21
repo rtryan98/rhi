@@ -205,7 +205,7 @@ public:
         Image* dst, const Offset_3D& dst_offset, const Extent_3D& dst_extent,
         uint32_t dst_mip_level, uint32_t dst_array_index) noexcept = 0;
     virtual void copy_image(
-        Image* src, uint32_t src_mip_level, uint32_t src_array_index,
+        Image* src, const Offset_3D& src_offset, uint32_t src_mip_level, uint32_t src_array_index,
         Image* dst, const Offset_3D& dst_offset, uint32_t dst_mip_level, uint32_t dst_array_index,
         const Extent_3D& extent) noexcept = 0; // No src_offset because D3D12 does not support it
     virtual void copy_image_to_buffer(

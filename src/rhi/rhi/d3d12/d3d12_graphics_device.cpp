@@ -6,6 +6,9 @@
 #include <core/d3d12/d3d12_descriptor_util.hpp>
 #include <D3D12MemAlloc.h>
 
+extern "C" __declspec(dllexport) extern const uint32_t D3D12SDKVersion = 613;
+extern "C" __declspec(dllexport) extern const char* D3D12SDKPath = ".\\D3D12\\";
+
 namespace rhi::d3d12
 {
 constexpr static uint32_t MAX_RTV_DSV_DESCRIPTORS = 2048;

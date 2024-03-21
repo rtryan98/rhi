@@ -35,7 +35,7 @@ public:
         Image* dst, const Offset_3D& dst_offset, const Extent_3D& dst_extent,
         uint32_t dst_mip_level, uint32_t dst_array_index) noexcept override;
     virtual void copy_image(
-        Image* src, uint32_t src_mip_level, uint32_t src_array_index,
+        Image* src, const Offset_3D& src_offset, uint32_t src_mip_level, uint32_t src_array_index,
         Image* dst, const Offset_3D& dst_offset, uint32_t dst_mip_level, uint32_t dst_array_index,
         const Extent_3D& extent) noexcept override;
     virtual void copy_image_to_buffer(
