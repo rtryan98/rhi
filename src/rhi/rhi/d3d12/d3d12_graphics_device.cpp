@@ -464,13 +464,20 @@ std::expected<Image*, Result> D3D12_Graphics_Device::create_image(const Image_Cr
         ? create_descriptor_index(D3D12_DESCRIPTOR_HEAP_TYPE_RTV)
         : is_dsv
             ? create_descriptor_index(D3D12_DESCRIPTOR_HEAP_TYPE_DSV)
-            : 0;
+            : ~0u;
+    // HACK: internal descriptor type should not be visible
+    image->image_view->descriptor_type = static_cast<Descriptor_Type>(0);
     static_cast<D3D12_Image_View*>(image->image_view)->next_image_view = nullptr;
     image->resource = resource;
     image->allocation = allocation;
     image->image_view_linked_list_head = nullptr;
 
     return image;
+}
+
+uint32_t translate_shader_4_component_mapping(Image_Component_Mapping mapping)
+{
+
 }
 
 std::expected<Image_View*, Result> D3D12_Graphics_Device::create_image_view(
@@ -489,6 +496,70 @@ std::expected<Image_View*, Result> D3D12_Graphics_Device::create_image_view(
 
     image_view->next_image_view = d3d12_image->image_view_linked_list_head;
     d3d12_image->image_view_linked_list_head = image_view;
+    image_view->image = d3d12_image;
+
+    switch (create_info.descriptor_type)
+    {
+    case Descriptor_Type::Resource:
+        image_view->bindless_index = create_descriptor_index(D3D12_DESCRIPTOR_HEAP_TYPE_CBV_SRV_UAV);
+        auto srv_desc = core::d3d12::make_texture_srv(
+            translate_format(d3d12_image->format),
+            translate_view_type_srv(create_info.view_type),
+            create_info.first_array_level,
+            create_info.array_levels,
+            create_info.first_mip_level,
+            create_info.mip_levels,
+            translate_shader_4_component_mapping(create_info.component_mapping));
+        m_context.device->CreateShaderResourceView(
+            d3d12_image->resource,
+            &srv_desc,
+            get_cpu_descriptor_handle(image_view->bindless_index, D3D12_DESCRIPTOR_HEAP_TYPE_CBV_SRV_UAV));
+        if (bool(d3d12_image->usage & Image_Usage::Unordered_Access))
+        {
+            auto uav_desc = core::d3d12::make_full_texture_uav(
+                translate_format(d3d12_image->format),
+                translate_view_type_uav(create_info.view_type),
+                create_info.first_array_level,
+                create_info.first_mip_level,
+                0);
+            m_context.device->CreateUnorderedAccessView(
+                d3d12_image->resource,
+                nullptr,
+                &uav_desc,
+                get_cpu_descriptor_handle(
+                    get_uav_from_bindless_index(
+                        image_view->bindless_index),
+                        D3D12_DESCRIPTOR_HEAP_TYPE_CBV_SRV_UAV));
+        }
+        break;
+    case Descriptor_Type::Color_Attachment:
+        image_view->rtv_dsv_index = create_descriptor_index(D3D12_DESCRIPTOR_HEAP_TYPE_RTV);
+        auto rtv_desc = core::d3d12::make_full_texture_rtv(
+            translate_format(d3d12_image->format),
+            translate_view_type_rtv(create_info.view_type),
+            create_info.array_levels,
+            create_info.first_mip_level,
+            0);
+        m_context.device->CreateRenderTargetView(
+            d3d12_image->resource,
+            &rtv_desc,
+            get_cpu_descriptor_handle(image_view->rtv_dsv_index, D3D12_DESCRIPTOR_HEAP_TYPE_RTV));
+        break;
+    case Descriptor_Type::Depth_Stencil_Attachment:
+        image_view->rtv_dsv_index = create_descriptor_index(D3D12_DESCRIPTOR_HEAP_TYPE_DSV);
+        auto dsv_desc = core::d3d12::make_full_texture_dsv(
+            translate_format(d3d12_image->format),
+            translate_view_type_dsv(create_info.view_type),
+            create_info.array_levels,
+            create_info.first_mip_level);
+        m_context.device->CreateDepthStencilView(
+            d3d12_image->resource,
+            &dsv_desc,
+            get_cpu_descriptor_handle(image_view->rtv_dsv_index, D3D12_DESCRIPTOR_HEAP_TYPE_DSV));
+        break;
+    default:
+        break;
+    }
 
     return image_view;
 }
@@ -513,7 +584,7 @@ void D3D12_Graphics_Device::destroy_image(Image* image) noexcept
         release_descriptor_index(static_cast<D3D12_Image_View*>(d3d12_image->image_view)->rtv_dsv_index,
             D3D12_DESCRIPTOR_HEAP_TYPE_RTV);
     }
-    if (bool(image->usage & Image_Usage::Depth_Stencil_Attachment))
+    else if (bool(image->usage & Image_Usage::Depth_Stencil_Attachment))
     {
         release_descriptor_index(static_cast<D3D12_Image_View*>(d3d12_image->image_view)->rtv_dsv_index,
             D3D12_DESCRIPTOR_HEAP_TYPE_DSV);
@@ -523,6 +594,21 @@ void D3D12_Graphics_Device::destroy_image(Image* image) noexcept
     while (next_image_view != nullptr)
     {
         auto current_image_view = next_image_view;
+        switch (current_image_view->descriptor_type)
+        {
+        case Descriptor_Type::Resource:
+            release_descriptor_index(current_image_view->bindless_index, D3D12_DESCRIPTOR_HEAP_TYPE_CBV_SRV_UAV);
+            break;
+        case Descriptor_Type::Color_Attachment:
+            release_descriptor_index(current_image_view->rtv_dsv_index, D3D12_DESCRIPTOR_HEAP_TYPE_RTV);
+            break;
+        case Descriptor_Type::Depth_Stencil_Attachment:
+            release_descriptor_index(current_image_view->rtv_dsv_index, D3D12_DESCRIPTOR_HEAP_TYPE_DSV);
+            break;
+        default:
+            break;
+        }
+
         release_descriptor_index(current_image_view->bindless_index, D3D12_DESCRIPTOR_HEAP_TYPE_CBV_SRV_UAV);
         next_image_view = current_image_view->next_image_view;
         m_image_views.release(current_image_view);

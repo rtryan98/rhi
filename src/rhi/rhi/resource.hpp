@@ -11,6 +11,13 @@ constexpr static uint32_t PIPELINE_COLOR_ATTACHMENTS_MAX = 8;
 struct Buffer_View;
 struct Image_View;
 
+enum class Descriptor_Type
+{
+    Resource = 1,
+    Color_Attachment,
+    Depth_Stencil_Attachment
+};
+
 enum class Image_Format
 {
     Undefined = 0,
@@ -328,12 +335,15 @@ struct Image_View_Create_Info
     uint16_t first_mip_level;
     uint16_t mip_levels;
     Image_Component_Mapping component_mapping;
+    Image_View_Type view_type;
+    Descriptor_Type descriptor_type;
 };
 
 struct Image_View
 {
     uint32_t bindless_index;
     Image* image;
+    Descriptor_Type descriptor_type;
 };
 
 struct Sampler_Create_Info
