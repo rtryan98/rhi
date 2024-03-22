@@ -91,6 +91,10 @@ D3D12_Graphics_Device::D3D12_Graphics_Device(const Graphics_Device_Create_Info& 
     , m_samplers()
     , m_shader_blobs()
     , m_pipelines()
+    , m_resource_descriptor_indices()
+    , m_sampler_descriptor_indices()
+    , m_rtv_descriptor_indices()
+    , m_dsv_descriptor_indices()
 {
     core::d3d12::D3D12_Context_Create_Info context_create_info = {
         .enable_validation = create_info.enable_validation,
@@ -116,6 +120,27 @@ D3D12_Graphics_Device::D3D12_Graphics_Device(const Graphics_Device_Create_Info& 
 
     m_descriptor_increment_sizes = acquire_descriptor_increment_sizes();
     m_indirect_signatures = create_execute_indirect_signatures();
+
+    m_resource_descriptor_indices.reserve(D3D12_MAX_SHADER_VISIBLE_DESCRIPTOR_HEAP_SIZE_TIER_2 / 2);
+    for (auto i = (D3D12_MAX_SHADER_VISIBLE_DESCRIPTOR_HEAP_SIZE_TIER_2 / 2) - 1; i >= 0; --i)
+    {
+        m_resource_descriptor_indices.push_back(uint32_t(i * 2));
+    }
+    m_sampler_descriptor_indices.reserve(D3D12_MAX_SHADER_VISIBLE_SAMPLER_HEAP_SIZE);
+    for (auto i = D3D12_MAX_SHADER_VISIBLE_SAMPLER_HEAP_SIZE - 1; i >= 0; --i)
+    {
+        m_sampler_descriptor_indices.reserve(uint32_t(i));
+    }
+    m_rtv_descriptor_indices.reserve(MAX_RTV_DSV_DESCRIPTORS);
+    for (auto i = int32_t(MAX_RTV_DSV_DESCRIPTORS) - 1; i >= 0; --i)
+    {
+        m_rtv_descriptor_indices.push_back(uint32_t(i));
+    }
+    m_dsv_descriptor_indices.reserve(MAX_RTV_DSV_DESCRIPTORS);
+    for (auto i = int32_t(MAX_RTV_DSV_DESCRIPTORS) - 1; i >= 0; --i)
+    {
+        m_dsv_descriptor_indices.push_back(uint32_t(i));
+    }
 }
 
 D3D12_Graphics_Device::~D3D12_Graphics_Device() noexcept
@@ -1157,6 +1182,54 @@ void D3D12_Graphics_Device::create_srv_uav_rtv_dsv(
         D3D12_CPU_DESCRIPTOR_HANDLE cpu_handle = m_context.dsv_descriptor_heap->GetCPUDescriptorHandleForHeapStart();
         cpu_handle.ptr += (rtv_dsv_index)*m_descriptor_increment_sizes.dsv;
         m_context.device->CreateDepthStencilView(resource, dsv_desc, cpu_handle);
+    }
+}
+
+uint32_t D3D12_Graphics_Device::create_descriptor_index(D3D12_DESCRIPTOR_HEAP_TYPE type) noexcept
+{
+    uint32_t index = ~0u;
+    switch (type)
+    {
+    case D3D12_DESCRIPTOR_HEAP_TYPE_CBV_SRV_UAV:
+        index = m_resource_descriptor_indices.back();
+        m_resource_descriptor_indices.pop_back();
+        break;
+    case D3D12_DESCRIPTOR_HEAP_TYPE_SAMPLER:
+        index = m_sampler_descriptor_indices.back();
+        m_sampler_descriptor_indices.pop_back();
+        break;
+    case D3D12_DESCRIPTOR_HEAP_TYPE_RTV:
+        index = m_rtv_descriptor_indices.back();
+        m_rtv_descriptor_indices.pop_back();
+        break;
+    case D3D12_DESCRIPTOR_HEAP_TYPE_DSV:
+        index = m_dsv_descriptor_indices.back();
+        m_dsv_descriptor_indices.pop_back();
+        break;
+    default:
+        break;
+    }
+    return index;
+}
+
+void D3D12_Graphics_Device::release_descriptor_index(uint32_t index, D3D12_DESCRIPTOR_HEAP_TYPE type) noexcept
+{
+    switch (type)
+    {
+    case D3D12_DESCRIPTOR_HEAP_TYPE_CBV_SRV_UAV:
+        m_resource_descriptor_indices.push_back(index);
+        break;
+    case D3D12_DESCRIPTOR_HEAP_TYPE_SAMPLER:
+        m_sampler_descriptor_indices.push_back(index);
+        break;
+    case D3D12_DESCRIPTOR_HEAP_TYPE_RTV:
+        m_rtv_descriptor_indices.push_back(index);
+        break;
+    case D3D12_DESCRIPTOR_HEAP_TYPE_DSV:
+        m_dsv_descriptor_indices.push_back(index);
+        break;
+    default:
+        break;
     }
 }
 

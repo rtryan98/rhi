@@ -152,5 +152,10 @@ private:
     Array_Vector<D3D12_Sampler, ARRAY_VECTOR_SIZE> m_samplers;
     Array_Vector<Shader_Blob, ARRAY_VECTOR_SIZE> m_shader_blobs;
     Array_Vector<D3D12_Pipeline, ARRAY_VECTOR_SIZE> m_pipelines;
+
+    std::vector<uint32_t> m_resource_descriptor_indices;
+    std::vector<uint32_t> m_sampler_descriptor_indices;
+    std::vector<uint32_t> m_rtv_descriptor_indices;
+    std::vector<uint32_t> m_dsv_descriptor_indices;
 };
 }
