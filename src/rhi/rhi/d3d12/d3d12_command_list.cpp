@@ -486,12 +486,12 @@ void D3D12_Command_List::copy_image(
             dst_mip_level, dst_array_index, 0, dst->mip_levels, dst->array_size)
     };
     D3D12_BOX copy_box = {
-        .left = src_offset.x,
-        .top = src_offset.y,
-        .front = src_offset.z,
-        .right = src_offset.x + extent.x,
-        .bottom = src_offset.y + extent.y,
-        .back = src_offset.z + extent.z
+        .left = uint32_t(src_offset.x),
+        .top = uint32_t(src_offset.y),
+        .front = uint32_t(src_offset.z),
+        .right = uint32_t(src_offset.x + extent.x),
+        .bottom = uint32_t(src_offset.y + extent.y),
+        .back = uint32_t(src_offset.z + extent.z)
     };
     m_cmd->CopyTextureRegion(
         &copy_dst,
@@ -528,12 +528,12 @@ void D3D12_Command_List::copy_image_to_buffer(
         }
     };
     D3D12_BOX copy_box = {
-        .left = src_offset.x,
-        .top = src_offset.y,
-        .front = src_offset.z,
-        .right = src_offset.x + src_extent.x,
-        .bottom = src_offset.y + src_extent.y,
-        .back = src_offset.z + src_extent.z
+        .left = uint32_t(src_offset.x),
+        .top = uint32_t(src_offset.y),
+        .front = uint32_t(src_offset.z),
+        .right = uint32_t(src_offset.x + src_extent.x),
+        .bottom = uint32_t(src_offset.y + src_extent.y),
+        .back = uint32_t(src_offset.z + src_extent.z)
     };
     m_cmd->CopyTextureRegion(
         &copy_dst,

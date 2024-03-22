@@ -500,9 +500,37 @@ std::expected<Image*, Result> D3D12_Graphics_Device::create_image(const Image_Cr
     return image;
 }
 
+uint32_t translate_shader_swizzle(Image_Component_Swizzle swizzle, uint32_t identity_component)
+{
+    switch (swizzle)
+    {
+    case rhi::Image_Component_Swizzle::Identity:
+        // HACK: D3D12 does not have an identity mapping
+        return D3D12_SHADER_COMPONENT_MAPPING(identity_component % 4);
+    case rhi::Image_Component_Swizzle::Zero:
+        return D3D12_SHADER_COMPONENT_MAPPING_FORCE_VALUE_0;
+    case rhi::Image_Component_Swizzle::One:
+        return D3D12_SHADER_COMPONENT_MAPPING_FORCE_VALUE_1;
+    case rhi::Image_Component_Swizzle::R:
+        return D3D12_SHADER_COMPONENT_MAPPING_FROM_MEMORY_COMPONENT_0;
+    case rhi::Image_Component_Swizzle::G:
+        return D3D12_SHADER_COMPONENT_MAPPING_FROM_MEMORY_COMPONENT_1;
+    case rhi::Image_Component_Swizzle::B:
+        return D3D12_SHADER_COMPONENT_MAPPING_FROM_MEMORY_COMPONENT_2;
+    case rhi::Image_Component_Swizzle::A:
+        return D3D12_SHADER_COMPONENT_MAPPING_FROM_MEMORY_COMPONENT_3;
+    default:
+        break;
+    }
+}
+
 uint32_t translate_shader_4_component_mapping(Image_Component_Mapping mapping)
 {
-
+    uint32_t r = translate_shader_swizzle(mapping.r, 0);
+    uint32_t g = translate_shader_swizzle(mapping.g, 1);
+    uint32_t b = translate_shader_swizzle(mapping.b, 2);
+    uint32_t a = translate_shader_swizzle(mapping.a, 3);
+    return D3D12_ENCODE_SHADER_4_COMPONENT_MAPPING(r,g,b,a);
 }
 
 std::expected<Image_View*, Result> D3D12_Graphics_Device::create_image_view(
