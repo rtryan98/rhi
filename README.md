@@ -98,14 +98,14 @@ They are serialized into the following memory format (little endian):
 ```mermaid
 block-beta
     columns 4
-    _header["address"]:1 header["element"]:3
-    _a["0x00"]:1 a["workgroup count x"]:3
-    _b["0x04"]:1 b["workgroup count y"]:3
-    _c["0x08"]:1 c["workgroup count z"]:3
-    _d["0x0C"]:1 d["dxil blob size"]:3
-    _e["0x10"]:1 e["spir-v blob size"]:3
-    _f["0x14"]:1 f["dxil blob"]:3
-    _g["0x14+dxil blob size"]:1 g["spirv blob"]:3
+    __header["address"]:1 _header["byte size"]:1 header["element"]:2
+    __a["0x00"]:1 _a["4"]:1 a["workgroup count x"]:2
+    __b["0x04"]:1 _b["4"]:1 b["workgroup count y"]:2
+    __c["0x08"]:1 _c["4"]:1 c["workgroup count z"]:2
+    __d["0x0C"]:1 _d["4"]:1 d["dxil blob size"]:2
+    __e["0x10"]:1 _e["4"]:1 e["spir-v blob size"]:2
+    __f["0x14"]:1 _f["dxil blob size"]:1 f["dxil blob"]:2
+    __g["0x14+dxil blob size"]:1 _g["spir-v blob size"]:1 g["spirv blob"]:2
 ```
 The format can easily be used with the function `Graphics_Device::recreate_shader_blob_deserialize_memory`.
 If this function is used the correct blob will automatically be selected.
