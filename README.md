@@ -109,7 +109,7 @@ block-beta
 ```
 The format can easily be used with the function `Graphics_Device::recreate_shader_blob_deserialize_memory`.
 If this function is used the correct blob will automatically be selected.
-Shader blob recreationg requires the user to correctly synchronize access as no locking is done even when the `Graphics_Device` was created with `enable_locking = true`.
+Shader blob recreating requires the user to correctly synchronize access as no locking is done even when the `Graphics_Device` was created with `enable_locking = true`.
 This means creating or recreating a pipeline using this shader whilst the shader is being recreated is a data race.
 
 ### Command Pools and Command Lists
