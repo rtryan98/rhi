@@ -98,13 +98,13 @@ They are serialized into the following memory format (little endian):
 ```mermaid
 block-beta
     columns 4
-    a["workgroup count x"]
-    b["workgroup count y"]
-    c["workgroup count z"]
-    d["dxil blob size"]
-    e["spir-v blob size"]
-    f["dxil blob"]
-    g["spirv blob"]
+    a["workgroup count x"]:4
+    b["workgroup count y"]:4
+    c["workgroup count z"]:4
+    d["dxil blob size"]:4
+    e["spir-v blob size"]:4
+    f["dxil blob"]:8
+    g["spirv blob"]:8
 ```
 
 ### Command Pools and Command Lists
