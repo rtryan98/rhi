@@ -520,7 +520,7 @@ uint32_t translate_shader_swizzle(Image_Component_Swizzle swizzle, uint32_t iden
     case rhi::Image_Component_Swizzle::A:
         return D3D12_SHADER_COMPONENT_MAPPING_FROM_MEMORY_COMPONENT_3;
     default:
-        break;
+        return D3D12_SHADER_COMPONENT_MAPPING(identity_component % 4);
     }
 }
 
@@ -765,6 +765,44 @@ std::expected<Shader_Blob*, Result> D3D12_Graphics_Device::create_shader_blob(
     blob->groups_z = create_info.groups_z;
     memcpy(blob->data.data(), create_info.data, create_info.data_size);
     return blob;
+}
+
+Result D3D12_Graphics_Device::recreate_shader_blob(Shader_Blob* shader_blob, const Shader_Blob_Create_Info& create_info) noexcept
+{
+    if (!shader_blob) return Result::Error_Invalid_Parameters;
+
+    shader_blob->data.clear();
+    shader_blob->data.reserve(create_info.data_size);
+    shader_blob->groups_x = create_info.groups_x;
+    shader_blob->groups_y = create_info.groups_y;
+    shader_blob->groups_z = create_info.groups_z;
+    memcpy(shader_blob->data.data(), create_info.data, create_info.data_size);
+
+    return Result::Success;
+}
+
+Result D3D12_Graphics_Device::recreate_shader_blob_deserialize_memory(Shader_Blob* shader_blob, void* memory) noexcept
+{
+    if (!shader_blob || !memory) return Result::Error_Invalid_Parameters;
+
+    uint8_t* blob_ptr = static_cast<uint8_t*>(memory);
+    memcpy(&shader_blob->groups_x, blob_ptr, sizeof(uint32_t));
+    blob_ptr += sizeof(uint32_t);
+    memcpy(&shader_blob->groups_y, blob_ptr, sizeof(uint32_t));
+    blob_ptr += sizeof(uint32_t);
+    memcpy(&shader_blob->groups_z, blob_ptr, sizeof(uint32_t));
+    blob_ptr += sizeof(uint32_t);
+    uint32_t dxil_blob_size = 0;
+    memcpy(&dxil_blob_size, blob_ptr, sizeof(uint32_t));
+    blob_ptr += sizeof(uint32_t);
+    // spir-v blob size
+    blob_ptr += sizeof(uint32_t);
+
+    shader_blob->data.clear();
+    shader_blob->data.reserve(dxil_blob_size);
+    memcpy(shader_blob->data.data(), blob_ptr, dxil_blob_size);
+
+    return Result::Success;
 }
 
 void D3D12_Graphics_Device::destroy_shader_blob(Shader_Blob* shader_blob) noexcept

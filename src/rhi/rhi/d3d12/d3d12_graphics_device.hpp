@@ -75,6 +75,8 @@ public:
 
     virtual [[nodiscard]] std::expected<Shader_Blob*, Result> create_shader_blob(
         const Shader_Blob_Create_Info& create_info) noexcept override;
+    virtual Result recreate_shader_blob(Shader_Blob* shader_blob, const Shader_Blob_Create_Info& create_info) noexcept override;
+    virtual Result recreate_shader_blob_deserialize_memory(Shader_Blob* shader_blob, void* memory) noexcept override;
     virtual void destroy_shader_blob(Shader_Blob* shader_blob) noexcept override;
 
     virtual [[nodiscard]] std::expected<Pipeline*, Result> create_pipeline(

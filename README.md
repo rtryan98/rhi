@@ -90,10 +90,10 @@ rhi::Compute_Pipeline_Create_Info pipeline_create_info = {
 auto compute_pipeline = graphics_device->create_pipeline(pipeline_create_info);
 ```
 It is up to the user to pass the correct shader data for the respective API.
-This means DXIL for D3D12 and Spir-V for Vulkan.
-To help select the correct shader binary the function `Graphics_Device::get_graphics_api` was added.
+This means DXIL for D3D12 and SPIR-V for Vulkan.
+The shader blob may be created with an empty `Shader_Blob_Create_Info` to be filled later, for example by deserialization.
 
-Additionally, a DXC wrapper exists which compiles the shaders to both DXIL and SPIR-V.
+Additionally, a DXC wrapper exists which compiles the shaders to both DXIL and SPIR-V and reflects the workgroup data.
 They are serialized into the following memory format (little endian):
 ```mermaid
 block-beta
@@ -107,6 +107,10 @@ block-beta
     _f["0x14"]:1 f["dxil blob"]:3
     _g["0x14+dxil blob size"]:1 g["spirv blob"]:3
 ```
+The format can easily be used with the function `Graphics_Device::recreate_shader_blob_deserialize_memory`.
+If this function is used the correct blob will automatically be selected.
+Shader blob recreationg requires the user to correctly synchronize access as no locking is done even when the `Graphics_Device` was created with `enable_locking = true`.
+This means creating or recreating a pipeline using this shader whilst the shader is being recreated is a data race.
 
 ### Command Pools and Command Lists
 `Command_Pool`s are required to create `Command_List`s.
@@ -192,7 +196,8 @@ while (do_render)
 
 ## Legal
 This project is licensed under the MIT license.
-However, it makes of the DirectX 12 Agility SDK and WinPixEventRuntime which both have their own licenses.
+However, it makes of the DirectX 12 Agility SDK, DirectX Shader Compiler and WinPixEventRuntime, all of which have their own licenses.
 Building RHI automatically downloads those libraries and as such by building the RHI you must also agree to those licenses.
 - [DirectX 12 Agility SDK License](https://www.nuget.org/packages/Microsoft.Direct3D.D3D12/1.613.0/License)
 - [WinPixEventRuntime License](https://www.nuget.org/packages/WinPixEventRuntime/1.0.231030001/License)
+- [DirectX Shader Compiler](https://github.com/microsoft/DirectXShaderCompiler/blob/main/LICENSE.TXT)
