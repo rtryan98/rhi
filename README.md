@@ -93,6 +93,20 @@ It is up to the user to pass the correct shader data for the respective API.
 This means DXIL for D3D12 and Spir-V for Vulkan.
 To help select the correct shader binary the function `Graphics_Device::get_graphics_api` was added.
 
+Additionally, a DXC wrapper exists which compiles the shaders to both DXIL and SPIR-V.
+They are serialized into the following memory format (little endian):
+```mermaid
+block-beta
+    columns 4
+    a["workgroup count x"]
+    b["workgroup count y"]
+    c["workgroup count z"]
+    d["dxil blob size"]
+    e["spir-v blob size"]
+    f["dxil blob"]
+    g["spirv blob"]
+```
+
 ### Command Pools and Command Lists
 `Command_Pool`s are required to create `Command_List`s.
 A `Command_Pool` is created using the `Graphics_Device`.
