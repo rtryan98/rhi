@@ -1328,28 +1328,28 @@ Indirect_Signatures D3D12_Graphics_Device::create_execute_indirect_signatures() 
     argument_desc.Type = D3D12_INDIRECT_ARGUMENT_TYPE_DRAW;
     m_context.device->CreateCommandSignature(
         &command_signature_desc,
-        m_context.bindless_root_signature,
+        nullptr,
         IID_PPV_ARGS(&result.draw_indirect));
 
     static_assert(INDIRECT_ARGUMENT_STRIDE >= sizeof(D3D12_DRAW_INDEXED_ARGUMENTS) + 1);
     argument_desc.Type = D3D12_INDIRECT_ARGUMENT_TYPE_DRAW_INDEXED;
     m_context.device->CreateCommandSignature(
         &command_signature_desc,
-        m_context.bindless_root_signature,
+        nullptr,
         IID_PPV_ARGS(&result.draw_indexed_indirect));
 
     static_assert(INDIRECT_ARGUMENT_STRIDE >= sizeof(D3D12_DISPATCH_MESH_ARGUMENTS) + 1);
     argument_desc.Type = D3D12_INDIRECT_ARGUMENT_TYPE_DISPATCH_MESH;
     m_context.device->CreateCommandSignature(
         &command_signature_desc,
-        m_context.bindless_root_signature,
+        nullptr,
         IID_PPV_ARGS(&result.draw_mesh_tasks_indirect));
 
     static_assert(INDIRECT_ARGUMENT_STRIDE >= sizeof(D3D12_DISPATCH_ARGUMENTS) + 1);
     argument_desc.Type = D3D12_INDIRECT_ARGUMENT_TYPE_DISPATCH;
     m_context.device->CreateCommandSignature(
         &command_signature_desc,
-        m_context.bindless_root_signature,
+        nullptr,
         IID_PPV_ARGS(&result.dispatch_indirect));
 
     return result;
