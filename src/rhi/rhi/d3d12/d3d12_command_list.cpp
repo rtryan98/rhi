@@ -588,6 +588,26 @@ void D3D12_Command_List::end_debug_region() noexcept
 #endif
 }
 
+void D3D12_Command_List::clear_color_attachment(Image_View* image, float r, float g, float b, float a) noexcept
+{
+    float rgba[] = {r,g,b,a};
+    m_cmd->ClearRenderTargetView(
+        m_device->get_cpu_descriptor_handle(
+            static_cast<D3D12_Image_View*>(image)->rtv_dsv_index,
+            D3D12_DESCRIPTOR_HEAP_TYPE_RTV),
+        rgba, 0, nullptr);
+}
+
+void D3D12_Command_List::clear_depth_stencil_attachment(Image_View* image, float d, uint8_t s) noexcept
+{
+    m_cmd->ClearDepthStencilView(
+        m_device->get_cpu_descriptor_handle(
+            static_cast<D3D12_Image_View*>(image)->rtv_dsv_index,
+            D3D12_DESCRIPTOR_HEAP_TYPE_RTV),
+        D3D12_CLEAR_FLAG_DEPTH | D3D12_CLEAR_FLAG_STENCIL,
+        d, s, 0, nullptr);
+}
+
 void D3D12_Command_List::draw(
     uint32_t vertex_count,
     uint32_t instance_count,
@@ -844,6 +864,7 @@ D3D12_Command_Pool::D3D12_Command_Pool(
 
 D3D12_Command_Pool::~D3D12_Command_Pool() noexcept
 {
+    reset();
     for (auto cmd : m_unused)
     {
         cmd->Release();
@@ -880,7 +901,16 @@ Command_List* D3D12_Command_Pool::acquire_command_list() noexcept
         cmd = m_unused.back();
         m_unused.pop_back();
     }
+    m_used.push_back(cmd);
     cmd->Reset(m_allocator, nullptr);
+    auto context = m_device->get_context();
+    cmd->SetGraphicsRootSignature(context->bindless_root_signature);
+    cmd->SetComputeRootSignature(context->bindless_root_signature);
+    auto descriptor_heaps = std::to_array({
+        context->resource_descriptor_heap,
+        context->sampler_descriptor_heap
+        });
+    cmd->SetDescriptorHeaps(uint32_t(descriptor_heaps.size()), descriptor_heaps.data());
     return m_command_lists.emplace_back(std::make_unique<D3D12_Command_List>(cmd, m_device)).get();
 }
 }
