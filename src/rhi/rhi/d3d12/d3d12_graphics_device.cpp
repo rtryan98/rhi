@@ -1020,8 +1020,9 @@ Result D3D12_Graphics_Device::submit(const Submit_Info& submit_info) noexcept
     command_lists.reserve(command_list_count);
     for (auto command_list : submit_info.command_lists)
     {
-        auto d3d12_command_list = static_cast<D3D12_Command_List*>(command_list);
-        command_lists.push_back(d3d12_command_list->get_internal_command_list());
+        auto d3d12_command_list = static_cast<D3D12_Command_List*>(command_list)->get_internal_command_list();
+        d3d12_command_list->Close();
+        command_lists.push_back(d3d12_command_list);
     }
     command_queue->ExecuteCommandLists(command_list_count, command_lists.data());
     for (auto& signal_info : submit_info.signal_infos)
