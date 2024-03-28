@@ -50,6 +50,8 @@ public:
     virtual void end_debug_region() noexcept override;
 
     // Draw commands
+    virtual void clear_color_attachment(Image_View* image, float r, float g, float b, float a) noexcept override;
+    virtual void clear_depth_stencil_attachment(Image_View* image, float d, uint8_t s) noexcept override;
     virtual void draw(uint32_t vertex_count, uint32_t instance_count, uint32_t vertex_offset, uint32_t instance_offset) noexcept override;
     virtual void draw_indirect(Buffer* buffer, uint64_t offset, uint32_t count) noexcept override;
     virtual void draw_indirect_count(Buffer* buffer, uint64_t offset, uint32_t max_draw_count, Buffer* count_buffer, uint64_t count_offset) noexcept override;
@@ -80,7 +82,7 @@ class D3D12_Command_Pool final : public Command_Pool
 {
 public:
     D3D12_Command_Pool(D3D12_Graphics_Device* device, const Command_Pool_Create_Info& create_info) noexcept;
-    ~D3D12_Command_Pool() noexcept;
+    virtual ~D3D12_Command_Pool() noexcept;
 
     virtual void reset() noexcept override;
     virtual Command_List* acquire_command_list() noexcept override;
