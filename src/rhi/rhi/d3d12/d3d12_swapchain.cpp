@@ -3,6 +3,8 @@
 #include "rhi/d3d12/d3d12_resource.hpp"
 #include "rhi/d3d12/d3d12_graphics_device.hpp"
 
+#include <core/d3d12/d3d12_descriptor_util.hpp>
+
 namespace rhi::d3d12
 {
 D3D12_Swapchain::D3D12_Swapchain(D3D12_Graphics_Device* graphics_device, const Swapchain_Win32_Create_Info& create_info) noexcept
@@ -164,6 +166,18 @@ void D3D12_Swapchain::recreate_resources() noexcept
             image->image_view->bindless_index = ~0u;
             image->image_view->image = image;
             static_cast<D3D12_Image_View*>(image->image_view)->next_image_view = nullptr;
+
+            auto cpu_descriptor = m_device->get_cpu_descriptor_handle(
+                static_cast<D3D12_Image_View*>(image->image_view)->rtv_dsv_index,
+                D3D12_DESCRIPTOR_HEAP_TYPE_RTV);
+            auto descriptor_desc = core::d3d12::make_full_texture_rtv(
+                desc.Format,
+                D3D12_RTV_DIMENSION_TEXTURE2D,
+                1,
+                0,
+                0);
+            m_device->get_context()->device->CreateRenderTargetView(
+                image->resource, &descriptor_desc, cpu_descriptor);
         }
     }
 }
