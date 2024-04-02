@@ -129,7 +129,7 @@ D3D12_Graphics_Device::D3D12_Graphics_Device(const Graphics_Device_Create_Info& 
     m_sampler_descriptor_indices.reserve(D3D12_MAX_SHADER_VISIBLE_SAMPLER_HEAP_SIZE);
     for (auto i = D3D12_MAX_SHADER_VISIBLE_SAMPLER_HEAP_SIZE - 1; i >= 0; --i)
     {
-        m_sampler_descriptor_indices.reserve(uint32_t(i));
+        m_sampler_descriptor_indices.push_back(uint32_t(i));
     }
     m_rtv_descriptor_indices.reserve(MAX_RTV_DSV_DESCRIPTORS);
     for (auto i = int32_t(MAX_RTV_DSV_DESCRIPTORS) - 1; i >= 0; --i)
@@ -759,7 +759,7 @@ std::expected<Shader_Blob*, Result> D3D12_Graphics_Device::create_shader_blob(
     }
 
     auto blob = m_shader_blobs.acquire();
-    blob->data.reserve(create_info.data_size);
+    blob->data.resize(create_info.data_size);
     blob->groups_x = create_info.groups_x;
     blob->groups_y = create_info.groups_y;
     blob->groups_z = create_info.groups_z;

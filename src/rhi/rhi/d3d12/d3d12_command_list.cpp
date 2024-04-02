@@ -776,8 +776,36 @@ void D3D12_Command_List::set_depth_bounds(float min, float max) noexcept
     m_cmd->OMSetDepthBounds(min, max);
 }
 
+void D3D12_Command_List::set_index_buffer(Buffer* buffer, Index_Type index_type) noexcept
+{
+    D3D12_INDEX_BUFFER_VIEW index_buffer_view = {
+        .BufferLocation = static_cast<D3D12_Buffer*>(buffer)->resource->GetGPUVirtualAddress(),
+        .SizeInBytes = uint32_t(buffer->size),
+        .Format = index_type == Index_Type::U16
+            ? DXGI_FORMAT_R16_UINT
+            : DXGI_FORMAT_R32_UINT
+    };
+    m_cmd->IASetIndexBuffer(&index_buffer_view);
+}
+
+void D3D12_Command_List::set_index_buffer(Buffer* buffer, Index_Type index_type, uint64_t offset, uint64_t size) noexcept
+{
+    D3D12_INDEX_BUFFER_VIEW index_buffer_view = {
+        .BufferLocation = static_cast<D3D12_Buffer*>(buffer)->resource->GetGPUVirtualAddress(),
+        .SizeInBytes = uint32_t(size),
+        .Format = index_type == Index_Type::U16
+            ? DXGI_FORMAT_R16_UINT
+            : DXGI_FORMAT_R32_UINT
+    };
+    auto ptr_offset = offset * ((index_type == Index_Type::U16)
+        ? sizeof(uint16_t)
+        : sizeof(uint32_t));
+    index_buffer_view.BufferLocation += ptr_offset;
+    m_cmd->IASetIndexBuffer(&index_buffer_view);
+}
+
 void D3D12_Command_List::set_push_constants(
-    void* data, uint32_t size, Pipeline_Bind_Point bind_point) noexcept
+    const void* data, uint32_t size, Pipeline_Bind_Point bind_point) noexcept
 {
     switch (bind_point)
     {

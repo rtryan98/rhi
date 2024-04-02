@@ -119,6 +119,12 @@ enum class Barrier_Access : uint64_t
     Acceleration_Structure_Write    = 0x0000400000ull,
 };
 
+enum class Index_Type
+{
+    U16,
+    U32
+};
+
 struct Buffer_Barrier_Info
 {
     Barrier_Pipeline_Stage stage_before;
@@ -237,13 +243,15 @@ public:
     virtual void end_render_pass() noexcept = 0;
     virtual void set_pipeline(Pipeline* pipeline) noexcept = 0;
     virtual void set_depth_bounds(float min, float max) noexcept = 0;
+    virtual void set_index_buffer(Buffer* buffer, Index_Type index_type) noexcept = 0;
+    virtual void set_index_buffer(Buffer* buffer, Index_Type index_type, uint64_t offset, uint64_t size) noexcept = 0;
     template<typename T>
     void set_push_constants(const T& data, Pipeline_Bind_Point bind_point) noexcept
     {
         static_assert(sizeof(T) <= PUSH_CONSTANT_MAX_SIZE);
         set_push_constants(&data, uint32_t(sizeof(data)), bind_point);
     }
-    virtual void set_push_constants(void* data, uint32_t size, Pipeline_Bind_Point bind_point) noexcept = 0;
+    virtual void set_push_constants(const void* data, uint32_t size, Pipeline_Bind_Point bind_point) noexcept = 0;
     virtual void set_scissor(int32_t x, int32_t y, uint32_t width, uint32_t height) noexcept = 0;
     virtual void set_viewport(float x, float y, float width, float height, float min_depth, float max_depth) noexcept = 0;
 

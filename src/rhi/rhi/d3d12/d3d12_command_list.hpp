@@ -67,7 +67,9 @@ public:
     virtual void end_render_pass() noexcept override;
     virtual void set_pipeline(Pipeline* pipeline) noexcept override;
     virtual void set_depth_bounds(float min, float max) noexcept override;
-    virtual void set_push_constants(void* data, uint32_t size, Pipeline_Bind_Point bind_point) noexcept override;
+    virtual void set_index_buffer(Buffer* buffer, Index_Type index_type) noexcept override;
+    virtual void set_index_buffer(Buffer* buffer, Index_Type index_type, uint64_t offset, uint64_t size) noexcept override;
+    virtual void set_push_constants(const void* data, uint32_t size, Pipeline_Bind_Point bind_point) noexcept override;
     virtual void set_scissor(int32_t x, int32_t y, uint32_t width, uint32_t height) noexcept override;
     virtual void set_viewport(float x, float y, float width, float height, float min_depth, float max_depth) noexcept override;
 
