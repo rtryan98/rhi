@@ -3,6 +3,7 @@ target_sources(
     command_list.hpp
     graphics_device.cpp
     graphics_device.hpp
+    resource.cpp
     resource.hpp
     swapchain.hpp
 )

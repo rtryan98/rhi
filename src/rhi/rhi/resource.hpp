@@ -492,6 +492,13 @@ struct Pipeline
         Mesh_Shading_Pipeline_Create_Info mesh_shading_info;
     };
 };
+
+struct Image_Format_Info
+{
+    uint32_t bytes;
+};
+
+Image_Format_Info get_image_format_info(Image_Format format) noexcept;
 }
 
 template<>
