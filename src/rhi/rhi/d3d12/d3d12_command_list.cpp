@@ -449,7 +449,7 @@ void D3D12_Command_List::copy_buffer_to_image(
                 .Width = dst_extent.x,
                 .Height = dst_extent.y,
                 .Depth = dst_extent.z,
-                .RowPitch = dst_extent.x
+                .RowPitch = dst_extent.x * get_image_format_info(dst->format).bytes
             }
         }
     };
@@ -713,7 +713,7 @@ void D3D12_Command_List::begin_render_pass(const Render_Pass_Begin_Info& begin_i
         if (begin_info.color_attachments[i] != nullptr)
         {
             render_target_descriptors[i] = m_device->get_cpu_descriptor_handle(
-                static_cast<D3D12_Image_View*>(begin_info.depth_attachment)->rtv_dsv_index,
+                static_cast<D3D12_Image_View*>(begin_info.color_attachments[i])->rtv_dsv_index,
                 D3D12_DESCRIPTOR_HEAP_TYPE_RTV);
         }
     }
@@ -748,6 +748,7 @@ void D3D12_Command_List::set_pipeline(Pipeline* pipeline) noexcept
         switch (pipeline->type)
         {
         case Pipeline_Type::Vertex_Shading:
+        {
             if (pipeline->vertex_shading_info.depth_stencil_info.depth_bounds_test_mode == Depth_Bounds_Test_Mode::Static)
             {
                 set_depth_bounds(
@@ -755,7 +756,27 @@ void D3D12_Command_List::set_pipeline(Pipeline* pipeline) noexcept
                     pipeline->vertex_shading_info.depth_stencil_info.depth_bounds_max
                 );
             }
+            D3D12_PRIMITIVE_TOPOLOGY topology = D3D_PRIMITIVE_TOPOLOGY_UNDEFINED;
+            switch (pipeline->vertex_shading_info.primitive_topology)
+            {
+            case Primitive_Topology_Type::Point:
+                topology = D3D_PRIMITIVE_TOPOLOGY_POINTLIST;
+                break;
+            case Primitive_Topology_Type::Line:
+                topology = D3D_PRIMITIVE_TOPOLOGY_LINELIST;
+                break;
+            case Primitive_Topology_Type::Triangle:
+                topology = D3D_PRIMITIVE_TOPOLOGY_TRIANGLELIST;
+                break;
+            case Primitive_Topology_Type::Patch:
+                // TODO: implement tesselation?
+                break;
+            default:
+                break;
+            }
+            m_cmd->IASetPrimitiveTopology(topology);
             break;
+        }
         case Pipeline_Type::Mesh_Shading:
             if (pipeline->mesh_shading_info.depth_stencil_info.depth_bounds_test_mode == Depth_Bounds_Test_Mode::Static)
             {
@@ -810,13 +831,13 @@ void D3D12_Command_List::set_push_constants(
     switch (bind_point)
     {
     case Pipeline_Bind_Point::Graphics:
-        m_cmd->SetGraphicsRoot32BitConstants(0, sizeof(size) / sizeof(uint32_t), data, 0);
+        m_cmd->SetGraphicsRoot32BitConstants(0, size / sizeof(uint32_t), data, 0);
         break;
     case Pipeline_Bind_Point::Compute:
-        m_cmd->SetComputeRoot32BitConstants(0, sizeof(size) / sizeof(uint32_t), data, 0);
+        m_cmd->SetComputeRoot32BitConstants(0, size / sizeof(uint32_t), data, 0);
         break;
     case Pipeline_Bind_Point::Ray_Tracing: // TODO: correct command for constants?
-        m_cmd->SetComputeRoot32BitConstants(0, sizeof(size) / sizeof(uint32_t), data, 0);
+        m_cmd->SetComputeRoot32BitConstants(0, size / sizeof(uint32_t), data, 0);
         break;
     default:
         break;
