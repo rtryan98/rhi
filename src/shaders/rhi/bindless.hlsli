@@ -5,6 +5,10 @@
 #define DECLARE_PUSH_CONSTANTS(TYPE, VARIABLE) [[vk::push_constant]] TYPE VARIABLE
 [[vk::binding(0, 0)]] ByteAddressBuffer     g_vk_byte_address_buffers[];
 [[vk::binding(0, 0)]] RWByteAddressBuffer   g_vk_rw_byte_address_buffers[];
+[[vk::binding(1, 0)]] Texture1D             g_vk_texture_1d[];
+[[vk::binding(1, 0)]] Texture2D             g_vk_texture_2d[];
+[[vk::binding(1, 0)]] Texture2DArray        g_vk_texture_2d_array[];
+[[vk::binding(1, 0)]] Texture3D             g_vk_texture_3d[];
 [[vk::binding(2, 0)]] SamplerState          g_vk_samplers[];
 #else
 #define DECLARE_PUSH_CONSTANTS(TYPE, VARIABLE) ConstantBuffer< TYPE > VARIABLE : register(b0, space0)
@@ -136,6 +140,131 @@ struct Sampler
     }
 };
 
+struct Texture
+{
+    Handle handle;
+
+    template<typename T>
+    T load_1d(uint pos)
+    {
+        #if __spirv__
+        return g_vk_texture_1d[NonUniformResourceIndex(handle.srv())].Load(uint2(pos, 0));
+        #else
+        Texture1D<T> texture = ResourceDescriptorHeap[NonUniformResourceIndex(handle.srv())];
+        return texture.Load(uint2(pos, 0));
+        #endif
+    }
+
+    template<typename T>
+    T load_2d(uint2 pos)
+    {
+        #if __spirv__
+        return g_vk_texture_2d[NonUniformResourceIndex(handle.srv())].Load(uint3(pos, 0));
+        #else
+        Texture2D<T> texture = ResourceDescriptorHeap[NonUniformResourceIndex(handle.srv())];
+        return texture.Load(uint3(pos, 0));
+        #endif
+    }
+
+    template<typename T>
+    T load_3d(uint3 pos)
+    {
+        #if __spirv__
+        return g_vk_texture_3d[NonUniformResourceIndex(handle.srv())].Load(uint4(pos, 0));
+        #else
+        Texture3D<T> texture = ResourceDescriptorHeap[NonUniformResourceIndex(handle.srv())];
+        return texture.Load(uint4(pos, 0));
+        #endif
+    }
+
+    template<typename T>
+    T sample_1d(SamplerState s, float u)
+    {
+        #if __spirv__
+        return g_vk_texture_1d[NonUniformResourceIndex(handle.srv())].Sample(s, u);
+        #else
+        Texture1D<T> texture = ResourceDescriptorHeap[NonUniformResourceIndex(handle.srv())];
+        return texture.Sample(s, u);
+        #endif
+    }
+
+    template<typename T>
+    T sample_2d(SamplerState s, float2 uv)
+    {
+        #if __spirv__
+        return g_vk_texture_2d[NonUniformResourceIndex(handle.srv())].Sample(s, uv);
+        #else
+        Texture2D<T> texture = ResourceDescriptorHeap[NonUniformResourceIndex(handle.srv())];
+        return texture.Sample(s, uv);
+        #endif
+    }
+
+    template<typename T>
+    T sample_2d_array(SamplerState s, float2 uv, uint index)
+    {
+        #if __spirv__
+        return g_vk_texture_2d_array[NonUniformResourceIndex(handle.srv())].Sample(s, float3(uv, index));
+        #else
+        Texture2DArray<T> texture = ResourceDescriptorHeap[NonUniformResourceIndex(handle.srv())];
+        return texture.Sample(s, float3(uv, index));
+        #endif
+    }
+
+    template<typename T>
+    T sample_3d(SamplerState s, float3 uvw)
+    {
+        #if __spirv__
+        return g_vk_texture_3d[NonUniformResourceIndex(handle.srv())].Sample(s, uvw);
+        #else
+        Texture3D<T> texture = ResourceDescriptorHeap[NonUniformResourceIndex(handle.srv())];
+        return texture.Sample(s, uvw);
+        #endif
+    }
+
+    template<typename T>
+    T sample_level_1d(SamplerState s, float u, float mip)
+    {
+        #if __spirv__
+        return g_vk_texture_1d[NonUniformResourceIndex(handle.srv())].Sample(s, u, mip);
+        #else
+        Texture2D<T> texture = ResourceDescriptorHeap[NonUniformResourceIndex(handle.srv())];
+        return texture.SampleLevel(s, u, mip);
+        #endif
+    }
+
+    template<typename T>
+    T sample_level_2d(SamplerState s, float2 uv, float mip)
+    {
+        #if __spirv__
+        return g_vk_texture_2d[NonUniformResourceIndex(handle.srv())].Sample(s, uv, mip);
+        #else
+        Texture2D<T> texture = ResourceDescriptorHeap[NonUniformResourceIndex(handle.srv())];
+        return texture.SampleLevel(s, uv, mip);
+        #endif
+    }
+
+    template<typename T>
+    T sample_level_2d_array(SamplerState s, float2 uv, float mip, uint index)
+    {
+        #if __spirv__
+        return g_vk_texture_2d_array[NonUniformResourceIndex(handle.srv())].Sample(s, float3(uv, index), mip);
+        #else
+        Texture2DArray<T> texture = ResourceDescriptorHeap[NonUniformResourceIndex(handle.srv())];
+        return texture.SampleLevel(s, float3(uv, index), mip);
+        #endif
+    }
+
+    template<typename T>
+    T sample_level_3d(SamplerState s, float3 uvw, float mip)
+    {
+        #if __spirv__
+        return g_vk_texture_3d[NonUniformResourceIndex(handle.srv())].Sample(s, uvw, mip);
+        #else
+        Texture3D<T> texture = ResourceDescriptorHeap[NonUniformResourceIndex(handle.srv())];
+        return texture.SampleLevel(s, uvw, mip);
+        #endif
+    }
+};
 }
 
 #endif
