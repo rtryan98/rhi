@@ -8,7 +8,7 @@
 namespace rhi
 {
 constexpr static uint32_t INDIRECT_ARGUMENT_STRIDE = sizeof(uint32_t) * 8;
-constexpr static uint32_t PUSH_CONSTANT_MAX_SIZE = 128;
+constexpr static uint32_t PUSH_CONSTANT_MAX_SIZE = 64;
 
 struct Buffer;
 struct Buffer_View;
