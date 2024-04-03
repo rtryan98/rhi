@@ -279,6 +279,8 @@ std::expected<Buffer*, Result> D3D12_Graphics_Device::create_buffer(const Buffer
         lock_guard.lock();
     }
 
+    bool allow_uav = create_info.heap == Memory_Heap_Type::GPU;
+
     D3D12_RESOURCE_DESC1 resource_desc = {
         .Dimension = D3D12_RESOURCE_DIMENSION_BUFFER,
         .Alignment = 0,
@@ -289,7 +291,9 @@ std::expected<Buffer*, Result> D3D12_Graphics_Device::create_buffer(const Buffer
         .Format = DXGI_FORMAT_UNKNOWN,
         .SampleDesc = { .Count = 1, .Quality = 0 },
         .Layout = D3D12_TEXTURE_LAYOUT_ROW_MAJOR,
-        .Flags = D3D12_RESOURCE_FLAG_ALLOW_UNORDERED_ACCESS,
+        .Flags = allow_uav
+            ? D3D12_RESOURCE_FLAG_ALLOW_UNORDERED_ACCESS
+            : D3D12_RESOURCE_FLAG_NONE,
         .SamplerFeedbackMipRegion = {}
     };
     D3D12MA::ALLOCATION_DESC allocation_desc = {
@@ -434,7 +438,33 @@ std::expected<Image*, Result> D3D12_Graphics_Device::create_image(const Image_Cr
     case Image_View_Type::Texture_2D_MS_Array:
         [[fallthrough]];
     case Image_View_Type::Texture_Cube_Array:
-        is_array_type = true;
+        if (create_info.depth <= 1)
+        {
+            is_array_type = true;
+        }
+        break;
+    default:
+        break;
+    }
+
+    auto dimension = D3D12_RESOURCE_DIMENSION_TEXTURE1D;
+    switch (create_info.primary_view_type)
+    {
+    case Image_View_Type::Texture_2D:
+        [[fallthrough]];
+    case Image_View_Type::Texture_2D_Array:
+        [[fallthrough]];
+    case Image_View_Type::Texture_2D_MS:
+        [[fallthrough]];
+    case Image_View_Type::Texture_Cube:
+        [[fallthrough]];
+    case Image_View_Type::Texture_Cube_Array:
+        [[fallthrough]];
+    case Image_View_Type::Texture_2D_MS_Array:
+        dimension = D3D12_RESOURCE_DIMENSION_TEXTURE2D;
+        break;
+    case Image_View_Type::Texture_3D:
+        dimension = D3D12_RESOURCE_DIMENSION_TEXTURE3D;
         break;
     default:
         break;
@@ -444,7 +474,7 @@ std::expected<Image*, Result> D3D12_Graphics_Device::create_image(const Image_Cr
     bool is_dsv = false;
 
     D3D12_RESOURCE_DESC1 resource_desc = {
-        .Dimension = D3D12_RESOURCE_DIMENSION_BUFFER,
+        .Dimension = dimension,
         .Alignment = 0,
         .Width = create_info.width,
         .Height = create_info.height,
@@ -496,6 +526,39 @@ std::expected<Image*, Result> D3D12_Graphics_Device::create_image(const Image_Cr
     image->resource = resource;
     image->allocation = allocation;
     image->image_view_linked_list_head = nullptr;
+
+    auto srv_desc = core::d3d12::make_full_texture_srv(
+        translate_format(image->format),
+        translate_view_type_srv(image->primary_view_type),
+        std::max(image->depth, uint32_t(image->array_size)));
+    auto uav_desc = core::d3d12::make_full_texture_uav(
+        translate_format(image->format),
+        translate_view_type_uav(image->primary_view_type),
+        std::max(image->depth, uint32_t(image->array_size)),
+        0,
+        0);
+    auto rtv_desc = core::d3d12::make_full_texture_rtv(
+        translate_format(image->format),
+        translate_view_type_rtv(image->primary_view_type),
+        std::max(image->depth, uint32_t(image->array_size)),
+        0,
+        0);
+    auto dsv_desc = core::d3d12::make_full_texture_dsv(
+        translate_format(image->format),
+        translate_view_type_dsv(image->primary_view_type),
+        std::max(image->depth, uint32_t(image->array_size)),
+        0);
+
+    auto srv_desc_ptr = bool(image->usage & Image_Usage::Sampled) ? &srv_desc : nullptr;
+    auto uav_desc_ptr = bool(image->usage & Image_Usage::Unordered_Access) ? &uav_desc : nullptr;
+    auto rtv_desc_ptr = bool(image->usage & Image_Usage::Color_Attachment) ? &rtv_desc : nullptr;
+    auto dsv_desc_ptr = bool(image->usage & Image_Usage::Depth_Stencil_Attachment) ? &dsv_desc : nullptr;
+    create_srv_uav_rtv_dsv(
+        image->resource,
+        image->image_view->bindless_index,
+        srv_desc_ptr, uav_desc_ptr,
+        static_cast<D3D12_Image_View*>(image->image_view)->rtv_dsv_index,
+        rtv_desc_ptr, dsv_desc_ptr);
 
     return image;
 }
@@ -1117,7 +1180,11 @@ void D3D12_Graphics_Device::create_initial_buffer_descriptors(D3D12_Buffer* buff
 {
     auto srv_desc = core::d3d12::make_raw_buffer_srv(buffer->size);
     auto uav_desc = core::d3d12::make_raw_buffer_uav(buffer->size);
-    create_srv_and_uav(buffer->resource, buffer->buffer_view->bindless_index, &srv_desc, &uav_desc);
+    create_srv_and_uav(
+        buffer->resource,
+        buffer->buffer_view->bindless_index,
+        &srv_desc,
+        buffer->heap_type == Memory_Heap_Type::GPU ? &uav_desc : nullptr);
 }
 
 void D3D12_Graphics_Device::create_initial_image_descriptors(D3D12_Image* image) noexcept
