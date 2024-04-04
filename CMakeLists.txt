@@ -9,7 +9,7 @@ project(
 add_subdirectory(thirdparty)
 
 core_download_and_extract_zip(
-    https://www.nuget.org/api/v2/package/WinPixEventRuntime/1.0.231030001
+    https://www.nuget.org/api/v2/package/WinPixEventRuntime/1.0.240308001
     ${CMAKE_CURRENT_LIST_DIR}/thirdparty
     win_pix_event_runtime
 )
