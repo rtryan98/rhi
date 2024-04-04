@@ -165,6 +165,7 @@ void D3D12_Swapchain::recreate_resources() noexcept
             image->primary_view_type = Image_View_Type::Texture_2D;
             image->image_view->bindless_index = ~0u;
             image->image_view->image = image;
+            image->image_view->descriptor_type = Descriptor_Type::Color_Attachment;
             static_cast<D3D12_Image_View*>(image->image_view)->next_image_view = nullptr;
 
             auto cpu_descriptor = m_device->get_cpu_descriptor_handle(
