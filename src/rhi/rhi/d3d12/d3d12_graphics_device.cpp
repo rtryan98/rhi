@@ -11,7 +11,7 @@ extern "C" __declspec(dllexport) extern const char* D3D12SDKPath = ".\\D3D12\\";
 
 namespace rhi::d3d12
 {
-constexpr static uint32_t MAX_RTV_DSV_DESCRIPTORS = 2048;
+constexpr static uint32_t MAX_RTV_DSV_DESCRIPTORS = 1024;
 
 Result result_from_hresult(HRESULT hresult) noexcept
 {
