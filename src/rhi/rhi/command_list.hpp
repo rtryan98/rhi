@@ -18,10 +18,56 @@ struct Pipeline;
 enum class Queue_Type;
 enum class Graphics_API;
 
+enum class Render_Pass_Attachment_Load_Op
+{
+    Discard,
+    Load,
+    Clear,
+    No_Access
+};
+
+enum class Render_Pass_Attachment_Store_Op
+{
+    Discard,
+    Store,
+    No_Access
+};
+
+struct Clear_Value
+{
+    struct Color
+    {
+        float r, g, b, a;
+    } color;
+    struct Depth_Stencil
+    {
+        float depth;
+        uint8_t stencil;
+    } depth_stencil;
+};
+
+struct Render_Pass_Color_Attachment_Info
+{
+    Image_View* attachment;
+    Render_Pass_Attachment_Load_Op load_op;
+    Render_Pass_Attachment_Store_Op store_op;
+    Clear_Value clear_value;
+};
+
+struct Render_Pass_Depth_Attachment_Info
+{
+    Image_View* attachment;
+    Render_Pass_Attachment_Load_Op depth_load_op;
+    Render_Pass_Attachment_Store_Op depth_store_op;
+    Render_Pass_Attachment_Load_Op stencil_load_op;
+    Render_Pass_Attachment_Store_Op stencil_store_op;
+    Clear_Value clear_value;
+};
+
 struct Render_Pass_Begin_Info
 {
-    std::span<Image_View*> color_attachments;
-    Image_View* depth_attachment;
+    std::span<Render_Pass_Color_Attachment_Info> color_attachments;
+    Render_Pass_Depth_Attachment_Info depth_stencil_attachment;
 };
 
 enum class Pipeline_Bind_Point
@@ -54,6 +100,7 @@ enum class Barrier_Image_Layout : uint64_t
     Shading_Rate_Attachment,
     Video_Read,
     Video_Write
+    // TODO: add clear layout due to mismatch in vulkan and d3d12?
 };
 
 enum class Barrier_Pipeline_Stage : uint64_t

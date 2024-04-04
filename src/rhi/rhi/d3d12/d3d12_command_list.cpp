@@ -704,33 +704,149 @@ void D3D12_Command_List::draw_mesh_tasks_indirect_count(
         max_draw_count, d3d12_buffer->resource, offset, d3d12_count_buffer->resource, count_offset);
 }
 
+D3D12_RENDER_PASS_BEGINNING_ACCESS_TYPE translate_beginning_access_type(
+    Render_Pass_Attachment_Load_Op load_op) noexcept
+{
+    switch (load_op)
+    {
+    case Render_Pass_Attachment_Load_Op::Discard:
+        return D3D12_RENDER_PASS_BEGINNING_ACCESS_TYPE_DISCARD;
+    case Render_Pass_Attachment_Load_Op::Load:
+        return D3D12_RENDER_PASS_BEGINNING_ACCESS_TYPE_PRESERVE;
+    case Render_Pass_Attachment_Load_Op::Clear:
+        return D3D12_RENDER_PASS_BEGINNING_ACCESS_TYPE_CLEAR;
+    case Render_Pass_Attachment_Load_Op::No_Access:
+        return D3D12_RENDER_PASS_BEGINNING_ACCESS_TYPE_NO_ACCESS;
+    default:
+        return D3D12_RENDER_PASS_BEGINNING_ACCESS_TYPE_NO_ACCESS;
+    }
+}
+
+D3D12_RENDER_PASS_ENDING_ACCESS_TYPE translate_ending_access_type(
+    Render_Pass_Attachment_Store_Op store_op) noexcept
+{
+    switch (store_op)
+    {
+    case Render_Pass_Attachment_Store_Op::Discard:
+        return D3D12_RENDER_PASS_ENDING_ACCESS_TYPE_DISCARD;
+    case Render_Pass_Attachment_Store_Op::Store:
+        return D3D12_RENDER_PASS_ENDING_ACCESS_TYPE_PRESERVE;
+    case Render_Pass_Attachment_Store_Op::No_Access:
+        return D3D12_RENDER_PASS_ENDING_ACCESS_TYPE_NO_ACCESS;
+    default:
+        return D3D12_RENDER_PASS_ENDING_ACCESS_TYPE_NO_ACCESS;
+    }
+}
+
+D3D12_RENDER_PASS_BEGINNING_ACCESS translate_beginning_access(
+    Render_Pass_Attachment_Load_Op
+    load_op,
+    bool ds,
+    Image_Format format,
+    const Clear_Value& cv)
+{
+    D3D12_RENDER_PASS_BEGINNING_ACCESS result = {
+        .Type = translate_beginning_access_type(load_op)
+    };
+    if (load_op == Render_Pass_Attachment_Load_Op::Clear)
+    {
+        if (!ds)
+        {
+            result.Clear = {
+                .ClearValue = {
+                    .Format = translate_format(format),
+                    .Color = { cv.color.r, cv.color.g, cv.color.b, cv.color.a }
+                }
+            };
+        }
+        else
+        {
+            result.Clear = {
+                .ClearValue = {
+                    .Format = translate_format(format),
+                    .DepthStencil = {
+                        .Depth = cv.depth_stencil.depth,
+                        .Stencil = cv.depth_stencil.stencil
+                    }
+                }
+            };
+        }
+    }
+    return result;
+}
+
+D3D12_RENDER_PASS_ENDING_ACCESS translate_ending_access(
+    Render_Pass_Attachment_Store_Op store_op)
+{
+    return {
+        .Type = translate_ending_access_type(store_op)
+    };
+}
+
+D3D12_CPU_DESCRIPTOR_HANDLE get_rtv_cpu_descriptor_handle_safe(
+    D3D12_Graphics_Device* device, Image_View* image_view)
+{
+    if (!image_view)
+        return {};
+
+    auto d3d12_image_view = static_cast<D3D12_Image_View*>(image_view);
+    auto type = d3d12_image_view->descriptor_type == Descriptor_Type::Color_Attachment
+        ? D3D12_DESCRIPTOR_HEAP_TYPE_RTV
+        : D3D12_DESCRIPTOR_HEAP_TYPE_DSV;
+    auto descriptor = device->get_cpu_descriptor_handle(
+        d3d12_image_view->rtv_dsv_index, type);
+    return descriptor;
+}
+
 void D3D12_Command_List::begin_render_pass(const Render_Pass_Begin_Info& begin_info) noexcept
 {
     uint32_t render_target_count = uint32_t(begin_info.color_attachments.size());
-    std::array<D3D12_CPU_DESCRIPTOR_HANDLE, PIPELINE_COLOR_ATTACHMENTS_MAX> render_target_descriptors = {};
-    for (auto i = 0; i < begin_info.color_attachments.size(); ++i)
+    std::array<D3D12_RENDER_PASS_RENDER_TARGET_DESC,
+        PIPELINE_COLOR_ATTACHMENTS_MAX> render_pass_render_targets = {};
+    for (auto i = 0; i < render_target_count; ++i)
     {
-        if (begin_info.color_attachments[i] != nullptr)
-        {
-            render_target_descriptors[i] = m_device->get_cpu_descriptor_handle(
-                static_cast<D3D12_Image_View*>(begin_info.color_attachments[i])->rtv_dsv_index,
-                D3D12_DESCRIPTOR_HEAP_TYPE_RTV);
-        }
+        const auto& attachment = begin_info.color_attachments[i];
+        auto& render_pass_attachment = render_pass_render_targets[i];
+        render_pass_attachment.cpuDescriptor = get_rtv_cpu_descriptor_handle_safe(
+            m_device, attachment.attachment);
+        render_pass_attachment.BeginningAccess = translate_beginning_access(
+            attachment.load_op,
+            false,
+            attachment.attachment->image->format,
+            attachment.clear_value);
+        render_pass_attachment.EndingAccess = translate_ending_access(attachment.store_op);
     }
-    D3D12_CPU_DESCRIPTOR_HANDLE ds_descriptor = begin_info.depth_attachment
-        ? m_device->get_cpu_descriptor_handle(static_cast<D3D12_Image_View*>(begin_info.depth_attachment)->rtv_dsv_index,
-            D3D12_DESCRIPTOR_HEAP_TYPE_DSV)
-        : D3D12_CPU_DESCRIPTOR_HANDLE{};
-    m_cmd->OMSetRenderTargets(
+    D3D12_RENDER_PASS_DEPTH_STENCIL_DESC render_pass_depth_stencil_attachment = {
+        .cpuDescriptor = get_rtv_cpu_descriptor_handle_safe(
+            m_device, begin_info.depth_stencil_attachment.attachment),
+        .DepthBeginningAccess = translate_beginning_access(
+            begin_info.depth_stencil_attachment.depth_load_op,
+            true,
+            begin_info.depth_stencil_attachment.attachment != nullptr
+                ? begin_info.depth_stencil_attachment.attachment->image->format
+                : Image_Format::Undefined,
+            begin_info.depth_stencil_attachment.clear_value),
+        .StencilBeginningAccess = translate_beginning_access(
+            begin_info.depth_stencil_attachment.stencil_load_op,
+            true,
+            begin_info.depth_stencil_attachment.attachment != nullptr
+                ? begin_info.depth_stencil_attachment.attachment->image->format
+                : Image_Format::Undefined,
+            begin_info.depth_stencil_attachment.clear_value),
+        .DepthEndingAccess = translate_ending_access(begin_info.depth_stencil_attachment.depth_store_op),
+        .StencilEndingAccess = translate_ending_access(begin_info.depth_stencil_attachment.stencil_store_op),
+    };
+    m_cmd->BeginRenderPass(
         render_target_count,
-        render_target_descriptors.data(),
-        false,
-        begin_info.depth_attachment ? &ds_descriptor : nullptr);
+        render_pass_render_targets.data(),
+        begin_info.depth_stencil_attachment.attachment != nullptr
+            ? &render_pass_depth_stencil_attachment : nullptr,
+        D3D12_RENDER_PASS_FLAG_NONE);
 }
 
 void D3D12_Command_List::end_render_pass() noexcept
 {
-    // No-op in D3D12
+    m_cmd->EndRenderPass();
 }
 
 void D3D12_Command_List::set_pipeline(Pipeline* pipeline) noexcept
@@ -953,13 +1069,13 @@ Command_List* D3D12_Command_Pool::acquire_command_list() noexcept
     m_used.push_back(cmd);
     cmd->Reset(m_allocator, nullptr);
     auto context = m_device->get_context();
-    cmd->SetGraphicsRootSignature(context->bindless_root_signature);
-    cmd->SetComputeRootSignature(context->bindless_root_signature);
     auto descriptor_heaps = std::to_array({
         context->resource_descriptor_heap,
         context->sampler_descriptor_heap
         });
     cmd->SetDescriptorHeaps(uint32_t(descriptor_heaps.size()), descriptor_heaps.data());
+    cmd->SetGraphicsRootSignature(context->bindless_root_signature);
+    cmd->SetComputeRootSignature(context->bindless_root_signature);
     return m_command_lists.emplace_back(std::make_unique<D3D12_Command_List>(cmd, m_device)).get();
 }
 }
