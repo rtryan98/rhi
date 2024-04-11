@@ -894,6 +894,7 @@ void D3D12_Command_List::set_pipeline(Pipeline* pipeline) noexcept
             break;
         }
         case Pipeline_Type::Mesh_Shading:
+        {
             if (pipeline->mesh_shading_info.depth_stencil_info.depth_bounds_test_mode == Depth_Bounds_Test_Mode::Static)
             {
                 set_depth_bounds(
@@ -918,6 +919,7 @@ void D3D12_Command_List::set_pipeline(Pipeline* pipeline) noexcept
             }
             m_cmd->IASetPrimitiveTopology(topology);
             break;
+        }
         default:
             break;
         }
