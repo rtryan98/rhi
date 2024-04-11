@@ -901,6 +901,22 @@ void D3D12_Command_List::set_pipeline(Pipeline* pipeline) noexcept
                     pipeline->mesh_shading_info.depth_stencil_info.depth_bounds_max
                 );
             }
+            D3D12_PRIMITIVE_TOPOLOGY topology = D3D_PRIMITIVE_TOPOLOGY_UNDEFINED;
+            switch (pipeline->mesh_shading_info.primitive_topology)
+            {
+            case Primitive_Topology_Type::Point:
+                topology = D3D_PRIMITIVE_TOPOLOGY_POINTLIST;
+                break;
+            case Primitive_Topology_Type::Line:
+                topology = D3D_PRIMITIVE_TOPOLOGY_LINELIST;
+                break;
+            case Primitive_Topology_Type::Triangle:
+                topology = D3D_PRIMITIVE_TOPOLOGY_TRIANGLELIST;
+                break;
+            default:
+                break;
+            }
+            m_cmd->IASetPrimitiveTopology(topology);
             break;
         default:
             break;
