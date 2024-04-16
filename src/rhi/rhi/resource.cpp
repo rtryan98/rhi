@@ -205,37 +205,69 @@ Image_Format_Info get_image_format_info(Image_Format format) noexcept
             .bytes = 8
         };
     case Image_Format::BC1_RGB_UNORM_BLOCK:
-        return {}; // TODO: implement for BCn compression
+        return {
+            .bytes = 8
+        };
     case Image_Format::BC1_RGB_SRGB_BLOCK:
-        return {};
+        return {
+            .bytes = 8
+        };
     case Image_Format::BC1_RGBA_UNORM_BLOCK:
-        return {};
+        return {
+            .bytes = 8
+        };
     case Image_Format::BC1_RGBA_SRGB_BLOCK:
-        return {};
+        return {
+            .bytes = 8
+        };
     case Image_Format::BC2_UNORM_BLOCK:
-        return {};
+        return {
+            .bytes = 16
+        };
     case Image_Format::BC2_SRGB_BLOCK:
-        return {};
+        return {
+            .bytes = 16
+        };
     case Image_Format::BC3_UNORM_BLOCK:
-        return {};
+        return {
+            .bytes = 16
+        };
     case Image_Format::BC3_SRGB_BLOCK:
-        return {};
+        return {
+            .bytes = 16
+        };
     case Image_Format::BC4_UNORM_BLOCK:
-        return {};
+        return {
+            .bytes = 8
+        };
     case Image_Format::BC4_SNORM_BLOCK:
-        return {};
+        return {
+            .bytes = 8
+        };
     case Image_Format::BC5_UNORM_BLOCK:
-        return {};
+        return {
+            .bytes = 16
+        };
     case Image_Format::BC5_SNORM_BLOCK:
-        return {};
+        return {
+            .bytes = 16
+        };
     case Image_Format::BC6H_UFLOAT_BLOCK:
-        return {};
+        return {
+            .bytes = 16
+        };
     case Image_Format::BC6H_SFLOAT_BLOCK:
-        return {};
+        return {
+            .bytes = 16
+        };
     case Image_Format::BC7_UNORM_BLOCK:
-        return {};
+        return {
+            .bytes = 16
+        };
     case Image_Format::BC7_SRGB_BLOCK:
-        return {};
+        return {
+            .bytes = 16
+        };
     default:
         return {};
     }
