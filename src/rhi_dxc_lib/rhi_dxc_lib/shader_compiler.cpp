@@ -30,6 +30,14 @@ constexpr std::vector<std::wstring> get_spirv_args()
     return result;
 }
 
+Shader_Compiler::Shader_Compiler()
+    : m_compiler()
+    , m_utils()
+{
+    DxcCreateInstance(CLSID_DxcUtils, IID_PPV_ARGS(&m_utils));
+    DxcCreateInstance(CLSID_DxcCompiler, IID_PPV_ARGS(&m_compiler));
+}
+
 Shader Shader_Compiler::compile_from_memory(
     const Shader_Compiler_Settings& settings,
     const Shader_Compile_Info& compile_info)
@@ -90,16 +98,17 @@ Shader Shader_Compiler::compile_from_memory(
     result_dxil->GetOutput(DXC_OUT_ERRORS, IID_PPV_ARGS(&dxil_errors), nullptr);
     if (dxil_errors != nullptr && dxil_errors->GetStringLength() != 0)
     {
-        wprintf(L"Warnings and Errors:\n%S\n", dxil_errors->GetStringPointer());
+        wprintf(L"DXC Warnings and Errors:\n%S\n", dxil_errors->GetStringPointer());
     }
     HRESULT dxil_compile_status = S_OK;
     result_dxil->GetStatus(&dxil_compile_status);
     if (FAILED(dxil_compile_status))
     {
+        printf("Failed to compile shader (dxil).\n");
         return Shader();
     }
 
-    ComPtr<IDxcBlob> dxil_blob = {};
+    ComPtr<IDxcBlob> dxil_blob = nullptr;
     result_dxil->GetOutput(
         DXC_OUT_OBJECT,
         IID_PPV_ARGS(dxil_blob.GetAddressOf()),
@@ -108,7 +117,7 @@ Shader Shader_Compiler::compile_from_memory(
     ComPtr<IDxcBlob> reflection = nullptr;
     result_dxil->GetOutput(
         DXC_OUT_REFLECTION,
-        IID_PPV_ARGS(&dxil_blob),
+        IID_PPV_ARGS(&reflection),
         nullptr);
     if (reflection != nullptr)
     {
@@ -132,7 +141,7 @@ Shader Shader_Compiler::compile_from_memory(
     }
     else
     {
-        printf("Warning: Shader reflection failed.");
+        printf("Warning: Shader reflection failed.\n");
     }
 
     const auto spirv_args = get_spirv_args();
@@ -157,18 +166,19 @@ Shader Shader_Compiler::compile_from_memory(
     result_spirv->GetStatus(&dxil_compile_status);
     if (FAILED(spirv_compile_status))
     {
+        printf("Failed to compile shader (spirv).\n");
         return Shader();
     }
 
     ComPtr<IDxcBlob> spirv_blob = {};
     result_spirv->GetOutput(
         DXC_OUT_OBJECT,
-        IID_PPV_ARGS(dxil_blob.GetAddressOf()),
+        IID_PPV_ARGS(spirv_blob.GetAddressOf()),
         nullptr);
 
-    result.dxil.reserve(dxil_blob->GetBufferSize());
+    result.dxil.resize(dxil_blob->GetBufferSize());
     memcpy(result.dxil.data(), dxil_blob->GetBufferPointer(), dxil_blob->GetBufferSize());
-    result.spirv.reserve(spirv_blob->GetBufferSize());
+    result.spirv.resize(spirv_blob->GetBufferSize());
     memcpy(result.spirv.data(), spirv_blob->GetBufferPointer(), spirv_blob->GetBufferSize());
     return result;
 }

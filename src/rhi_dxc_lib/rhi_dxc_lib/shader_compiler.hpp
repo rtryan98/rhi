@@ -43,6 +43,8 @@ struct Shader
 class Shader_Compiler
 {
 public:
+    Shader_Compiler();
+
     Shader compile_from_memory(const Shader_Compiler_Settings& settings, const Shader_Compile_Info& compile_info);
 
 private:
