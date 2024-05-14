@@ -58,6 +58,9 @@ Shader Shader_Compiler::compile_from_memory(
         settings.include_dirs.size() * 2 +
         settings.defines.size() * 2);
 
+    ComPtr<IDxcIncludeHandler> include_handler;
+    m_utils->CreateDefaultIncludeHandler(include_handler.GetAddressOf());
+
     for (const auto& argument : settings.defines)
     {
         arguments.push_back(L"-D");
@@ -91,7 +94,7 @@ Shader Shader_Compiler::compile_from_memory(
         &source,
         arguments_wchar_ptr.data(),
         arguments_wchar_ptr.size(),
-        nullptr,
+        include_handler.Get(),
         IID_PPV_ARGS(&result_dxil));
 
     ComPtr<IDxcBlobUtf8> dxil_errors = nullptr;
