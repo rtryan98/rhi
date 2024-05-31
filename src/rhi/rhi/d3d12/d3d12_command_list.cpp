@@ -1082,6 +1082,7 @@ Command_List* D3D12_Command_Pool::acquire_command_list() noexcept
         m_unused.pop_back();
     }
     m_used.push_back(cmd_alloc);
+    cmd_alloc.alloc->Reset();
     cmd_alloc.cmd->Reset(cmd_alloc.alloc, nullptr);
     auto context = m_device->get_context();
     auto descriptor_heaps = std::to_array({
