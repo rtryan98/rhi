@@ -9,6 +9,12 @@ namespace rhi::d3d12
 {
 using D3D12_Command_List_Underlying_Type = ID3D12GraphicsCommandList7*;
 
+struct D3D12_Command_List_Allocator
+{
+    D3D12_Command_List_Underlying_Type cmd;
+    ID3D12CommandAllocator* alloc;
+};
+
 class D3D12_Graphics_Device;
 
 class D3D12_Command_List final : public Command_List
@@ -91,10 +97,9 @@ public:
 
 private:
     D3D12_COMMAND_LIST_TYPE m_type;
-    ID3D12CommandAllocator* m_allocator;
     D3D12_Graphics_Device* m_device;
-    std::vector<D3D12_Command_List_Underlying_Type> m_used;
-    std::vector<D3D12_Command_List_Underlying_Type> m_unused;
+    std::vector<D3D12_Command_List_Allocator> m_used;
+    std::vector<D3D12_Command_List_Allocator> m_unused;
     std::vector<std::unique_ptr<D3D12_Command_List>> m_command_lists;
 };
 }

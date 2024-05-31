@@ -1035,28 +1035,24 @@ D3D12_Command_Pool::D3D12_Command_Pool(
     D3D12_Graphics_Device* device,
     const Command_Pool_Create_Info& create_info) noexcept
     : m_type(translate_command_list_type(create_info.queue_type))
-    , m_allocator(nullptr)
     , m_device(device)
     , m_unused()
     , m_used()
-{
-    device->get_context()->device->CreateCommandAllocator(
-        m_type,
-        IID_PPV_ARGS(&m_allocator));
-}
+{}
 
 D3D12_Command_Pool::~D3D12_Command_Pool() noexcept
 {
     reset();
-    for (auto cmd : m_unused)
+    for (auto cmd_alloc : m_unused)
     {
-        cmd->Release();
+        cmd_alloc.cmd->Release();
+        cmd_alloc.alloc->Release();
     }
-    for (auto cmd : m_used)
+    for (auto cmd_alloc : m_used)
     {
-        cmd->Release();
+        cmd_alloc.cmd->Release();
+        cmd_alloc.alloc->Release();
     }
-    m_allocator->Release();
     m_command_lists.clear();
 }
 
@@ -1065,35 +1061,42 @@ void D3D12_Command_Pool::reset() noexcept
     m_unused.insert(m_unused.end(), m_used.begin(), m_used.end());
     m_used.clear();
     m_command_lists.clear();
-    m_allocator->Reset();
 }
 
 Command_List* D3D12_Command_Pool::acquire_command_list() noexcept
 {
-    D3D12_Command_List_Underlying_Type cmd = nullptr;
+    auto cmd_alloc = D3D12_Command_List_Allocator{};
     if (m_unused.empty())
     {
         m_device->get_context()->device->CreateCommandList1(
             0,
             m_type,
             D3D12_COMMAND_LIST_FLAG_NONE,
-            IID_PPV_ARGS(&cmd));
+            IID_PPV_ARGS(&cmd_alloc.cmd));
+        m_device->get_context()->device->CreateCommandAllocator(
+            m_type, IID_PPV_ARGS(&cmd_alloc.alloc));
     }
     else
     {
-        cmd = m_unused.back();
+        cmd_alloc = m_unused.back();
         m_unused.pop_back();
     }
-    m_used.push_back(cmd);
-    cmd->Reset(m_allocator, nullptr);
+    m_used.push_back(cmd_alloc);
+    cmd_alloc.cmd->Reset(cmd_alloc.alloc, nullptr);
     auto context = m_device->get_context();
     auto descriptor_heaps = std::to_array({
         context->resource_descriptor_heap,
         context->sampler_descriptor_heap
         });
-    cmd->SetDescriptorHeaps(uint32_t(descriptor_heaps.size()), descriptor_heaps.data());
-    cmd->SetGraphicsRootSignature(context->bindless_root_signature);
-    cmd->SetComputeRootSignature(context->bindless_root_signature);
-    return m_command_lists.emplace_back(std::make_unique<D3D12_Command_List>(cmd, m_device)).get();
+    if (m_type == D3D12_COMMAND_LIST_TYPE_DIRECT || m_type == D3D12_COMMAND_LIST_TYPE_COMPUTE)
+    {
+        cmd_alloc.cmd->SetDescriptorHeaps(uint32_t(descriptor_heaps.size()), descriptor_heaps.data());
+        cmd_alloc.cmd->SetComputeRootSignature(context->bindless_root_signature);
+        if (m_type == D3D12_COMMAND_LIST_TYPE_DIRECT)
+        {
+            cmd_alloc.cmd->SetGraphicsRootSignature(context->bindless_root_signature);
+        }
+    }
+    return m_command_lists.emplace_back(std::make_unique<D3D12_Command_List>(cmd_alloc.cmd, m_device)).get();
 }
 }
