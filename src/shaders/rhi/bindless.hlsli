@@ -41,6 +41,82 @@ struct Handle
     }
 };
 
+struct Raw_Buffer
+{
+    Handle handle;
+
+    template<typename T>
+    T load()
+    {
+        #ifdef __spirv__
+        return g_vk_byte_address_buffers[handle.srv()].Load<T>(0);
+        #else // D3D12
+        ByteAddressBuffer buffer = ResourceDescriptorHeap[handle.srv()];
+        return buffer.Load<T>(0);
+        #endif
+    }
+
+    template<typename T>
+    T load_nuri()
+    {
+        #ifdef __spirv__
+        return g_vk_byte_address_buffers[NonUniformResourceIndex(handle.srv())].Load<T>(0);
+        #else // D3D12
+        ByteAddressBuffer buffer = ResourceDescriptorHeap[NonUniformResourceIndex(handle.srv())];
+        return buffer.Load<T>(0);
+        #endif
+    }
+};
+
+struct RW_Raw_Buffer
+{
+    Handle handle;
+
+    template<typename T>
+    T load()
+    {
+        #ifdef __spirv__
+        return g_vk_byte_address_buffers[handle.srv()].Load<T>(0);
+        #else // D3D12
+        ByteAddressBuffer buffer = ResourceDescriptorHeap[handle.srv()];
+        return buffer.Load<T>(0);
+        #endif
+    }
+
+    template<typename T>
+    T load_nuri()
+    {
+        #ifdef __spirv__
+        return g_vk_byte_address_buffers[NonUniformResourceIndex(handle.srv())].Load<T>(0);
+        #else // D3D12
+        ByteAddressBuffer buffer = ResourceDescriptorHeap[NonUniformResourceIndex(handle.srv())];
+        return buffer.Load<T>(0);
+        #endif
+    }
+    
+    template<typename T>
+    void store(T value)
+    {
+        #ifdef __spirv__
+        g_vk_rw_byte_address_buffers[handle.srv()].Store(0, value);
+        #else
+        RWByteAddressBuffer buffer = ResourceDescriptorHeap[handle.uav()];
+        buffer.Store(0, value);
+        #endif
+    }
+    
+    template<typename T>
+    void store_nuri(T value)
+    {
+        #ifdef __spirv__
+        g_vk_rw_byte_address_buffers[NonUniformResourceIndex(handle.srv())].Store(0, value);
+        #else
+        RWByteAddressBuffer buffer = ResourceDescriptorHeap[NonUniformResourceIndex(handle.uav())];
+        buffer.Store(0, value);
+        #endif
+    }
+};
+
 struct Array_Buffer
 {
     Handle handle;
@@ -70,6 +146,28 @@ struct Array_Buffer
 
 struct RW_Array_Buffer : Array_Buffer
 {
+    template<typename T>
+    T load(uint index)
+    {
+        #ifdef __spirv__
+        return g_vk_byte_address_buffers[handle.srv()].Load<T>(index * sizeof(T));
+        #else // D3D12
+        ByteAddressBuffer buffer = ResourceDescriptorHeap[handle.srv()];
+        return buffer.Load<T>(index * sizeof(T));
+        #endif
+    }
+
+    template<typename T>
+    T load_nuri(uint index)
+    {
+        #ifdef __spirv__
+        return g_vk_byte_address_buffers[NonUniformResourceIndex(handle.srv())].Load<T>(index * sizeof(T));
+        #else // D3D12
+        ByteAddressBuffer buffer = ResourceDescriptorHeap[NonUniformResourceIndex(handle.srv())];
+        return buffer.Load<T>(index * sizeof(T));
+        #endif
+    }
+
     template<typename T>
     void store(uint index, T value)
     {
