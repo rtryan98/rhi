@@ -1102,6 +1102,24 @@ Result D3D12_Graphics_Device::submit(const Submit_Info& submit_info) noexcept
     return Result::Success;
 }
 
+void D3D12_Graphics_Device::name_resource(Buffer* buffer, const char* name) noexcept
+{
+    if (!buffer) return;
+
+    auto d3d12_buffer = static_cast<D3D12_Buffer*>(buffer);
+    auto str = std::string(name);
+    d3d12_buffer->resource->SetName(std::wstring(str.begin(), str.end()).c_str());
+}
+
+void D3D12_Graphics_Device::name_resource(Image* image, const char* name) noexcept
+{
+    if (!image) return;
+
+    auto d3d12_image = static_cast<D3D12_Image*>(image);
+    auto str = std::string(name);
+    d3d12_image->resource->SetName(std::wstring(str.begin(), str.end()).c_str());
+}
+
 D3D12_CPU_DESCRIPTOR_HANDLE D3D12_Graphics_Device::get_cpu_descriptor_handle(
     uint32_t index, D3D12_DESCRIPTOR_HEAP_TYPE type) const noexcept
 {

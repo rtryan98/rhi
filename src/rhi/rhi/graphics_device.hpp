@@ -127,6 +127,9 @@ public:
 
     virtual Result submit(const Submit_Info& submit_info) noexcept = 0;
 
+    virtual void name_resource(Buffer* buffer, const char* name) noexcept = 0;
+    virtual void name_resource(Image* image, const char* name) noexcept = 0;
+
 protected:
     Graphics_Device() noexcept = default;
 };

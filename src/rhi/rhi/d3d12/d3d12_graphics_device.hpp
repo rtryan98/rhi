@@ -89,6 +89,9 @@ public:
 
     virtual Result submit(const Submit_Info& submit_info) noexcept override;
 
+    virtual void name_resource(Buffer* buffer, const char* name) noexcept override;
+    virtual void name_resource(Image* image, const char* name) noexcept override;
+
     [[nodiscard]] D3D12_CPU_DESCRIPTOR_HANDLE get_cpu_descriptor_handle(
         uint32_t index, D3D12_DESCRIPTOR_HEAP_TYPE type) const noexcept;
     [[nodiscard]] D3D12_GPU_DESCRIPTOR_HANDLE get_gpu_descriptor_handle(
