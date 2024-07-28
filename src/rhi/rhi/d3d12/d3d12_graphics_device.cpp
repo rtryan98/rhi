@@ -470,9 +470,6 @@ std::expected<Image*, Result> D3D12_Graphics_Device::create_image(const Image_Cr
         break;
     }
 
-    bool is_rtv = false;
-    bool is_dsv = false;
-
     D3D12_RESOURCE_DESC1 resource_desc = {
         .Dimension = dimension,
         .Alignment = 0,
@@ -515,6 +512,10 @@ std::expected<Image*, Result> D3D12_Graphics_Device::create_image(const Image_Cr
     image->image_view = m_image_views.acquire();
     image->image_view->bindless_index = create_descriptor_index(D3D12_DESCRIPTOR_HEAP_TYPE_CBV_SRV_UAV);
     image->image_view->image = image;
+
+    bool is_rtv = bool(image->usage & Image_Usage::Color_Attachment);
+    bool is_dsv = bool(image->usage & Image_Usage::Depth_Stencil_Attachment);
+
     static_cast<D3D12_Image_View*>(image->image_view)->rtv_dsv_index = is_rtv
         ? create_descriptor_index(D3D12_DESCRIPTOR_HEAP_TYPE_RTV)
         : is_dsv
@@ -551,8 +552,8 @@ std::expected<Image*, Result> D3D12_Graphics_Device::create_image(const Image_Cr
 
     auto srv_desc_ptr = bool(image->usage & Image_Usage::Sampled) ? &srv_desc : nullptr;
     auto uav_desc_ptr = bool(image->usage & Image_Usage::Unordered_Access) ? &uav_desc : nullptr;
-    auto rtv_desc_ptr = bool(image->usage & Image_Usage::Color_Attachment) ? &rtv_desc : nullptr;
-    auto dsv_desc_ptr = bool(image->usage & Image_Usage::Depth_Stencil_Attachment) ? &dsv_desc : nullptr;
+    auto rtv_desc_ptr = bool(is_rtv) ? &rtv_desc : nullptr;
+    auto dsv_desc_ptr = bool(is_dsv) ? &dsv_desc : nullptr;
     create_srv_uav_rtv_dsv(
         image->resource,
         image->image_view->bindless_index,
