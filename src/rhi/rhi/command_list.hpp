@@ -93,6 +93,7 @@ enum class Barrier_Image_Layout : uint64_t
     Depth_Stencil_Read_Only,
     Depth_Stencil_Write,
     Shader_Read_Only,
+    Unordered_Access,
     Copy_Src,
     Copy_Dst,
     // Resolve_Src,

@@ -84,6 +84,12 @@ Shader Shader_Compiler::compile_from_memory(
         arguments_wchar_ptr.push_back(arg.c_str());
     }
 
+    const auto default_args = get_default_compile_args();
+    for (const auto& arg : default_args)
+    {
+        arguments_wchar_ptr.push_back(arg.c_str());
+    }
+
     DxcBuffer source = {
         .Ptr = compile_info.data,
         .Size = compile_info.data_size,

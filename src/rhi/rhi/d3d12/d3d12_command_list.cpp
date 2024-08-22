@@ -50,6 +50,16 @@ auto translate_barrier_Image_layout(
         default:
             return D3D12_BARRIER_LAYOUT_SHADER_RESOURCE;
         };
+    case Barrier_Image_Layout::Unordered_Access:
+        switch (queue_type)
+        {
+        case rhi::Queue_Type::Graphics:
+            return D3D12_BARRIER_LAYOUT_DIRECT_QUEUE_UNORDERED_ACCESS;
+        case rhi::Queue_Type::Compute:
+            return D3D12_BARRIER_LAYOUT_COMPUTE_QUEUE_UNORDERED_ACCESS;
+        default:
+            return D3D12_BARRIER_LAYOUT_UNORDERED_ACCESS;
+        }
     case Barrier_Image_Layout::Copy_Src:
         switch (queue_type)
         {
@@ -221,7 +231,7 @@ auto translate_barrier_access_flags(Barrier_Access access)
     result |= apply_access(Barrier_Access::Shader_Sampled_Read,
         D3D12_BARRIER_ACCESS_SHADER_RESOURCE);
     result |= apply_access(Barrier_Access::Unordered_Access_Read,
-        D3D12_BARRIER_ACCESS_SHADER_RESOURCE |
+        // D3D12_BARRIER_ACCESS_SHADER_RESOURCE | // Invalid
         D3D12_BARRIER_ACCESS_UNORDERED_ACCESS);
     result |= apply_access(Barrier_Access::Unordered_Access_Write,
         D3D12_BARRIER_ACCESS_UNORDERED_ACCESS);
