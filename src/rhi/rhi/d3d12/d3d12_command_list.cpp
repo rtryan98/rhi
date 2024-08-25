@@ -137,9 +137,9 @@ auto translate_barrier_pipeline_stage_flags(Barrier_Pipeline_Stage stage)
     result |= apply_stages(Barrier_Pipeline_Stage::Pixel_Shader,
         D3D12_BARRIER_SYNC_PIXEL_SHADING);
     result |= apply_stages(Barrier_Pipeline_Stage::Early_Fragment_Tests,
-        D3D12_BARRIER_SYNC_RENDER_TARGET);
+        D3D12_BARRIER_SYNC_DEPTH_STENCIL);
     result |= apply_stages(Barrier_Pipeline_Stage::Late_Fragment_Tests,
-        D3D12_BARRIER_SYNC_RENDER_TARGET);
+        D3D12_BARRIER_SYNC_DEPTH_STENCIL);
     result |= apply_stages(Barrier_Pipeline_Stage::Color_Attachment_Output,
         D3D12_BARRIER_SYNC_RENDER_TARGET);
     result |= apply_stages(Barrier_Pipeline_Stage::Compute_Shader,
@@ -793,7 +793,7 @@ D3D12_RENDER_PASS_ENDING_ACCESS translate_ending_access(
     };
 }
 
-D3D12_CPU_DESCRIPTOR_HANDLE get_rtv_cpu_descriptor_handle_safe(
+D3D12_CPU_DESCRIPTOR_HANDLE get_rtv_dsv_cpu_descriptor_handle_safe(
     D3D12_Graphics_Device* device, Image_View* image_view)
 {
     if (!image_view)
@@ -817,7 +817,7 @@ void D3D12_Command_List::begin_render_pass(const Render_Pass_Begin_Info& begin_i
     {
         const auto& attachment = begin_info.color_attachments[i];
         auto& render_pass_attachment = render_pass_render_targets[i];
-        render_pass_attachment.cpuDescriptor = get_rtv_cpu_descriptor_handle_safe(
+        render_pass_attachment.cpuDescriptor = get_rtv_dsv_cpu_descriptor_handle_safe(
             m_device, attachment.attachment);
         render_pass_attachment.BeginningAccess = translate_beginning_access(
             attachment.load_op,
@@ -827,7 +827,7 @@ void D3D12_Command_List::begin_render_pass(const Render_Pass_Begin_Info& begin_i
         render_pass_attachment.EndingAccess = translate_ending_access(attachment.store_op);
     }
     D3D12_RENDER_PASS_DEPTH_STENCIL_DESC render_pass_depth_stencil_attachment = {
-        .cpuDescriptor = get_rtv_cpu_descriptor_handle_safe(
+        .cpuDescriptor = get_rtv_dsv_cpu_descriptor_handle_safe(
             m_device, begin_info.depth_stencil_attachment.attachment),
         .DepthBeginningAccess = translate_beginning_access(
             begin_info.depth_stencil_attachment.depth_load_op,

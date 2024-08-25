@@ -522,7 +522,12 @@ std::expected<Image*, Result> D3D12_Graphics_Device::create_image(const Image_Cr
             ? create_descriptor_index(D3D12_DESCRIPTOR_HEAP_TYPE_DSV)
             : ~0u;
     // HACK: internal descriptor type should not be visible
-    image->image_view->descriptor_type = static_cast<Descriptor_Type>(0);
+    // TODO: overhaul how descriptor type is used
+    image->image_view->descriptor_type = is_rtv
+        ? Descriptor_Type::Color_Attachment
+        : is_dsv
+            ? Descriptor_Type::Depth_Stencil_Attachment
+            : Descriptor_Type::Color_Attachment;
     static_cast<D3D12_Image_View*>(image->image_view)->next_image_view = nullptr;
     image->resource = resource;
     image->allocation = allocation;
