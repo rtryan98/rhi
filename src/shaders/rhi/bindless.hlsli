@@ -3,18 +3,80 @@
 
 #ifdef __spirv__
 #define DECLARE_PUSH_CONSTANTS(TYPE, VARIABLE) [[vk::push_constant]] TYPE VARIABLE
+
+#define VK_INTERNAL_TEXTURE_BINDING_A 1
+#define VK_INTERNAL_TEXTURE_BINDING_B 0
+
+#define VK_INTERNAL_DECLARE_TEXTURE_BINDING(TEXTYPE, TYPE)                          \
+    [[vk::binding( VK_INTERNAL_TEXTURE_BINDING_A, VK_INTERNAL_TEXTURE_BINDING_B )]] \
+    TEXTYPE<TYPE> g_vk_##TEXTYPE##TYPE[];
+
+#define VK_INTERNAL_DECLARE_TEXTURE_BINDINGS(TEXTYPE)               \
+    VK_INTERNAL_DECLARE_TEXTURE_BINDING(TEXTYPE, float)             \
+    VK_INTERNAL_DECLARE_TEXTURE_BINDING(TEXTYPE, float2)            \
+    VK_INTERNAL_DECLARE_TEXTURE_BINDING(TEXTYPE, float3)            \
+    VK_INTERNAL_DECLARE_TEXTURE_BINDING(TEXTYPE, float4)            \
+    VK_INTERNAL_DECLARE_TEXTURE_BINDING(TEXTYPE, int)               \
+    VK_INTERNAL_DECLARE_TEXTURE_BINDING(TEXTYPE, int2)              \
+    VK_INTERNAL_DECLARE_TEXTURE_BINDING(TEXTYPE, int3)              \
+    VK_INTERNAL_DECLARE_TEXTURE_BINDING(TEXTYPE, int4)              \
+    VK_INTERNAL_DECLARE_TEXTURE_BINDING(TEXTYPE, uint)              \
+    VK_INTERNAL_DECLARE_TEXTURE_BINDING(TEXTYPE, uint2)             \
+    VK_INTERNAL_DECLARE_TEXTURE_BINDING(TEXTYPE, uint3)             \
+    VK_INTERNAL_DECLARE_TEXTURE_BINDING(TEXTYPE, uint4)
+
+#define VK_INTERNAL_GET_TEX_BINDING(TEXTYPE, TYPE)                 \
+    g_vk_##TEXTYPE##TYPE
+
+#define VK_INTERNAL_RWTEXTURE_SPECIALIZE_STORE_OPS(TYPE)                                                                                \
+    template<> void RW_Texture::store_1d_uniform(uint pos, TYPE value) {                                                                \
+        RWTexture1D<TYPE> texture = VK_INTERNAL_GET_TEX_BINDING(RWTexture1D, TYPE)[handle.uav()];                                       \
+        texture[pos] = value; }                                                                                                         \
+    template<> void RW_Texture::store_1d_array_uniform(uint2 pos, TYPE value) {                                                         \
+        RWTexture1DArray<TYPE> texture = VK_INTERNAL_GET_TEX_BINDING(RWTexture1DArray, TYPE)[handle.uav()];                             \
+        texture[pos] = value; }                                                                                                         \
+    template<> void RW_Texture::store_2d_uniform(uint2 pos, TYPE value) {                                                               \
+        RWTexture2D<TYPE> texture = VK_INTERNAL_GET_TEX_BINDING(RWTexture2D, TYPE)[handle.uav()];                                       \
+        texture[pos] = value; }                                                                                                         \
+    template<> void RW_Texture::store_2d_array_uniform(uint3 pos, TYPE value) {                                                         \
+        RWTexture2DArray<TYPE> texture = VK_INTERNAL_GET_TEX_BINDING(RWTexture2DArray, TYPE)[handle.uav()];                             \
+        texture[pos] = value; }                                                                                                         \
+    template<> void RW_Texture::store_3d_uniform(uint3 pos, TYPE value) {                                                               \
+        RWTexture3D<TYPE> texture = VK_INTERNAL_GET_TEX_BINDING(RWTexture3D, TYPE)[handle.uav()];                                       \
+        texture[pos] = value; }                                                                                                         \
+    template<> void RW_Texture::store_1d(uint pos, TYPE value) {                                                                        \
+        RWTexture1D<TYPE> texture = VK_INTERNAL_GET_TEX_BINDING(RWTexture1D, TYPE)[NonUniformResourceIndex(handle.uav())];              \
+        texture[pos] = value; }                                                                                                         \
+    template<> void RW_Texture::store_1d_array(uint2 pos, TYPE value) {                                                                 \
+        RWTexture1DArray<TYPE> texture = VK_INTERNAL_GET_TEX_BINDING(RWTexture1DArray, TYPE)[NonUniformResourceIndex(handle.uav())];    \
+        texture[pos] = value; }                                                                                                         \
+    template<> void RW_Texture::store_2d(uint2 pos, TYPE value) {                                                                       \
+        RWTexture2D<TYPE> texture = VK_INTERNAL_GET_TEX_BINDING(RWTexture2D, TYPE)[NonUniformResourceIndex(handle.uav())];              \
+        texture[pos] = value; }                                                                                                         \
+    template<> void RW_Texture::store_2d_array(uint3 pos, TYPE value) {                                                                 \
+        RWTexture2DArray<TYPE> texture = VK_INTERNAL_GET_TEX_BINDING(RWTexture2DArray, TYPE)[NonUniformResourceIndex(handle.uav())];    \
+        texture[pos] = value; }                                                                                                         \
+    template<> void RW_Texture::store_3d(uint3 pos, TYPE value) {                                                                       \
+        RWTexture3D<TYPE> texture = VK_INTERNAL_GET_TEX_BINDING(RWTexture3D, TYPE)[NonUniformResourceIndex(handle.uav())];              \
+        texture[pos] = value; }
+
 [[vk::binding(0, 0)]] ByteAddressBuffer     g_vk_byte_address_buffers[];
 [[vk::binding(0, 0)]] RWByteAddressBuffer   g_vk_rw_byte_address_buffers[];
 [[vk::binding(1, 0)]] Texture1D             g_vk_texture_1d[];
-[[vk::binding(1, 0)]] Texture1D             g_vk_texture_1d_array[];
+[[vk::binding(1, 0)]] Texture1DArray        g_vk_texture_1d_array[];
 [[vk::binding(1, 0)]] Texture2D             g_vk_texture_2d[];
 [[vk::binding(1, 0)]] Texture2DArray        g_vk_texture_2d_array[];
 [[vk::binding(1, 0)]] Texture3D             g_vk_texture_3d[];
-[[vk::binding(1, 0)]] RWTexture1D           g_vk_rw_texture_1d[];
-[[vk::binding(1, 0)]] RWTexture1D           g_vk_rw_texture_1d_array[];
-[[vk::binding(1, 0)]] RWTexture2D           g_vk_rw_texture_2d[];
-[[vk::binding(1, 0)]] RWTexture2DArray      g_vk_rw_texture_2d_array[];
-[[vk::binding(1, 0)]] RWTexture3D           g_vk_rw_texture_3d[];
+VK_INTERNAL_DECLARE_TEXTURE_BINDINGS(RWTexture1D);
+VK_INTERNAL_DECLARE_TEXTURE_BINDINGS(RWTexture1DArray);
+VK_INTERNAL_DECLARE_TEXTURE_BINDINGS(RWTexture2D);
+VK_INTERNAL_DECLARE_TEXTURE_BINDINGS(RWTexture2DArray);
+VK_INTERNAL_DECLARE_TEXTURE_BINDINGS(RWTexture3D);
+// [[vk::binding(1, 0)]] RWTexture1D           g_vk_rw_texture_1d[];
+// [[vk::binding(1, 0)]] RWTexture1D           g_vk_rw_texture_1d_array[];
+// [[vk::binding(1, 0)]] RWTexture2D           g_vk_rw_texture_2d[];
+// [[vk::binding(1, 0)]] RWTexture2DArray      g_vk_rw_texture_2d_array[];
+// [[vk::binding(1, 0)]] RWTexture3D           g_vk_rw_texture_3d[];
 [[vk::binding(2, 0)]] SamplerState          g_vk_samplers[];
 #else
 #define DECLARE_PUSH_CONSTANTS(TYPE, VARIABLE) ConstantBuffer< TYPE > VARIABLE : register(b0, space0)
@@ -598,55 +660,50 @@ struct RW_Texture
     void store_1d(uint pos, T value)
     {
         #if __spirv__
-        RWTexture1D<T> texture = g_vk_rw_texture_1d[NonUniformResourceIndex(handle.uav())];
         #else
         RWTexture1D<T> texture = ResourceDescriptorHeap[NonUniformResourceIndex(handle.uav())];
-        #endif
         texture[pos] = value;
+        #endif
     }
 
     template<typename T>
     void store_1d_array(uint2 pos, T value)
     {
         #if __spirv__
-        RWTexture1DArray<T> texture = g_vk_rw_texture_1d_array[NonUniformResourceIndex(handle.uav())];
         #else
         RWTexture1DArray<T> texture = ResourceDescriptorHeap[NonUniformResourceIndex(handle.uav())];
-        #endif
         texture[pos] = value;
+        #endif
     }
 
     template<typename T>
     void store_2d(uint2 pos, T value)
     {
         #if __spirv__
-        RWTexture2D<T> texture = g_vk_rw_texture_2d[NonUniformResourceIndex(handle.uav())];
         #else
         RWTexture2D<T> texture = ResourceDescriptorHeap[NonUniformResourceIndex(handle.uav())];
-        #endif
         texture[pos] = value;
+        #endif
     }
 
     template<typename T>
     void store_2d_array(uint3 pos, T value)
     {
         #if __spirv__
-        RWTexture2DArray<T> texture = g_vk_rw_texture_2d_array[NonUniformResourceIndex(handle.uav())];
         #else
         RWTexture2DArray<T> texture = ResourceDescriptorHeap[NonUniformResourceIndex(handle.uav())];
-        #endif
         texture[pos] = value;
+        #endif
     }
 
     template<typename T>
     void store_3d(uint3 pos, T value)
     {
         #if __spirv__
-        RWTexture3D<T> texture = g_vk_rw_texture_3d[NonUniformResourceIndex(handle.uav())];
         #else
         RWTexture3D<T> texture = ResourceDescriptorHeap[NonUniformResourceIndex(handle.uav())];
-        #endif
         texture[pos] = value;
+        #endif
     }
     
 
@@ -798,57 +855,51 @@ struct RW_Texture
     void store_1d_uniform(uint pos, T value)
     {
         #if __spirv__
-        RWTexture1D<T> texture = g_vk_rw_texture_1d[handle.uav()];
         #else
         RWTexture1D<T> texture = ResourceDescriptorHeap[handle.uav()];
-        #endif
         texture[pos] = value;
+        #endif
     }
 
     template<typename T>
     void store_1d_array_uniform(uint2 pos, T value)
     {
         #if __spirv__
-        RWTexture1DArray<T> texture = g_vk_rw_texture_1d_array[handle.uav()];
         #else
         RWTexture1DArray<T> texture = ResourceDescriptorHeap[handle.uav()];
-        #endif
         texture[pos] = value;
+        #endif
     }
 
     template<typename T>
     void store_2d_uniform(uint2 pos, T value)
     {
         #if __spirv__
-        RWTexture2D<T> texture = g_vk_rw_texture_2d[handle.uav()];
         #else
         RWTexture2D<T> texture = ResourceDescriptorHeap[handle.uav()];
-        #endif
         texture[pos] = value;
+        #endif
     }
 
     template<typename T>
     void store_2d_array_uniform(uint3 pos, T value)
     {
         #if __spirv__
-        RWTexture2DArray<T> texture = g_vk_rw_texture_2d_array[handle.uav()];
         #else
         RWTexture2DArray<T> texture = ResourceDescriptorHeap[handle.uav()];
-        #endif
         texture[pos] = value;
+        #endif
     }
 
     template<typename T>
     void store_3d_uniform(uint3 pos, T value)
     {
         #if __spirv__
-        RWTexture3D<T> texture = g_vk_rw_texture_3d[handle.uav()];
         #else
         RWTexture3D<T> texture = ResourceDescriptorHeap[handle.uav()];
-        #endif
         texture[pos] = value;
+        #endif
     }
-    
 
     template<typename T>
     T sample_1d_uniform(SamplerState s, float u)
@@ -938,6 +989,21 @@ struct RW_Texture
         #endif
     }
 };
+
+    #ifdef __spirv__
+    VK_INTERNAL_RWTEXTURE_SPECIALIZE_STORE_OPS(float);
+    VK_INTERNAL_RWTEXTURE_SPECIALIZE_STORE_OPS(float2);
+    VK_INTERNAL_RWTEXTURE_SPECIALIZE_STORE_OPS(float3);
+    VK_INTERNAL_RWTEXTURE_SPECIALIZE_STORE_OPS(float4);
+    VK_INTERNAL_RWTEXTURE_SPECIALIZE_STORE_OPS(int);
+    VK_INTERNAL_RWTEXTURE_SPECIALIZE_STORE_OPS(int2);
+    VK_INTERNAL_RWTEXTURE_SPECIALIZE_STORE_OPS(int3);
+    VK_INTERNAL_RWTEXTURE_SPECIALIZE_STORE_OPS(int4);
+    VK_INTERNAL_RWTEXTURE_SPECIALIZE_STORE_OPS(uint);
+    VK_INTERNAL_RWTEXTURE_SPECIALIZE_STORE_OPS(uint2);
+    VK_INTERNAL_RWTEXTURE_SPECIALIZE_STORE_OPS(uint3);
+    VK_INTERNAL_RWTEXTURE_SPECIALIZE_STORE_OPS(uint4);
+    #endif // __spirv__
 }
 
 #endif
