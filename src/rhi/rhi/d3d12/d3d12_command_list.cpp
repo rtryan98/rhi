@@ -255,7 +255,29 @@ auto translate_barrier_access_flags(Barrier_Access access)
 D3D12_Command_List::D3D12_Command_List(D3D12_Command_List_Underlying_Type cmd, D3D12_Graphics_Device* device) noexcept
     : m_cmd(cmd)
     , m_device(device)
-{}
+{
+    auto type = cmd->GetType();
+    switch (type)
+    {
+    case D3D12_COMMAND_LIST_TYPE_DIRECT:
+        m_queue_type = Queue_Type::Graphics;
+        break;
+    case D3D12_COMMAND_LIST_TYPE_COMPUTE:
+        m_queue_type = Queue_Type::Compute;
+        break;
+    case D3D12_COMMAND_LIST_TYPE_COPY:
+        m_queue_type = Queue_Type::Copy;
+        break;
+    case D3D12_COMMAND_LIST_TYPE_VIDEO_DECODE:
+        m_queue_type = Queue_Type::Video_Decode;
+        break;
+    case D3D12_COMMAND_LIST_TYPE_VIDEO_ENCODE:
+        m_queue_type = Queue_Type::Video_Encode;
+        break;
+    default:
+        break;
+    }
+}
 
 Graphics_API D3D12_Command_List::get_graphics_api() const noexcept
 {
