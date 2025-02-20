@@ -13,6 +13,48 @@ namespace rhi::d3d12
 {
 constexpr static uint32_t MAX_RTV_DSV_DESCRIPTORS = 1024;
 
+DWORD await_fence(ID3D12Fence* fence, uint64_t val, uint64_t timeout)
+{
+    DWORD result = WAIT_FAILED;
+    if (fence->GetCompletedValue() < val)
+    {
+        HANDLE event_handle = CreateEvent(NULL, FALSE, FALSE, NULL);
+        fence->SetEventOnCompletion(val, event_handle);
+        if (event_handle != 0)
+        {
+            result = WaitForSingleObject(event_handle, timeout);
+            CloseHandle(event_handle);
+        }
+    }
+    else
+    {
+        result = WAIT_OBJECT_0;
+    }
+    return result;
+}
+
+DWORD await_queue(ID3D12Device* device, ID3D12CommandQueue* queue, uint64_t timeout)
+{
+    ID3D12Fence1* fence;
+    device->CreateFence(0, D3D12_FENCE_FLAG_NONE, IID_PPV_ARGS(&fence));
+    if (!fence)
+    {
+        return WAIT_FAILED;
+    }
+    queue->Signal(fence, 1);
+    auto result = await_fence(fence, 1, timeout);
+    fence->Release();
+    return result;
+}
+
+DWORD await_context(core::d3d12::D3D12_Context* context)
+{
+    if (auto result = await_queue(context->device, context->direct_queue, INFINITE)) return result;
+    if (auto result = await_queue(context->device, context->compute_queue, INFINITE)) return result;
+    if (auto result = await_queue(context->device, context->copy_queue, INFINITE)) return result;
+    return WAIT_OBJECT_0;
+}
+
 Result result_from_hresult(HRESULT hresult) noexcept
 {
     switch (hresult)
@@ -64,12 +106,12 @@ D3D12_HEAP_TYPE translate_heap_type(Memory_Heap_Type heap_type) noexcept
 
 Result D3D12_Fence::get_status(uint64_t value) noexcept
 {
-    return wait_result_from_dword(core::d3d12::await_fence(fence, value, 0));
+    return wait_result_from_dword(await_fence(fence, value, 0));
 }
 
 Result D3D12_Fence::wait_for_value(uint64_t value) noexcept
 {
-    return wait_result_from_dword(core::d3d12::await_fence(fence, value, INFINITE));
+    return wait_result_from_dword(await_fence(fence, value, INFINITE));
 }
 
 D3D12_Graphics_Device::D3D12_Graphics_Device(const Graphics_Device_Create_Info& create_info) noexcept
@@ -145,7 +187,7 @@ D3D12_Graphics_Device::D3D12_Graphics_Device(const Graphics_Device_Create_Info& 
 
 D3D12_Graphics_Device::~D3D12_Graphics_Device() noexcept
 {
-    core::d3d12::await_context(&m_context);
+    await_context(&m_context);
 
     // Release everything that was not released by the user
     // TODO: Should this be done or should a leak be mentioned by the validation layer instead?
@@ -193,7 +235,7 @@ D3D12_Graphics_Device::~D3D12_Graphics_Device() noexcept
 
 Result D3D12_Graphics_Device::wait_idle() noexcept
 {
-    return wait_result_from_dword(core::d3d12::await_context(&m_context));
+    return wait_result_from_dword(await_context(&m_context));
 }
 
 Result D3D12_Graphics_Device::queue_wait_idle(Queue_Type queue, uint64_t timeout) noexcept
@@ -214,7 +256,7 @@ Result D3D12_Graphics_Device::queue_wait_idle(Queue_Type queue, uint64_t timeout
         command_queue = m_context.direct_queue;
         break;
     }
-    return wait_result_from_dword(core::d3d12::await_queue(m_context.device, command_queue, timeout));
+    return wait_result_from_dword(await_queue(m_context.device, command_queue, timeout));
 }
 
 Graphics_API D3D12_Graphics_Device::get_graphics_api() const noexcept

@@ -102,7 +102,7 @@ Swapchain_Resize_Info D3D12_Swapchain::query_resize() noexcept
         result.width = client_width;
         result.height = client_height;
 
-        core::d3d12::await_context(m_device->get_context());
+        m_device->wait_idle();
 
         for (auto i = 0; i < desc.BufferCount; ++i)
         {
