@@ -6,6 +6,7 @@ target_sources(
     d3d12_graphics_device.hpp
     d3d12_resource.cpp
     d3d12_resource.hpp
+    d3d12_pso.hpp
     d3d12_swapchain.cpp
     d3d12_swapchain.hpp
 )

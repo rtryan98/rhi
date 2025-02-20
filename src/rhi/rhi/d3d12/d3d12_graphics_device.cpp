@@ -1,8 +1,8 @@
 #include "rhi/d3d12/d3d12_graphics_device.hpp"
 #include "rhi/d3d12/d3d12_command_list.hpp"
 #include "rhi/d3d12/d3d12_swapchain.hpp"
+#include "rhi/d3d12/d3d12_pso.hpp"
 
-#include <core/d3d12/d3d12_pso.hpp>
 #include <core/d3d12/d3d12_descriptor_util.hpp>
 #include <D3D12MemAlloc.h>
 
@@ -938,7 +938,7 @@ std::expected<Pipeline*, Result> D3D12_Graphics_Device::create_pipeline(
         lock_guard.lock();
     }
 
-    core::d3d12::Graphics_Pipeline_Desc graphics_pipeline_stream = {
+    Graphics_Pipeline_Desc graphics_pipeline_stream = {
         .root_signature = { .data = m_context.bindless_root_signature },
         .vs = { .data = translate_shader_blob_safe(create_info.vs) },
         .hs = { .data = translate_shader_blob_safe(create_info.hs) },
@@ -1024,7 +1024,7 @@ std::expected<Pipeline*, Result> D3D12_Graphics_Device::create_pipeline(
         lock_guard.lock();
     }
 
-    core::d3d12::Mesh_Shader_Pipeline_Desc mesh_pipeline_stream = {
+    Mesh_Shader_Pipeline_Desc mesh_pipeline_stream = {
         .root_signature = {.data = m_context.bindless_root_signature },
         .as = {.data = translate_shader_blob_safe(create_info.ts) },
         .ms = {.data = translate_shader_blob_safe(create_info.ms) },
