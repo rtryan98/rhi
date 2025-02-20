@@ -1,8 +1,9 @@
 #pragma once
 
 #include <array>
-#include <core/common/bitmask.hpp>
 #include <vector>
+
+#include "rhi/common/bitmask.hpp"
 
 namespace rhi
 {
@@ -502,7 +503,7 @@ Image_Format_Info get_image_format_info(Image_Format format) noexcept;
 }
 
 template<>
-constexpr static bool CORE_ENABLE_BIT_OPERATORS<rhi::Image_Usage> = true;
+constexpr static bool RHI_ENABLE_BIT_OPERATORS<rhi::Image_Usage> = true;
 
 template<>
-constexpr static bool CORE_ENABLE_BIT_OPERATORS<rhi::Color_Component> = true;
+constexpr static bool RHI_ENABLE_BIT_OPERATORS<rhi::Color_Component> = true;

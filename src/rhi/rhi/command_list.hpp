@@ -1,9 +1,10 @@
 #pragma once
 
-#include <core/common/bitmask.hpp>
 #include <cstdint>
 #include <span>
 #include <vector>
+
+#include "rhi/common/bitmask.hpp"
 
 namespace rhi
 {
@@ -327,7 +328,7 @@ protected:
 }
 
 template<>
-constexpr static bool CORE_ENABLE_BIT_OPERATORS<rhi::Barrier_Pipeline_Stage> = true;
+constexpr static bool RHI_ENABLE_BIT_OPERATORS<rhi::Barrier_Pipeline_Stage> = true;
 
 template<>
-constexpr static bool CORE_ENABLE_BIT_OPERATORS<rhi::Barrier_Access> = true;
+constexpr static bool RHI_ENABLE_BIT_OPERATORS<rhi::Barrier_Access> = true;
