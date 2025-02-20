@@ -2,8 +2,8 @@
 #include "rhi/d3d12/d3d12_command_list.hpp"
 #include "rhi/d3d12/d3d12_swapchain.hpp"
 #include "rhi/d3d12/d3d12_pso.hpp"
+#include "rhi/d3d12/d3d12_descriptor_util.hpp"
 
-#include <core/d3d12/d3d12_descriptor_util.hpp>
 #include <D3D12MemAlloc.h>
 
 extern "C" __declspec(dllexport) extern const uint32_t D3D12SDKVersion = 613;
@@ -405,9 +405,9 @@ std::expected<Buffer_View*, Result> D3D12_Graphics_Device::create_buffer_view(
     static_cast<D3D12_Buffer*>(buffer)->buffer_view_linked_list_head = buffer_view;
 
     auto srv_uav_word_offset = buffer_view->offset >> 2; // counting number of 4 byte elements.
-    auto srv_desc = core::d3d12::make_raw_buffer_srv(buffer_view->size);
+    auto srv_desc = make_raw_buffer_srv(buffer_view->size);
     srv_desc.Buffer.FirstElement = srv_uav_word_offset;
-    auto uav_desc = core::d3d12::make_raw_buffer_uav(buffer_view->size);
+    auto uav_desc = make_raw_buffer_uav(buffer_view->size);
     uav_desc.Buffer.FirstElement = srv_uav_word_offset;
     create_srv_and_uav(static_cast<D3D12_Buffer*>(buffer_view->buffer)->resource,
         buffer_view->bindless_index, &srv_desc, &uav_desc);
@@ -575,23 +575,23 @@ std::expected<Image*, Result> D3D12_Graphics_Device::create_image(const Image_Cr
     image->allocation = allocation;
     image->image_view_linked_list_head = nullptr;
 
-    auto srv_desc = core::d3d12::make_full_texture_srv(
+    auto srv_desc = make_full_texture_srv(
         translate_format(image->format),
         translate_view_type_srv(image->primary_view_type),
         std::max(image->depth, uint32_t(image->array_size)));
-    auto uav_desc = core::d3d12::make_full_texture_uav(
+    auto uav_desc = make_full_texture_uav(
         translate_format(image->format),
         translate_view_type_uav(image->primary_view_type),
         std::max(image->depth, uint32_t(image->array_size)),
         0,
         0);
-    auto rtv_desc = core::d3d12::make_full_texture_rtv(
+    auto rtv_desc = make_full_texture_rtv(
         translate_format(image->format),
         translate_view_type_rtv(image->primary_view_type),
         std::max(image->depth, uint32_t(image->array_size)),
         0,
         0);
-    auto dsv_desc = core::d3d12::make_full_texture_dsv(
+    auto dsv_desc = make_full_texture_dsv(
         translate_format(image->format),
         translate_view_type_dsv(image->primary_view_type),
         std::max(image->depth, uint32_t(image->array_size)),
@@ -666,7 +666,7 @@ std::expected<Image_View*, Result> D3D12_Graphics_Device::create_image_view(
     {
     case Descriptor_Type::Resource:
         image_view->bindless_index = create_descriptor_index(D3D12_DESCRIPTOR_HEAP_TYPE_CBV_SRV_UAV);
-        auto srv_desc = core::d3d12::make_texture_srv(
+        auto srv_desc = make_texture_srv(
             translate_format(d3d12_image->format),
             translate_view_type_srv(create_info.view_type),
             create_info.first_array_level,
@@ -680,7 +680,7 @@ std::expected<Image_View*, Result> D3D12_Graphics_Device::create_image_view(
             get_cpu_descriptor_handle(image_view->bindless_index, D3D12_DESCRIPTOR_HEAP_TYPE_CBV_SRV_UAV));
         if (bool(d3d12_image->usage & Image_Usage::Unordered_Access))
         {
-            auto uav_desc = core::d3d12::make_full_texture_uav(
+            auto uav_desc = make_full_texture_uav(
                 translate_format(d3d12_image->format),
                 translate_view_type_uav(create_info.view_type),
                 create_info.first_array_level,
@@ -698,7 +698,7 @@ std::expected<Image_View*, Result> D3D12_Graphics_Device::create_image_view(
         break;
     case Descriptor_Type::Color_Attachment:
         image_view->rtv_dsv_index = create_descriptor_index(D3D12_DESCRIPTOR_HEAP_TYPE_RTV);
-        auto rtv_desc = core::d3d12::make_full_texture_rtv(
+        auto rtv_desc = make_full_texture_rtv(
             translate_format(d3d12_image->format),
             translate_view_type_rtv(create_info.view_type),
             create_info.array_levels,
@@ -711,7 +711,7 @@ std::expected<Image_View*, Result> D3D12_Graphics_Device::create_image_view(
         break;
     case Descriptor_Type::Depth_Stencil_Attachment:
         image_view->rtv_dsv_index = create_descriptor_index(D3D12_DESCRIPTOR_HEAP_TYPE_DSV);
-        auto dsv_desc = core::d3d12::make_full_texture_dsv(
+        auto dsv_desc = make_full_texture_dsv(
             translate_format(d3d12_image->format),
             translate_view_type_dsv(create_info.view_type),
             create_info.array_levels,
@@ -1244,8 +1244,8 @@ const Indirect_Signatures& D3D12_Graphics_Device::get_indirect_signatures() cons
 
 void D3D12_Graphics_Device::create_initial_buffer_descriptors(D3D12_Buffer* buffer) noexcept
 {
-    auto srv_desc = core::d3d12::make_raw_buffer_srv(buffer->size);
-    auto uav_desc = core::d3d12::make_raw_buffer_uav(buffer->size);
+    auto srv_desc = make_raw_buffer_srv(buffer->size);
+    auto uav_desc = make_raw_buffer_uav(buffer->size);
     create_srv_and_uav(
         buffer->resource,
         buffer->buffer_view->bindless_index,
@@ -1257,21 +1257,21 @@ void D3D12_Graphics_Device::create_initial_image_descriptors(D3D12_Image* image)
 {
     auto format = translate_format(image->format);
     uint32_t depth_or_array_size = image->depth > image->array_size ? image->depth : image->array_size;
-    auto srv_desc = core::d3d12::make_full_texture_srv(
+    auto srv_desc = make_full_texture_srv(
         format,
         translate_view_type_srv(image->primary_view_type),
         depth_or_array_size);
-    auto uav_desc = core::d3d12::make_full_texture_uav(
+    auto uav_desc = make_full_texture_uav(
         format,
         translate_view_type_uav(image->primary_view_type),
         depth_or_array_size,
         0, 0);
-    auto rtv_desc = core::d3d12::make_full_texture_rtv(
+    auto rtv_desc = make_full_texture_rtv(
         format,
         translate_view_type_rtv(image->primary_view_type),
         depth_or_array_size,
         0, 0);
-    auto dsv_desc = core::d3d12::make_full_texture_dsv(
+    auto dsv_desc = make_full_texture_dsv(
         format,
         translate_view_type_dsv(image->primary_view_type),
         depth_or_array_size,
