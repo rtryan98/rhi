@@ -12,7 +12,7 @@ constexpr std::vector<std::wstring> get_default_compile_args()
     result.push_back(L"-enable-16bit-types");
     result.push_back(L"-HV");
     result.push_back(L"2021");
-    result.push_back(L"-no-legacy-cbuf-layout");
+    // result.push_back(L"-no-legacy-cbuf-layout");
     result.push_back(L"-Zpr");
     result.push_back(L"-O3");
     // result.push_back(L"-Qstrip_reflect");
