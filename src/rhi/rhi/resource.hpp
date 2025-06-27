@@ -155,7 +155,7 @@ enum class Comparison_Func
     Less,
     Equal,
     Less_Equal,
-    Greate,
+    Greater,
     Not_Equal,
     Greater_Equal,
     Always
