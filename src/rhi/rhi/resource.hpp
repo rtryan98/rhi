@@ -272,6 +272,8 @@ struct Buffer_Create_Info
 {
     uint64_t size;
     Memory_Heap_Type heap;
+
+    auto operator<=>(const Buffer_Create_Info&) const = default;
 };
 
 struct Buffer
@@ -280,12 +282,16 @@ struct Buffer
     Memory_Heap_Type heap_type;
     Buffer_View* buffer_view;
     void* data;
+
+    auto operator<=>(const Buffer&) const = default;
 };
 
 struct Buffer_View_Create_Info
 {
     uint64_t size;
     uint64_t offset;
+
+    auto operator<=>(const Buffer_View_Create_Info&) const = default;
 };
 
 struct Buffer_View
@@ -294,6 +300,8 @@ struct Buffer_View
     uint64_t size;
     uint64_t offset;
     Buffer* buffer;
+
+    auto operator<=>(const Buffer_View&) const = default;
 };
 
 struct Image_Create_Info
@@ -306,6 +314,8 @@ struct Image_Create_Info
     uint16_t mip_levels;
     Image_Usage usage;
     Image_View_Type primary_view_type;
+
+    auto operator<=>(const Image_Create_Info&) const = default;
 };
 
 struct Image
@@ -319,6 +329,8 @@ struct Image
     Image_Usage usage;
     Image_View_Type primary_view_type;
     Image_View* image_view;
+
+    auto operator<=>(const Image&) const = default;
 };
 
 struct Image_Component_Mapping
@@ -345,6 +357,8 @@ struct Image_View
     uint32_t bindless_index;
     Image* image;
     Descriptor_Type descriptor_type;
+
+    auto operator<=>(const Image_View&) const = default;
 };
 
 struct Sampler_Create_Info
@@ -363,11 +377,15 @@ struct Sampler_Create_Info
     float min_lod;
     float max_lod;
     bool anisotropy_enable; // Note: forces min/mag/mip filter to linear
+
+    auto operator<=>(const Sampler_Create_Info&) const = default;
 };
 
 struct Sampler
 {
     uint32_t bindless_index;
+
+    auto operator<=>(const Sampler&) const = default;
 };
 
 struct Shader_Blob_Create_Info
@@ -377,6 +395,8 @@ struct Shader_Blob_Create_Info
     uint32_t groups_x;
     uint32_t groups_y;
     uint32_t groups_z;
+
+    auto operator<=>(const Shader_Blob_Create_Info&) const = default;
 };
 
 struct Shader_Blob
@@ -385,6 +405,8 @@ struct Shader_Blob
     uint32_t groups_x;
     uint32_t groups_y;
     uint32_t groups_z;
+
+    auto operator<=>(const Shader_Blob&) const = default;
 };
 
 struct Pipeline_Rasterization_State_Info
@@ -396,6 +418,8 @@ struct Pipeline_Rasterization_State_Info
     float depth_bias_clamp;
     float depth_bias_slope_scale;
     bool depth_clip_enable;
+
+    auto operator<=>(const Pipeline_Rasterization_State_Info&) const = default;
 };
 
 struct Pipeline_Color_Attachment_Blend_Info
@@ -410,12 +434,16 @@ struct Pipeline_Color_Attachment_Blend_Info
     Blend_Op alpha_blend_op;
     Logic_Op logic_op;
     Color_Component color_write_mask;
+
+    auto operator<=>(const Pipeline_Color_Attachment_Blend_Info&) const = default;
 };
 
 struct Pipeline_Blend_State_Info
 {
     bool independent_blend_enable;
     std::array<Pipeline_Color_Attachment_Blend_Info, PIPELINE_COLOR_ATTACHMENTS_MAX> color_attachments;
+
+    auto operator<=>(const Pipeline_Blend_State_Info&) const = default;
 };
 
 struct Pipeline_Depth_Stencil_Op_Info
@@ -426,6 +454,8 @@ struct Pipeline_Depth_Stencil_Op_Info
     Comparison_Func comparison_func;
     uint8_t stencil_read_mask;
     uint8_t stencil_write_mask;
+
+    auto operator<=>(const Pipeline_Depth_Stencil_Op_Info&) const = default;
 };
 
 struct Pipeline_Depth_Stencil_State_Info
@@ -439,6 +469,8 @@ struct Pipeline_Depth_Stencil_State_Info
     Depth_Bounds_Test_Mode depth_bounds_test_mode;
     float depth_bounds_min;
     float depth_bounds_max;
+
+    auto operator<=>(const Pipeline_Depth_Stencil_State_Info&) const = default;
 };
 
 struct Graphics_Pipeline_Create_Info
@@ -455,11 +487,15 @@ struct Graphics_Pipeline_Create_Info
     uint32_t color_attachment_count;
     std::array<Image_Format, PIPELINE_COLOR_ATTACHMENTS_MAX> color_attachment_formats;
     Image_Format depth_stencil_format;
+
+    auto operator<=>(const Graphics_Pipeline_Create_Info&) const = default;
 };
 
 struct Compute_Pipeline_Create_Info
 {
     Shader_Blob* cs;
+
+    auto operator<=>(const Compute_Pipeline_Create_Info&) const = default;
 };
 
 struct Mesh_Shading_Pipeline_Create_Info
@@ -474,6 +510,8 @@ struct Mesh_Shading_Pipeline_Create_Info
     uint32_t color_attachment_count;
     std::array<Image_Format, PIPELINE_COLOR_ATTACHMENTS_MAX> color_attachment_formats;
     Image_Format depth_stencil_format;
+
+    auto operator<=>(const Mesh_Shading_Pipeline_Create_Info&) const = default;
 };
 
 enum class Pipeline_Type
