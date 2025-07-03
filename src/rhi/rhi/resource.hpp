@@ -466,6 +466,7 @@ struct Mesh_Shading_Pipeline_Create_Info
 {
     Shader_Blob* ts;
     Shader_Blob* ms;
+    Shader_Blob* ps;
     Pipeline_Blend_State_Info blend_state_info;
     Pipeline_Rasterization_State_Info rasterizer_state_info;
     Pipeline_Depth_Stencil_State_Info depth_stencil_info;

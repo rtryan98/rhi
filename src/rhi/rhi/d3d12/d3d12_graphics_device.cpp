@@ -1233,6 +1233,7 @@ std::expected<Pipeline*, Result> D3D12_Graphics_Device::create_pipeline(
         .root_signature = {.data = m_context.bindless_root_signature },
         .as = {.data = translate_shader_blob_safe(create_info.ts) },
         .ms = {.data = translate_shader_blob_safe(create_info.ms) },
+        .ps = {.data = translate_shader_blob_safe(create_info.ps) },
         .blend_state = {.data = translate_blend_state_desc(create_info.blend_state_info)},
         .sample_mask = {.data = ~0u },
         .rasterizer_state = {.data = translate_rasterizer_desc(create_info.rasterizer_state_info)},
