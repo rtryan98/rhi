@@ -304,6 +304,24 @@ struct Sampler
         return SamplerDescriptorHeap[NonUniformResourceIndex(handle.srv())];
         #endif
     }
+
+    SamplerComparisonState get_cmp()
+    {
+        #ifdef __spirv__
+        return g_vk_samplers[handle.srv()];
+        #else
+        return SamplerDescriptorHeap[handle.srv()];
+        #endif
+    }
+
+    SamplerComparisonState get_cmd_nuri()
+    {
+        #ifdef __spirv__
+        return g_vk_samplers[NonUniformResourceIndex(handle.srv())];
+        #else
+        return SamplerDescriptorHeap[NonUniformResourceIndex(handle.srv())];
+        #endif
+    }
 };
 
 struct Texture
@@ -531,7 +549,18 @@ struct Texture
     }
 
     template<typename T>
-    T sample_2d_array_uniform(SamplerState s, float2 uv, uint index)
+    T sample_cmp_2d_uniform(SamplerComparisonState s, float2 uv, float cmp)
+    {
+        #if __spirv__
+        return g_vk_texture_2d[handle.srv()].SampleCmp(s, uv, cmp);
+        #else
+        Texture2D<T> texture = ResourceDescriptorHeap[handle.srv()];
+        return texture.SampleCmp(s, uv, cmp);
+        #endif
+    }
+
+    template<typename T>
+    T sample_2d_array_uniform(SamplerComparisonState s, float2 uv, uint index)
     {
         #if __spirv__
         return g_vk_texture_2d_array[handle.srv()].Sample(s, float3(uv, index));

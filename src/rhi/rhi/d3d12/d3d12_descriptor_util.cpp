@@ -56,6 +56,16 @@ D3D12_SHADER_RESOURCE_VIEW_DESC make_texture_srv(
     uint32_t mip_levels,
     uint32_t shader_4_component_mapping)
 {
+    // TODO: Is this right?
+    if (format == DXGI_FORMAT_D24_UNORM_S8_UINT)
+    {
+        format = DXGI_FORMAT_R24_UNORM_X8_TYPELESS;
+    }
+    else if (format == DXGI_FORMAT_D32_FLOAT)
+    {
+        format = DXGI_FORMAT_R32_FLOAT;
+    }
+
     D3D12_SHADER_RESOURCE_VIEW_DESC srv_desc = {
         .Format = format,
         .ViewDimension = srv_dimension,
