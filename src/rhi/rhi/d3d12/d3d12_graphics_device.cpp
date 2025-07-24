@@ -104,6 +104,24 @@ HRESULT create_d3d12_context(const D3D12_Context_Create_Info& create_info, D3D12
     {
         return result;
     }
+    if (create_info.enable_validation && SUCCEEDED(context->device->QueryInterface(IID_PPV_ARGS(&context->info_queue))))
+    {
+        static auto message_callback = [](
+            D3D12_MESSAGE_CATEGORY category,
+            D3D12_MESSAGE_SEVERITY severity,
+            D3D12_MESSAGE_ID id,
+            LPCSTR description,
+            void* p_context)
+        {
+            printf(description);
+        };
+        DWORD cookie = {};
+        context->info_queue->RegisterMessageCallback(
+             message_callback,
+             D3D12_MESSAGE_CALLBACK_FLAG_NONE,
+             nullptr,
+             &cookie);
+    }
     get_d3d12_features(context);
     result = create_d3d12_command_queue(context->device, D3D12_COMMAND_LIST_TYPE_DIRECT, create_info.disable_tdr, &context->direct_queue);
     if (FAILED(result))
@@ -211,6 +229,10 @@ HRESULT destroy_d3d12_context(D3D12_Context* context)
     if (has_debug_device)
     {
         debug_device->ReportLiveDeviceObjects(D3D12_RLDO_DETAIL | D3D12_RLDO_IGNORE_INTERNAL);
+    }
+    if (context->info_queue != nullptr)
+    {
+        context->info_queue->Release();
     }
     context->device->Release();
     context->adapter->Release();

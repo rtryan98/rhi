@@ -87,6 +87,7 @@ struct D3D12_Context
     IDXGIFactory7* factory;
     IDXGIAdapter4* adapter;
     ID3D12Device10* device;
+    ID3D12InfoQueue1* info_queue;
     ID3D12CommandQueue* direct_queue;
     ID3D12CommandQueue* compute_queue;
     ID3D12CommandQueue* copy_queue;
