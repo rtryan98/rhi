@@ -5,6 +5,7 @@ project(
     VERSION 0.1.0
     LANGUAGES CXX
 )
+include(rhi.cmake)
 
 add_subdirectory(thirdparty)
 
@@ -17,9 +18,8 @@ core_deploy_files(
     ${CMAKE_CURRENT_LIST_DIR}/thirdparty/win_pix_event_runtime/bin/x64/WinPixEventRuntime.dll
     .
 )
-
 core_download_and_extract_zip(
-    https://github.com/microsoft/DirectXShaderCompiler/releases/download/v1.8.2403.1/dxc_2024_03_22.zip
+    https://github.com/microsoft/DirectXShaderCompiler/releases/download/v1.8.2505.1/dxc_2025_07_14.zip
     ${CMAKE_CURRENT_LIST_DIR}/thirdparty
     directx_shader_compiler
 )
@@ -83,7 +83,7 @@ target_link_libraries(
 target_include_directories(
     rhi_dxc_lib PUBLIC
     src/rhi_dxc_lib
-    ${CMAKE_CURRENT_LIST_DIR}/thirdparty/directx_shader_compiler/inc
+    ${CMAKE_CURRENT_LIST_DIR}/thirdparty/
 )
 set_target_properties(
     rhi_dxc_lib PROPERTIES
@@ -103,11 +103,9 @@ source_group(TREE ${CMAKE_CURRENT_LIST_DIR}/src/rhi_dxc_lib PREFIX src FILES ${R
 
 if(${RHI_BUILD_TESTS})
     message(STATUS "Building RHI tests.")
-
     include(CTest)
-    include(${CMAKE_CURRENT_LIST_DIR}/thirdparty/catch2/extras/Catch.cmake)
-
     add_executable(rhi_tests)
+    add_dependencies(rhi_tests catch2)
     target_link_libraries(
         rhi_tests PRIVATE
         rhi

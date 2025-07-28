@@ -1,6 +1,6 @@
 #include "rhi_dxc_lib/shader_compiler.hpp"
 
-#include <d3d12shader.h>
+#include <directx_shader_compiler/inc/d3d12shader.h>
 
 namespace rhi::dxc
 {
@@ -12,21 +12,27 @@ constexpr std::vector<std::wstring> get_default_compile_args()
     result.push_back(L"-enable-16bit-types");
     result.push_back(L"-HV");
     result.push_back(L"2021");
-    // result.push_back(L"-no-legacy-cbuf-layout");
-    result.push_back(L"-Zpr");
     result.push_back(L"-O3");
-    // result.push_back(L"-Qstrip_reflect");
     return result;
 }
 
-constexpr std::vector<std::wstring> get_spirv_args()
+constexpr std::vector<const wchar_t*> get_spirv_args()
 {
-    std::vector<std::wstring> result = {};
+    std::vector<const wchar_t*> result = {};
     result.push_back(L"-spirv");
-    result.push_back(L"-fvk-invert-y");
+    result.push_back(L"-fspv-target-env=vulkan1.3");
     result.push_back(L"-fvk-use-dx-position-w");
-    result.push_back(L"-fvk-use-scalar-layout");
+    result.push_back(L"-fvk-use-dx-layout");
     result.push_back(L"-fspv-use-legacy-buffer-matrix-order");
+    result.push_back(L"-fvk-support-nonzero-base-instance");
+    result.push_back(L"-fvk-support-nonzero-base-vertex");
+    result.push_back(L"-fvk-bind-resource-heap");
+    result.push_back(L"0"); // binding 0
+    result.push_back(L"0"); // set 0
+    result.push_back(L"-fvk-bind-sampler-heap");
+    result.push_back(L"0"); // binding 0
+    result.push_back(L"1"); // set 1
+    result.push_back(L"-fspv-extension=SPV_EXT_descriptor_indexing");
     return result;
 }
 
@@ -38,13 +44,62 @@ Shader_Compiler::Shader_Compiler()
     DxcCreateInstance(CLSID_DxcCompiler, IID_PPV_ARGS(&m_compiler));
 }
 
+std::wstring shader_model_from_args(Shader_Type type, Shader_Version version)
+{
+    std::wstring shader_model_string;
+    switch (type)
+    {
+    case Shader_Type::Vertex:
+        shader_model_string = L"vs_";
+        break;
+    case Shader_Type::Pixel:
+        shader_model_string = L"ps_";
+        break;
+    case Shader_Type::Task:
+        shader_model_string = L"as_";
+        break;
+    case Shader_Type::Mesh:
+        shader_model_string = L"ms_";
+        break;
+    case Shader_Type::Compute:
+        shader_model_string = L"cs_";
+        break;
+    case Shader_Type::Ray_Gen:
+        [[fallthrough]];
+    case Shader_Type::Ray_Any_Hit:
+        [[fallthrough]];
+    case Shader_Type::Ray_Closest_Hit:
+        [[fallthrough]];
+    case Shader_Type::Ray_Miss:
+        [[fallthrough]];
+    case Shader_Type::Ray_Intersection:
+        [[fallthrough]];
+    case Shader_Type::Ray_Callable:
+        shader_model_string = L"lib_";
+        break;
+    }
+    switch (version)
+    {
+    case Shader_Version::SM6_6:
+        shader_model_string += L"6_6";
+        break;
+    case Shader_Version::SM6_7:
+        shader_model_string += L"6_7";
+        break;
+    case Shader_Version::SM6_8:
+        shader_model_string += L"6_8";
+        break;
+    case Shader_Version::SM6_9:
+        shader_model_string += L"6_9";
+        break;
+    }
+    return shader_model_string;
+}
+
 Shader Shader_Compiler::compile_from_memory(
     const Shader_Compiler_Settings& settings,
     const Shader_Compile_Info& compile_info)
 {
-    constexpr static uint32_t USER_ARG_COUNT = 2 * 2;
-    constexpr static uint32_t SPIRV_ARG_COUNT = 0;
-
     Shader result = {};
 
     ComPtr<IDxcResult> result_dxil = nullptr;
@@ -52,31 +107,43 @@ Shader Shader_Compiler::compile_from_memory(
 
     std::vector<const wchar_t*> arguments_wchar_ptr = {};
     std::vector<std::wstring> arguments = {};
-    arguments.reserve(
-        SPIRV_ARG_COUNT +
-        USER_ARG_COUNT +
-        settings.include_dirs.size() * 2 +
-        settings.defines.size() * 2);
 
     ComPtr<IDxcIncludeHandler> include_handler;
     m_utils->CreateDefaultIncludeHandler(include_handler.GetAddressOf());
 
     for (const auto& argument : settings.defines)
     {
-        arguments.push_back(L"-D");
+        arguments.emplace_back(L"-D");
         arguments.push_back(argument);
     }
     for (const auto& include_dir : settings.include_dirs)
     {
-        arguments.push_back(L"-I");
+        arguments.emplace_back(L"-I");
         arguments.push_back(include_dir);
     }
 
-    arguments.push_back(L"-T");
-    arguments.push_back(compile_info.shader_model);
+    arguments.emplace_back(L"-T");
+    arguments.push_back(shader_model_from_args(compile_info.shader_type, compile_info.version));
 
-    arguments.push_back(L"-E");
+    arguments.emplace_back(L"-E");
     arguments.push_back(compile_info.entrypoint);
+
+    switch (compile_info.matrix_majorness)
+    {
+    case Matrix_Majorness::Row_Major:
+        arguments.emplace_back(L"-Zpr");
+        break;
+    case Matrix_Majorness::Column_Major:
+        arguments.emplace_back(L"-Zpc");
+        break;
+    }
+
+    if (compile_info.embed_debug)
+    {
+        arguments.emplace_back(L"-Zi");
+        arguments.emplace_back(L"-Qembed_debug");
+        arguments.emplace_back(L"-Qsource_in_debug_module");
+    }
 
     arguments_wchar_ptr.reserve(arguments.size());
     for (const auto& arg : arguments)
@@ -107,13 +174,13 @@ Shader Shader_Compiler::compile_from_memory(
     result_dxil->GetOutput(DXC_OUT_ERRORS, IID_PPV_ARGS(&dxil_errors), nullptr);
     if (dxil_errors != nullptr && dxil_errors->GetStringLength() != 0)
     {
-        wprintf(L"DXC Warnings and Errors:\n%S\n", dxil_errors->GetStringPointer());
+        wprintf(L"DXC Warnings and Errors (dxil):\n%S\n", dxil_errors->GetStringPointer());
     }
     HRESULT dxil_compile_status = S_OK;
     result_dxil->GetStatus(&dxil_compile_status);
     if (FAILED(dxil_compile_status))
     {
-        printf("Failed to compile shader (dxil).\n");
+        printf("DXC Failed to compile shader (dxil).\n");
         return Shader();
     }
 
@@ -150,32 +217,58 @@ Shader Shader_Compiler::compile_from_memory(
     }
     else
     {
-        printf("Warning: Shader reflection failed.\n");
+        printf("DXC Warning: Shader reflection failed.\n");
+    }
+    auto spv_args = get_spirv_args();
+    arguments_wchar_ptr.insert(arguments_wchar_ptr.end(), spv_args.begin(), spv_args.end());
+
+    switch (compile_info.shader_type)
+    {
+    case Shader_Type::Mesh:
+        arguments_wchar_ptr.push_back(L"-fspv-extension=SPV_EXT_mesh_shader");
+        [[fallthrough]];
+    case Shader_Type::Vertex:
+        [[fallthrough]];
+    case Shader_Type::Ray_Gen:
+        [[fallthrough]];
+    case Shader_Type::Ray_Any_Hit:
+        [[fallthrough]];
+    case Shader_Type::Ray_Closest_Hit:
+        [[fallthrough]];
+    case Shader_Type::Ray_Miss:
+        [[fallthrough]];
+    case Shader_Type::Ray_Intersection:
+        [[fallthrough]];
+    case Shader_Type::Ray_Callable:
+        arguments_wchar_ptr.push_back(L"-fvk-invert-y");
+        break;
+    default:
+        break;
     }
 
-    const auto spirv_args = get_spirv_args();
-    for (const auto& arg : spirv_args)
+    if (compile_info.embed_debug)
     {
-        arguments_wchar_ptr.push_back(arg.c_str());
+        arguments_wchar_ptr.push_back(L"-fspv-debug=vulkan-with-source");
     }
+
     m_compiler->Compile(
         &source,
         arguments_wchar_ptr.data(),
         arguments_wchar_ptr.size(),
-        nullptr,
+        include_handler.Get(),
         IID_PPV_ARGS(&result_spirv));
 
     ComPtr<IDxcBlobUtf8> spirv_errors = nullptr;
-    result_dxil->GetOutput(DXC_OUT_ERRORS, IID_PPV_ARGS(&spirv_errors), nullptr);
+    result_spirv->GetOutput(DXC_OUT_ERRORS, IID_PPV_ARGS(&spirv_errors), nullptr);
     if (spirv_errors != nullptr && spirv_errors->GetStringLength() != 0)
     {
-        wprintf(L"Warnings and Errors:\n%S\n", spirv_errors->GetStringPointer());
+        wprintf(L"DXC Warnings and Errors (spirv):\n%S\n", spirv_errors->GetStringPointer());
     }
     HRESULT spirv_compile_status = S_OK;
-    result_spirv->GetStatus(&dxil_compile_status);
+    result_spirv->GetStatus(&spirv_compile_status);
     if (FAILED(spirv_compile_status))
     {
-        printf("Failed to compile shader (spirv).\n");
+        printf("DXC Failed to compile shader (spirv).\n");
         return Shader();
     }
 

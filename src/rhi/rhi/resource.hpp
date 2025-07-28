@@ -2,6 +2,7 @@
 
 #include <array>
 #include <vector>
+#include <string_view>
 
 #include "rhi/common/bitmask.hpp"
 
@@ -141,6 +142,7 @@ enum class Cull_Mode
     Front,
     Back
 };
+Cull_Mode cull_mode_from_string(const std::string_view str);
 
 enum class Winding_Order
 {
@@ -160,6 +162,7 @@ enum class Comparison_Func
     Greater_Equal,
     Always
 };
+Comparison_Func comparison_func_from_string(std::string_view str);
 
 enum class Stencil_Op
 {
@@ -172,6 +175,7 @@ enum class Stencil_Op
     Incr = 7,
     Decr = 8
 };
+Stencil_Op stencil_op_from_string(std::string_view str);
 
 enum class Depth_Bounds_Test_Mode
 {
@@ -179,6 +183,7 @@ enum class Depth_Bounds_Test_Mode
     Static,
     Dynamic
 };
+Depth_Bounds_Test_Mode depth_bounds_test_mode_from_string(std::string_view str);
 
 enum class Primitive_Topology_Type
 {
@@ -187,6 +192,7 @@ enum class Primitive_Topology_Type
     Triangle = 3,
     Patch = 4
 };
+Primitive_Topology_Type primitive_topology_from_string(std::string_view str);
 
 enum class Blend_Factor
 {
@@ -209,6 +215,7 @@ enum class Blend_Factor
     Src1_Alpha,
     One_Minus_Src1_Alpha
 };
+Blend_Factor blend_factor_from_string(std::string_view str);
 
 enum class Blend_Op
 {
@@ -218,6 +225,7 @@ enum class Blend_Op
     Min = 4,
     Max = 5
 };
+Blend_Op blend_op_from_string(std::string_view str);
 
 enum class Logic_Op
 {
@@ -238,6 +246,7 @@ enum class Logic_Op
     OR_Reverse,
     OR_Inverted
 };
+Logic_Op logic_op_from_string(std::string_view str);
 
 enum class Color_Component
 {
@@ -247,6 +256,7 @@ enum class Color_Component
     A_Bit = 0x8,
     Enable_All = R_Bit | G_Bit | B_Bit | A_Bit
 };
+Color_Component color_component_from_string(std::string_view str);
 
 enum class Sampler_Filter
 {
@@ -535,9 +545,11 @@ struct Pipeline
 
 struct Image_Format_Info
 {
+    Image_Format format;
     uint32_t bytes;
 };
 
+Image_Format_Info get_image_format_info(std::string_view string_format) noexcept;
 Image_Format_Info get_image_format_info(Image_Format format) noexcept;
 }
 

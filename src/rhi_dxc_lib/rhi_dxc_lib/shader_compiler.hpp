@@ -1,7 +1,7 @@
 #pragma once
 
 #include <wrl.h>
-#include <dxcapi.h>
+#include <directx_shader_compiler/inc/dxcapi.h>
 #include <string>
 #include <vector>
 
@@ -9,6 +9,35 @@ namespace rhi::dxc
 {
 constexpr static auto SERIALIZED_MAGIC_NUM = { 'r', 'h', 'i', '_', 's', 'h', 'a', 'd', 'e', 'r' };
 constexpr static auto SERIALIZED_MAGIC_NUM_SIZE = 10;
+
+enum class Matrix_Majorness
+{
+    Row_Major,
+    Column_Major
+};
+
+enum class Shader_Type
+{
+    Vertex,
+    Pixel,
+    Task,
+    Mesh,
+    Compute,
+    Ray_Gen,            // lib
+    Ray_Any_Hit,        // lib
+    Ray_Closest_Hit,    // lib
+    Ray_Miss,           // lib
+    Ray_Intersection,   // lib
+    Ray_Callable        // lib
+};
+
+enum class Shader_Version
+{
+    SM6_6,
+    SM6_7,
+    SM6_8,
+    SM6_9,
+};
 
 struct Shader_Compiler_Settings
 {
@@ -21,7 +50,10 @@ struct Shader_Compile_Info
     void* data;
     std::size_t data_size;
     std::wstring entrypoint;
-    std::wstring shader_model;
+    Matrix_Majorness matrix_majorness;
+    Shader_Type shader_type;
+    Shader_Version version;
+    bool embed_debug;
 };
 
 struct Shader_Reflection_Data
