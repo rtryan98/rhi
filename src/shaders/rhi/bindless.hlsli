@@ -34,6 +34,13 @@ T buf_load_arr(uint id, uint index)
     return buf.Load<T>(index * sizeof(T));
 }
 
+template<typename T, uint Align>
+T buf_load_arr_aligned(uint id, uint index)
+{
+    ByteAddressBuffer buf = ResourceDescriptorHeap[NonUniformResourceIndex(id)];
+    return buf.Load<T>(index * Align);
+}
+
 // BUFFER STORE METHODS
 
 template<typename T>
@@ -48,6 +55,13 @@ void buf_store_arr(uint id, uint index, T value)
 {
     RWByteAddressBuffer buf = ResourceDescriptorHeap[NonUniformResourceIndex(id_uav(id))];
     buf.Store(index * sizeof(T), value);
+}
+
+template<typename T, uint Align>
+void buf_store_arr_aligned(uint id, uint index, T value)
+{
+    RWByteAddressBuffer buf = ResourceDescriptorHeap[NonUniformResourceIndex(id_uav(id))];
+    buf.Store(index * Align, value);
 }
 
 // TEXTURE GATHER METHODS
@@ -774,6 +788,13 @@ T buf_load_arr(uint id, uint index)
     return buf.Load<T>(index * sizeof(T));
 }
 
+template<typename T, uint Align>
+T buf_load_arr_aligned(uint id, uint index, T value)
+{
+    ByteAddressBuffer buf = ResourceDescriptorHeap[(id)];
+    return buf.Load<T>(index * Align);
+}
+
 // BUFFER STORE METHODS
 
 template<typename T>
@@ -788,6 +809,13 @@ void buf_store_arr(uint id, uint index, T value)
 {
     RWByteAddressBuffer buf = ResourceDescriptorHeap[(id_uav(id))];
     buf.Store(index * sizeof(T), value);
+}
+
+template<typename T, uint Align>
+void buf_store_arr_aligned(uint id, uint index, T value)
+{
+    RWByteAddressBuffer buf = ResourceDescriptorHeap[(id_uav(id))];
+    buf.Store(index * Align, value);
 }
 
 // TEXTURE GATHER METHODS
