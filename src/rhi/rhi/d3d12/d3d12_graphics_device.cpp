@@ -5,6 +5,7 @@
 #include "rhi/d3d12/d3d12_descriptor_util.hpp"
 
 #include <D3D12MemAlloc.h>
+#include <dxgidebug.h>
 
 extern "C" __declspec(dllexport) extern const uint32_t D3D12SDKVersion = 613;
 extern "C" __declspec(dllexport) extern const char* D3D12SDKPath = ".\\D3D12\\";
@@ -224,12 +225,8 @@ HRESULT destroy_d3d12_context(D3D12_Context* context)
     context->copy_queue->Release();
     context->compute_queue->Release();
     context->direct_queue->Release();
-    ID3D12DebugDevice* debug_device;
+    ID3D12DebugDevice2* debug_device;
     bool has_debug_device = SUCCEEDED(context->device->QueryInterface(IID_PPV_ARGS(&debug_device)));
-    if (has_debug_device)
-    {
-        debug_device->ReportLiveDeviceObjects(D3D12_RLDO_DETAIL | D3D12_RLDO_IGNORE_INTERNAL);
-    }
     if (context->info_queue != nullptr)
     {
         context->info_queue->Release();
@@ -237,6 +234,22 @@ HRESULT destroy_d3d12_context(D3D12_Context* context)
     context->device->Release();
     context->adapter->Release();
     context->factory->Release();
+    if (has_debug_device)
+    {
+        printf("debug_device->ReportLiveDeviceObjects start:\n");
+        debug_device->ReportLiveDeviceObjects(D3D12_RLDO_DETAIL | D3D12_RLDO_IGNORE_INTERNAL);
+        printf("\ndebug_device->ReportLiveDeviceObjects end.\n");
+    }
+
+    IDXGIDebug* dxgi_debug = nullptr;
+    if (SUCCEEDED(DXGIGetDebugInterface1(0, IID_PPV_ARGS(&dxgi_debug))))
+    {
+        printf("dxgi_debug->ReportLiveObjects start:\n");
+        dxgi_debug->ReportLiveObjects(DXGI_DEBUG_ALL, static_cast<DXGI_DEBUG_RLO_FLAGS>(DXGI_DEBUG_RLO_DETAIL | D3D12_RLDO_IGNORE_INTERNAL));
+        dxgi_debug->Release();
+        printf("\ndxgi_debug->ReportLiveObjects end.\n");
+    }
+
     return S_OK;
 }
 
