@@ -1,11 +1,11 @@
 #pragma once
 
 #include "rhi/graphics_device.hpp"
-#include "rhi/common/array_vector.hpp"
 #include "rhi/d3d12/d3d12_resource.hpp"
 
 #include <core/d3d12/d3d12_device.hpp>
 #include <mutex>
+#include <plf_colony.h>
 
 namespace D3D12MA
 {
@@ -218,14 +218,14 @@ private:
     std::mutex m_compute_queue_mutex;
     std::mutex m_copy_queue_mutex;
 
-    Array_Vector<D3D12_Fence, ARRAY_VECTOR_SIZE> m_fences;
-    Array_Vector<D3D12_Buffer, ARRAY_VECTOR_SIZE> m_buffers;
-    Array_Vector<D3D12_Buffer_View, ARRAY_VECTOR_SIZE> m_buffer_views;
-    Array_Vector<D3D12_Image, ARRAY_VECTOR_SIZE> m_images;
-    Array_Vector<D3D12_Image_View, ARRAY_VECTOR_SIZE> m_image_views;
-    Array_Vector<D3D12_Sampler, ARRAY_VECTOR_SIZE> m_samplers;
-    Array_Vector<Shader_Blob, ARRAY_VECTOR_SIZE> m_shader_blobs;
-    Array_Vector<D3D12_Pipeline, ARRAY_VECTOR_SIZE> m_pipelines;
+    plf::colony<D3D12_Fence> m_fences;
+    plf::colony<D3D12_Buffer> m_buffers;
+    plf::colony<D3D12_Buffer_View> m_buffer_views;
+    plf::colony<D3D12_Image> m_images;
+    plf::colony<D3D12_Image_View> m_image_views;
+    plf::colony<D3D12_Sampler> m_samplers;
+    plf::colony<Shader_Blob> m_shader_blobs;
+    plf::colony<D3D12_Pipeline> m_pipelines;
 
     std::vector<uint32_t> m_resource_descriptor_indices;
     std::vector<uint32_t> m_sampler_descriptor_indices;

@@ -31,7 +31,6 @@ core_deploy_files(
 option(RHI_BUILD_D3D12 "If true, builds the RHI D3D12 backend." ON)
 option(RHI_BUILD_VULKAN "If true, builds the RHI Vulkan backend." ON)
 option(RHI_USE_PIX "If true, compiles the RHI with WinPixEventRuntime linked when compiling for D3D12." ON)
-option(RHI_BUILD_TESTS "If true, builds the RHI tests" OFF)
 
 add_library(rhi)
 target_link_libraries(
@@ -43,6 +42,7 @@ target_include_directories(
     rhi PUBLIC
     src/rhi
     ${CMAKE_CURRENT_LIST_DIR}/thirdparty/win_pix_event_runtime/Include
+    ${CMAKE_CURRENT_LIST_DIR}/thirdparty/plf_colony
 )
 set_target_properties(
     rhi PROPERTIES
@@ -100,23 +100,3 @@ get_target_property(RHI_SOURCES rhi SOURCES)
 source_group(TREE ${CMAKE_CURRENT_LIST_DIR}/src/rhi PREFIX src FILES ${RHI_SOURCES})
 get_target_property(RHI_DXC_LIB_SOURCES rhi_dxc_lib SOURCES)
 source_group(TREE ${CMAKE_CURRENT_LIST_DIR}/src/rhi_dxc_lib PREFIX src FILES ${RHI_DXC_LIB_SOURCES})
-
-if(${RHI_BUILD_TESTS})
-    message(STATUS "Building RHI tests.")
-    include(CTest)
-    add_executable(rhi_tests)
-    add_dependencies(rhi_tests catch2)
-    target_link_libraries(
-        rhi_tests PRIVATE
-        rhi
-        Catch2::Catch2WithMain)
-    set_target_properties(
-        rhi_tests PROPERTIES
-        CXX_STANDARD 23
-    )
-    add_subdirectory(test)
-    get_target_property(RHI_TESTS_SOURCES rhi_tests SOURCES)
-    source_group(TREE ${CMAKE_CURRENT_LIST_DIR}/test/rhi PREFIX test FILES ${RHI_TESTS_SOURCES})
-
-    catch_discover_tests(rhi_tests)
-endif()

@@ -520,7 +520,7 @@ std::expected<Fence*, Result> D3D12_Graphics_Device::create_fence(uint64_t initi
         return std::unexpected(result);
     }
 
-    D3D12_Fence* fence = m_fences.acquire();
+    D3D12_Fence* fence = &*m_fences.emplace();
     fence->fence = d3d12_fence;
     return fence;
 }
@@ -537,7 +537,7 @@ void D3D12_Graphics_Device::destroy_fence(Fence* fence) noexcept
 
     auto d3d12_fence = static_cast<D3D12_Fence*>(fence);
     d3d12_fence->fence->Release();
-    m_fences.release(d3d12_fence);
+    m_fences.erase(m_fences.get_iterator(d3d12_fence));
 }
 
 std::expected<Buffer*, Result> D3D12_Graphics_Device::create_buffer(const Buffer_Create_Info& create_info) noexcept
@@ -588,10 +588,10 @@ std::expected<Buffer*, Result> D3D12_Graphics_Device::create_buffer(const Buffer
         resource->Map(0, nullptr, &mapped_data);
     }
 
-    auto buffer = m_buffers.acquire();
+    auto buffer = &*m_buffers.emplace();
     buffer->size = create_info.size;
     buffer->heap_type = create_info.heap;
-    buffer->buffer_view = m_buffer_views.acquire();
+    buffer->buffer_view = &*m_buffer_views.emplace();
     buffer->buffer_view->bindless_index = create_descriptor_index(D3D12_DESCRIPTOR_HEAP_TYPE_CBV_SRV_UAV);
     buffer->buffer_view->size = buffer->size;
     buffer->buffer_view->offset = 0;
@@ -623,7 +623,7 @@ std::expected<Buffer_View*, Result> D3D12_Graphics_Device::create_buffer_view(
         lock_guard.lock();
     }
 
-    auto buffer_view = m_buffer_views.acquire();
+    auto buffer_view = &*m_buffer_views.emplace();
     buffer_view->bindless_index = create_descriptor_index(D3D12_DESCRIPTOR_HEAP_TYPE_CBV_SRV_UAV);
     buffer_view->size = create_info.size;
     buffer_view->offset = create_info.offset;
@@ -654,7 +654,9 @@ void D3D12_Graphics_Device::destroy_buffer(Buffer* buffer) noexcept
 
     auto d3d12_buffer = static_cast<D3D12_Buffer*>(buffer);
     d3d12_buffer->resource->Release();
+    d3d12_buffer->resource = nullptr;
     d3d12_buffer->allocation->Release();
+    d3d12_buffer->allocation = nullptr;
 
     release_descriptor_index(buffer->buffer_view->bindless_index, D3D12_DESCRIPTOR_HEAP_TYPE_CBV_SRV_UAV);
     auto next_buffer_view = d3d12_buffer->buffer_view_linked_list_head;
@@ -663,10 +665,10 @@ void D3D12_Graphics_Device::destroy_buffer(Buffer* buffer) noexcept
         auto current_buffer_view = next_buffer_view;
         release_descriptor_index(current_buffer_view->bindless_index, D3D12_DESCRIPTOR_HEAP_TYPE_CBV_SRV_UAV);
         next_buffer_view = current_buffer_view->next_buffer_view;
-        m_buffer_views.release(current_buffer_view);
+        m_buffer_views.erase(m_buffer_views.get_iterator(current_buffer_view));
     }
 
-    m_buffers.release(d3d12_buffer);
+    m_buffers.erase(m_buffers.get_iterator(d3d12_buffer));
 }
 
 std::expected<Image*, Result> D3D12_Graphics_Device::create_image(const Image_Create_Info& create_info) noexcept
@@ -769,7 +771,7 @@ std::expected<Image*, Result> D3D12_Graphics_Device::create_image(const Image_Cr
         return std::unexpected(result);
     }
 
-    auto image = m_images.acquire();
+    auto image = &*m_images.emplace();
     image->format = create_info.format;
     image->width = create_info.width;
     image->height = create_info.height;
@@ -778,7 +780,7 @@ std::expected<Image*, Result> D3D12_Graphics_Device::create_image(const Image_Cr
     image->mip_levels = create_info.mip_levels;
     image->usage = create_info.usage;
     image->primary_view_type = create_info.primary_view_type;
-    image->image_view = m_image_views.acquire();
+    image->image_view = &*m_image_views.emplace();
     image->image_view->bindless_index = create_descriptor_index(D3D12_DESCRIPTOR_HEAP_TYPE_CBV_SRV_UAV);
     image->image_view->image = image;
 
@@ -883,7 +885,7 @@ std::expected<Image_View*, Result> D3D12_Graphics_Device::create_image_view(
     }
 
     auto d3d12_image = static_cast<D3D12_Image*>(image);
-    auto image_view = m_image_views.acquire();
+    auto image_view = &*m_image_views.emplace();
 
     image_view->next_image_view = d3d12_image->image_view_linked_list_head;
     d3d12_image->image_view_linked_list_head = image_view;
@@ -967,7 +969,9 @@ void D3D12_Graphics_Device::destroy_image(Image* image) noexcept
 
     auto d3d12_image = static_cast<D3D12_Image*>(image);
     d3d12_image->resource->Release();
+    d3d12_image->resource = nullptr;
     d3d12_image->allocation->Release();
+    d3d12_image->allocation = nullptr;
 
     release_descriptor_index(d3d12_image->image_view->bindless_index, D3D12_DESCRIPTOR_HEAP_TYPE_CBV_SRV_UAV);
     if (bool(image->usage & Image_Usage::Color_Attachment))
@@ -1002,10 +1006,10 @@ void D3D12_Graphics_Device::destroy_image(Image* image) noexcept
 
         release_descriptor_index(current_image_view->bindless_index, D3D12_DESCRIPTOR_HEAP_TYPE_CBV_SRV_UAV);
         next_image_view = current_image_view->next_image_view;
-        m_image_views.release(current_image_view);
+        m_image_views.erase(m_image_views.get_iterator(current_image_view));
     }
 
-    m_images.release(d3d12_image);
+    m_images.erase(m_images.get_iterator(d3d12_image));
 }
 
 D3D12_TEXTURE_ADDRESS_MODE translate_texture_address_mode(Image_Sample_Address_Mode address_mode) noexcept
@@ -1033,7 +1037,7 @@ std::expected<Sampler*, Result> D3D12_Graphics_Device::create_sampler(const Samp
         lock_guard.lock();
     }
 
-    auto sampler = m_samplers.acquire();
+    auto sampler = &*m_samplers.emplace();
     D3D12_SAMPLER_DESC sampler_desc = {
         .Filter = translate_filter(
             create_info.filter_min,
@@ -1075,7 +1079,7 @@ void D3D12_Graphics_Device::destroy_sampler(Sampler* sampler) noexcept
 
     auto d3d12_sampler = static_cast<D3D12_Sampler*>(sampler);
     release_descriptor_index(d3d12_sampler->bindless_index, D3D12_DESCRIPTOR_HEAP_TYPE_SAMPLER);
-    m_samplers.release(d3d12_sampler);
+    m_samplers.erase(m_samplers.get_iterator(d3d12_sampler));
 }
 
 std::expected<Shader_Blob*, Result> D3D12_Graphics_Device::create_shader_blob(
@@ -1096,7 +1100,7 @@ std::expected<Shader_Blob*, Result> D3D12_Graphics_Device::create_shader_blob(
         lock_guard.lock();
     }
 
-    auto blob = m_shader_blobs.acquire();
+    auto blob = &*m_shader_blobs.emplace();
     blob->data.resize(create_info.data_size);
     blob->groups_x = create_info.groups_x;
     blob->groups_y = create_info.groups_y;
@@ -1153,7 +1157,7 @@ void D3D12_Graphics_Device::destroy_shader_blob(Shader_Blob* shader_blob) noexce
         lock_guard.lock();
     }
 
-    m_shader_blobs.release(shader_blob);
+    m_shader_blobs.erase(m_shader_blobs.get_iterator(shader_blob));
 }
 
 std::expected<Pipeline*, Result> D3D12_Graphics_Device::create_pipeline(
@@ -1202,7 +1206,7 @@ std::expected<Pipeline*, Result> D3D12_Graphics_Device::create_pipeline(
         return std::unexpected(result);
     }
 
-    auto pipeline = m_pipelines.acquire();
+    auto pipeline = &*m_pipelines.emplace();
     pipeline->type = Pipeline_Type::Vertex_Shading;
     pipeline->vertex_shading_info = create_info;
     pipeline->pso = pso;
@@ -1234,7 +1238,7 @@ std::expected<Pipeline*, Result> D3D12_Graphics_Device::create_pipeline(
         return std::unexpected(result);
     }
 
-    auto pipeline = m_pipelines.acquire();
+    auto pipeline = &*m_pipelines.emplace();
     pipeline->type = Pipeline_Type::Compute;
     pipeline->compute_shading_info = create_info;
     pipeline->pso = pso;
@@ -1285,7 +1289,7 @@ std::expected<Pipeline*, Result> D3D12_Graphics_Device::create_pipeline(
         return std::unexpected(result);
     }
 
-    auto pipeline = m_pipelines.acquire();
+    auto pipeline = &*m_pipelines.emplace();
     pipeline->type = Pipeline_Type::Mesh_Shading;
     pipeline->mesh_shading_info = create_info;
     pipeline->pso = pso;
@@ -1308,8 +1312,10 @@ void D3D12_Graphics_Device::destroy_pipeline(Pipeline* pipeline) noexcept
         d3d12_pipeline->pso->Release();
     if (d3d12_pipeline->rtpso)
         d3d12_pipeline->rtpso->Release();
+    d3d12_pipeline->pso = nullptr;
+    d3d12_pipeline->rtpso = nullptr;
 
-    m_pipelines.release(d3d12_pipeline);
+    m_pipelines.erase(m_pipelines.get_iterator(d3d12_pipeline));
 }
 
 Result D3D12_Graphics_Device::submit(const Submit_Info& submit_info) noexcept
@@ -1569,8 +1575,8 @@ D3D12_Image* D3D12_Graphics_Device::acquire_custom_allocated_image() noexcept
         lock_guard.lock();
     }
 
-    auto image = m_images.acquire();
-    image->image_view = m_image_views.acquire();
+    auto image = &*m_images.emplace();
+    image->image_view = &*m_image_views.emplace();
 
     return image;
 }
@@ -1583,8 +1589,8 @@ void D3D12_Graphics_Device::release_custom_allocated_image(D3D12_Image* image) n
         lock_guard.lock();
     }
 
-    m_image_views.release(static_cast<D3D12_Image_View*>(image->image_view));
-    m_images.release(image);
+    m_image_views.erase(m_image_views.get_iterator(static_cast<D3D12_Image_View*>(image->image_view)));
+    m_images.erase(m_images.get_iterator(image));
 }
 
 void D3D12_Graphics_Device::create_srv_uav_rtv_dsv(
