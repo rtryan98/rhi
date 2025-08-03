@@ -31,6 +31,7 @@ constexpr std::vector<const wchar_t*> get_spirv_args()
     result.push_back(L"0"); // binding 0
     result.push_back(L"1"); // set 1
     result.push_back(L"-fspv-extension=SPV_EXT_descriptor_indexing");
+    result.push_back(L"-fspv-extension=SPV_KHR_16bit_storage");
     return result;
 }
 

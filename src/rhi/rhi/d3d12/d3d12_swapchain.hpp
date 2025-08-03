@@ -25,6 +25,8 @@ public:
     virtual [[nodiscard]] Swapchain_Resize_Info query_resize() noexcept override;
     virtual [[nodiscard]] Image_Format get_image_format() noexcept override;
     virtual [[nodiscard]] Image_View* get_current_image_view() noexcept override;
+    virtual [[nodiscard]] uint32_t get_width() const noexcept override;
+    virtual [[nodiscard]] uint32_t get_height() const noexcept override;
 
 private:
     void recreate_resources() noexcept;

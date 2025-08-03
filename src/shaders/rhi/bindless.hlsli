@@ -658,7 +658,7 @@ void tex_store(uint id_texture, uint pos, T value)
 }
 
 template<typename T>
-void tex_store_load(uint id_texture, uint2 pos, T value)
+void tex_store(uint id_texture, uint2 pos, T value)
 {
     RWTexture2D<T> tex = ResourceDescriptorHeap[NonUniformResourceIndex(id_uav(id_texture))];
     tex[pos] = value;
@@ -1412,7 +1412,7 @@ void tex_store(uint id_texture, uint pos, T value)
 }
 
 template<typename T>
-void tex_store_load(uint id_texture, uint2 pos, T value)
+void tex_store(uint id_texture, uint2 pos, T value)
 {
     RWTexture2D<T> tex = ResourceDescriptorHeap[(id_uav(id_texture))];
     tex[pos] = value;

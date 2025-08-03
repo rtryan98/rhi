@@ -114,7 +114,9 @@ HRESULT create_d3d12_context(const D3D12_Context_Create_Info& create_info, D3D12
             LPCSTR description,
             void* p_context)
         {
+            printf("D3D12 Message Callback:\n");
             printf(description);
+            printf("\n");
         };
         DWORD cookie = {};
         context->info_queue->RegisterMessageCallback(

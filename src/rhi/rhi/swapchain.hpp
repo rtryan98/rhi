@@ -38,6 +38,8 @@ public:
     virtual [[nodiscard]] Swapchain_Resize_Info query_resize() noexcept = 0;
     virtual [[nodiscard]] Image_Format get_image_format() noexcept = 0;
     virtual [[nodiscard]] Image_View* get_current_image_view() noexcept = 0;
+    virtual [[nodiscard]] uint32_t get_width() const noexcept = 0;
+    virtual [[nodiscard]] uint32_t get_height() const noexcept = 0;
 
 protected:
     Swapchain() = default;

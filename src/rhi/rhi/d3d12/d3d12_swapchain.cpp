@@ -132,6 +132,16 @@ Image_View* D3D12_Swapchain::get_current_image_view() noexcept
     return m_images[m_current_image_index]->image_view;
 }
 
+uint32_t D3D12_Swapchain::get_width() const noexcept
+{
+    return m_images[m_current_image_index]->width;
+}
+
+uint32_t D3D12_Swapchain::get_height() const noexcept
+{
+    return m_images[m_current_image_index]->height;
+}
+
 void D3D12_Swapchain::recreate_resources() noexcept
 {
     DXGI_SWAP_CHAIN_DESC1 desc = {};
