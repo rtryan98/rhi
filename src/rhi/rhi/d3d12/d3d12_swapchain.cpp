@@ -40,6 +40,11 @@ D3D12_Swapchain::D3D12_Swapchain(D3D12_Graphics_Device* graphics_device, const S
     // TODO: unsafe, figure out how to handle error here
     swapchain1->Release();
 
+    if (desc.Format == DXGI_FORMAT_R10G10B10A2_UNORM)
+    {
+        m_dxgi_swapchain->SetColorSpace1(DXGI_COLOR_SPACE_RGB_FULL_G2084_NONE_P2020);
+    }
+
     recreate_resources();
 }
 
