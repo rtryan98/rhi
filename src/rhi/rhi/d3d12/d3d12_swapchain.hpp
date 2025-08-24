@@ -21,6 +21,7 @@ public:
 
     virtual void acquire_next_image() noexcept override;
     virtual void present() noexcept override;
+    virtual void change_format(Image_Format format) noexcept override;
 
     virtual [[nodiscard]] Swapchain_Resize_Info query_resize() noexcept override;
     virtual [[nodiscard]] Image_Format get_image_format() noexcept override;
@@ -30,6 +31,7 @@ public:
 
 private:
     void recreate_resources() noexcept;
+    Swapchain_Resize_Info query_resize_internal(DXGI_FORMAT format) noexcept;
 
 private:
     D3D12_Graphics_Device* m_device;

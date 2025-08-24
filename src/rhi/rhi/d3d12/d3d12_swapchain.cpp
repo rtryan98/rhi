@@ -79,50 +79,26 @@ void D3D12_Swapchain::present() noexcept
         : 0);
 }
 
+void D3D12_Swapchain::change_format(const Image_Format format) noexcept
+{
+    query_resize_internal(translate_format(format));
+    switch (format)
+    {
+    case Image_Format::A2R10G10B10_UNORM_PACK32:
+        m_dxgi_swapchain->SetColorSpace1(DXGI_COLOR_SPACE_RGB_FULL_G2084_NONE_P2020);
+        break;
+    case Image_Format::R16G16B16A16_SFLOAT:
+        m_dxgi_swapchain->SetColorSpace1(DXGI_COLOR_SPACE_RGB_FULL_G10_NONE_P709);
+        break;
+    default:
+        m_dxgi_swapchain->SetColorSpace1(DXGI_COLOR_SPACE_RGB_FULL_G22_NONE_P709);
+        break;
+    }
+}
+
 Swapchain_Resize_Info D3D12_Swapchain::query_resize() noexcept
 {
-    Swapchain_Resize_Info result = {
-        .is_size_changed = false,
-        .width = 0,
-        .height = 0
-    };
-
-    DXGI_SWAP_CHAIN_DESC1 desc;
-    m_dxgi_swapchain->GetDesc1(&desc);
-    RECT rect;
-    bool client_rect_result = GetClientRect(m_hwnd, &rect);
-    uint32_t client_width = rect.right - rect.left;
-    uint32_t client_height = rect.bottom - rect.top;
-
-    bool has_area = false;
-    has_area = (client_width > 0) && (client_height > 0);
-
-    bool resize = false;
-    resize = ((client_width != desc.Width) || (client_height != desc.Height)) && has_area;
-
-    if (resize && client_rect_result)
-    {
-        result.is_size_changed = true;
-        result.width = client_width;
-        result.height = client_height;
-
-        m_device->wait_idle();
-
-        for (auto i = 0; i < desc.BufferCount; ++i)
-        {
-            m_images[i]->resource->Release();
-            m_images[i]->resource = nullptr;
-        }
-        m_dxgi_swapchain->ResizeBuffers(
-            0,
-            client_width,
-            client_height,
-            DXGI_FORMAT_UNKNOWN,
-            desc.Flags);
-        recreate_resources();
-    }
-
-    return result;
+    return query_resize_internal(DXGI_FORMAT_UNKNOWN);
 }
 
 Image_Format D3D12_Swapchain::get_image_format() noexcept
@@ -195,5 +171,51 @@ void D3D12_Swapchain::recreate_resources() noexcept
                 image->resource, &descriptor_desc, cpu_descriptor);
         }
     }
+}
+
+Swapchain_Resize_Info D3D12_Swapchain::query_resize_internal(DXGI_FORMAT format) noexcept
+{
+    Swapchain_Resize_Info result = {
+        .is_size_changed = false,
+        .width = 0,
+        .height = 0
+    };
+
+    DXGI_SWAP_CHAIN_DESC1 desc;
+    m_dxgi_swapchain->GetDesc1(&desc);
+    RECT rect;
+    bool client_rect_result = GetClientRect(m_hwnd, &rect);
+    uint32_t client_width = rect.right - rect.left;
+    uint32_t client_height = rect.bottom - rect.top;
+
+    bool has_area = false;
+    has_area = (client_width > 0) && (client_height > 0);
+
+    bool resize = false;
+    resize = ((client_width != desc.Width) || (client_height != desc.Height)) && has_area;
+
+    if ((resize && client_rect_result) || format != DXGI_FORMAT_UNKNOWN)
+    {
+        result.is_size_changed = true;
+        result.width = client_width;
+        result.height = client_height;
+
+        m_device->wait_idle();
+
+        for (auto i = 0; i < desc.BufferCount; ++i)
+        {
+            m_images[i]->resource->Release();
+            m_images[i]->resource = nullptr;
+        }
+        m_dxgi_swapchain->ResizeBuffers(
+            0,
+            client_width,
+            client_height,
+            format,
+            desc.Flags);
+        recreate_resources();
+    }
+
+    return result;
 }
 }

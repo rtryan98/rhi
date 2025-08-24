@@ -34,6 +34,7 @@ public:
 
     virtual void acquire_next_image() noexcept = 0;
     virtual void present() noexcept = 0;
+    virtual void change_format(Image_Format format) noexcept = 0;
 
     virtual [[nodiscard]] Swapchain_Resize_Info query_resize() noexcept = 0;
     virtual [[nodiscard]] Image_Format get_image_format() noexcept = 0;
