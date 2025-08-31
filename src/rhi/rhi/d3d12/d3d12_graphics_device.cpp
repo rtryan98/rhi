@@ -723,6 +723,8 @@ std::expected<Image*, Result> D3D12_Graphics_Device::create_image(const Image_Cr
         [[fallthrough]];
     case Image_View_Type::Texture_2D_MS_Array:
         [[fallthrough]];
+    case Image_View_Type::Texture_Cube:
+        [[fallthrough]];
     case Image_View_Type::Texture_Cube_Array:
         if (create_info.depth <= 1)
         {

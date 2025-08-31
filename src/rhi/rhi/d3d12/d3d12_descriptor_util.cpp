@@ -154,7 +154,7 @@ D3D12_UNORDERED_ACCESS_VIEW_DESC make_full_texture_uav(
     uint32_t mip_slice,
     uint32_t plane_slice)
 {
-    return make_texture_uav(format, uav_dimension, 0, depth_or_array_layers, mip_slice, 0);
+    return make_texture_uav(format, uav_dimension, 0, ~0u, mip_slice, 0);
 }
 
 D3D12_UNORDERED_ACCESS_VIEW_DESC make_texture_uav(
