@@ -126,16 +126,16 @@ public:
     virtual [[nodsicard]] std::expected<Fence*, Result> create_fence(uint64_t initial_value) noexcept override;
     virtual void destroy_fence(Fence* fence) noexcept override;
 
-    virtual [[nodiscard]] std::expected<Buffer*, Result> create_buffer(
-        const Buffer_Create_Info& create_info) noexcept override;
+        virtual [[nodiscard]] std::expected<Buffer*, Result> create_buffer(
+        const Buffer_Create_Info& create_info, uint32_t index = NO_RESOURCE_INDEX) noexcept override;
     virtual [[nodiscard]] std::expected<Buffer_View*, Result> create_buffer_view(
-        Buffer* buffer, const Buffer_View_Create_Info& create_info) noexcept override;
+        Buffer* buffer, const Buffer_View_Create_Info& create_info, uint32_t index = NO_RESOURCE_INDEX) noexcept override;
     virtual void destroy_buffer(Buffer* buffer) noexcept override;
 
-    virtual [[nodiscard]] std::expected<Image*, Result> create_image(
-        const Image_Create_Info& create_info) noexcept override;
+        virtual [[nodiscard]] std::expected<Image*, Result> create_image(
+        const Image_Create_Info& create_info, uint32_t index = NO_RESOURCE_INDEX) noexcept override;
     virtual [[nodiscard]] std::expected<Image_View*, Result> create_image_view(
-        Image* image, const Image_View_Create_Info& create_info) noexcept override;
+        Image* image, const Image_View_Create_Info& create_info, uint32_t index = NO_RESOURCE_INDEX) noexcept override;
     virtual void destroy_image(Image* image) noexcept override;
 
     virtual [[nodiscard]] std::expected<Sampler*, Result> create_sampler(
@@ -227,6 +227,7 @@ private:
     plf::colony<Shader_Blob> m_shader_blobs;
     plf::colony<D3D12_Pipeline> m_pipelines;
 
+    uint32_t m_max_dynamic_resource_index;
     std::vector<uint32_t> m_resource_descriptor_indices;
     std::vector<uint32_t> m_sampler_descriptor_indices;
     std::vector<uint32_t> m_rtv_descriptor_indices;

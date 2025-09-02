@@ -384,8 +384,8 @@ D3D12_Graphics_Device::D3D12_Graphics_Device(const Graphics_Device_Create_Info& 
         .enable_validation = create_info.enable_validation,
         .enable_gpu_validation = create_info.enable_gpu_validation,
         .disable_tdr = false,
-        .feature_level = D3D_FEATURE_LEVEL_12_2, // TODO: customizable feature level?
-        .resource_descriptor_heap_size = D3D12_MAX_SHADER_VISIBLE_DESCRIPTOR_HEAP_SIZE_TIER_2,
+                .feature_level = D3D_FEATURE_LEVEL_12_2, // TODO: customizable feature level?
+        .resource_descriptor_heap_size = MAX_RESOURCE_INDEX * 2,
         .sampler_descriptor_heap_size = D3D12_MAX_SHADER_VISIBLE_SAMPLER_HEAP_SIZE,
         .rtv_descriptor_heap_size = MAX_RTV_DSV_DESCRIPTORS,
         .dsv_descriptor_heap_size = MAX_RTV_DSV_DESCRIPTORS,
@@ -405,8 +405,10 @@ D3D12_Graphics_Device::D3D12_Graphics_Device(const Graphics_Device_Create_Info& 
     m_descriptor_increment_sizes = acquire_descriptor_increment_sizes();
     m_indirect_signatures = create_execute_indirect_signatures();
 
-    m_resource_descriptor_indices.reserve(D3D12_MAX_SHADER_VISIBLE_DESCRIPTOR_HEAP_SIZE_TIER_2 / 2);
-    for (auto i = (D3D12_MAX_SHADER_VISIBLE_DESCRIPTOR_HEAP_SIZE_TIER_2 / 2) - 1; i >= 0; --i)
+    m_max_dynamic_resource_index = MAX_RESOURCE_INDEX - create_info.reserved_bindless_resource_index_count;
+
+    m_resource_descriptor_indices.reserve(m_max_dynamic_resource_index);
+    for (auto i = int32_t(m_max_dynamic_resource_index) - 1; i >= 0; --i)
     {
         m_resource_descriptor_indices.push_back(uint32_t(i * 2));
     }
@@ -555,7 +557,7 @@ void D3D12_Graphics_Device::destroy_fence(Fence* fence) noexcept
     m_fences.erase(m_fences.get_iterator(d3d12_fence));
 }
 
-std::expected<Buffer*, Result> D3D12_Graphics_Device::create_buffer(const Buffer_Create_Info& create_info) noexcept
+std::expected<Buffer*, Result> D3D12_Graphics_Device::create_buffer(const Buffer_Create_Info& create_info, uint32_t index) noexcept
 {
     std::unique_lock<std::mutex> lock_guard(m_resource_mutex, std::defer_lock);
     if (m_use_mutex)
@@ -607,7 +609,7 @@ std::expected<Buffer*, Result> D3D12_Graphics_Device::create_buffer(const Buffer
     buffer->size = create_info.size;
     buffer->heap_type = create_info.heap;
     buffer->buffer_view = &*m_buffer_views.emplace();
-    buffer->buffer_view->bindless_index = create_descriptor_index(D3D12_DESCRIPTOR_HEAP_TYPE_CBV_SRV_UAV);
+    buffer->buffer_view->bindless_index = (index != NO_RESOURCE_INDEX) ? (index * 2) : create_descriptor_index(D3D12_DESCRIPTOR_HEAP_TYPE_CBV_SRV_UAV);
     buffer->buffer_view->size = buffer->size;
     buffer->buffer_view->offset = 0;
     buffer->buffer_view->buffer = buffer;
@@ -623,7 +625,7 @@ std::expected<Buffer*, Result> D3D12_Graphics_Device::create_buffer(const Buffer
 }
 
 std::expected<Buffer_View*, Result> D3D12_Graphics_Device::create_buffer_view(
-    Buffer* buffer, const Buffer_View_Create_Info& create_info) noexcept
+    Buffer* buffer, const Buffer_View_Create_Info& create_info, uint32_t index) noexcept
 {
     if (!buffer) return std::unexpected(Result::Error_Invalid_Parameters);
 
@@ -639,20 +641,12 @@ std::expected<Buffer_View*, Result> D3D12_Graphics_Device::create_buffer_view(
     }
 
     auto buffer_view = &*m_buffer_views.emplace();
-    buffer_view->bindless_index = create_descriptor_index(D3D12_DESCRIPTOR_HEAP_TYPE_CBV_SRV_UAV);
+    buffer_view->bindless_index = (index != NO_RESOURCE_INDEX) ? (index * 2) : create_descriptor_index(D3D12_DESCRIPTOR_HEAP_TYPE_CBV_SRV_UAV);
     buffer_view->size = create_info.size;
     buffer_view->offset = create_info.offset;
     buffer_view->buffer = buffer;
-    buffer_view->next_buffer_view = static_cast<D3D12_Buffer*>(buffer)->buffer_view_linked_list_head;
-    static_cast<D3D12_Buffer*>(buffer)->buffer_view_linked_list_head = buffer_view;
-
-    auto srv_uav_word_offset = buffer_view->offset >> 2; // counting number of 4 byte elements.
-    auto srv_desc = make_raw_buffer_srv(buffer_view->size);
-    srv_desc.Buffer.FirstElement = srv_uav_word_offset;
-    auto uav_desc = make_raw_buffer_uav(buffer_view->size);
-    uav_desc.Buffer.FirstElement = srv_uav_word_offset;
-    create_srv_and_uav(static_cast<D3D12_Buffer*>(buffer_view->buffer)->resource,
-        buffer_view->bindless_index, &srv_desc, &uav_desc);
+    buffer_view->next_buffer_view = nullptr;
+    static_cast<D3D12_Buffer_View*>(buffer->buffer_view)->next_buffer_view = buffer_view;
 
     return buffer_view;
 }
@@ -686,7 +680,7 @@ void D3D12_Graphics_Device::destroy_buffer(Buffer* buffer) noexcept
     m_buffers.erase(m_buffers.get_iterator(d3d12_buffer));
 }
 
-std::expected<Image*, Result> D3D12_Graphics_Device::create_image(const Image_Create_Info& create_info) noexcept
+std::expected<Image*, Result> D3D12_Graphics_Device::create_image(const Image_Create_Info& create_info, uint32_t index) noexcept
 {
     std::unique_lock<std::mutex> lock_guard(m_resource_mutex, std::defer_lock);
     if (m_use_mutex)
@@ -798,7 +792,7 @@ std::expected<Image*, Result> D3D12_Graphics_Device::create_image(const Image_Cr
     image->usage = create_info.usage;
     image->primary_view_type = create_info.primary_view_type;
     image->image_view = &*m_image_views.emplace();
-    image->image_view->bindless_index = create_descriptor_index(D3D12_DESCRIPTOR_HEAP_TYPE_CBV_SRV_UAV);
+    image->image_view->bindless_index = (index != NO_RESOURCE_INDEX) ? (index * 2) : create_descriptor_index(D3D12_DESCRIPTOR_HEAP_TYPE_CBV_SRV_UAV);
     image->image_view->image = image;
 
     bool is_rtv = bool(image->usage & Image_Usage::Color_Attachment);
@@ -891,7 +885,7 @@ uint32_t translate_shader_4_component_mapping(Image_Component_Mapping mapping)
 }
 
 std::expected<Image_View*, Result> D3D12_Graphics_Device::create_image_view(
-    Image* image, const Image_View_Create_Info& create_info) noexcept
+    Image* image, const Image_View_Create_Info& create_info, uint32_t index) noexcept
 {
     if (!image) return std::unexpected(Result::Error_Invalid_Parameters);
 
@@ -911,7 +905,7 @@ std::expected<Image_View*, Result> D3D12_Graphics_Device::create_image_view(
     switch (create_info.descriptor_type)
     {
     case Descriptor_Type::Resource:
-        image_view->bindless_index = create_descriptor_index(D3D12_DESCRIPTOR_HEAP_TYPE_CBV_SRV_UAV);
+        image_view->bindless_index = (index != NO_RESOURCE_INDEX) ? (index * 2) : create_descriptor_index(D3D12_DESCRIPTOR_HEAP_TYPE_CBV_SRV_UAV);
         auto srv_desc = make_texture_srv(
             translate_format(d3d12_image->format),
             translate_view_type_srv(create_info.view_type),
@@ -1668,7 +1662,10 @@ void D3D12_Graphics_Device::release_descriptor_index(uint32_t index, D3D12_DESCR
     switch (type)
     {
     case D3D12_DESCRIPTOR_HEAP_TYPE_CBV_SRV_UAV:
-        m_resource_descriptor_indices.push_back(index);
+        if (index < m_max_dynamic_resource_index)
+        {
+            m_resource_descriptor_indices.push_back(index);
+        }
         break;
     case D3D12_DESCRIPTOR_HEAP_TYPE_SAMPLER:
         m_sampler_descriptor_indices.push_back(index);

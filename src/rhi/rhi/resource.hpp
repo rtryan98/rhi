@@ -8,6 +8,9 @@
 
 namespace rhi
 {
+constexpr inline uint32_t NO_RESOURCE_INDEX = ~0u;
+constexpr inline uint32_t MAX_RESOURCE_INDEX = 500000;
+
 constexpr static uint32_t PIPELINE_COLOR_ATTACHMENTS_MAX = 8;
 
 struct Buffer_View;

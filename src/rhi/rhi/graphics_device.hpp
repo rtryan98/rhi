@@ -72,6 +72,7 @@ struct Graphics_Device_Create_Info
     bool enable_validation;
     bool enable_gpu_validation;
     bool enable_locking;
+    uint32_t reserved_bindless_resource_index_count;
 };
 
 class Graphics_Device
@@ -97,16 +98,16 @@ public:
     virtual [[nodsicard]] std::expected<Fence*, Result> create_fence(uint64_t initial_value) noexcept = 0;
     virtual void destroy_fence(Fence* fence) noexcept = 0;
 
-    virtual [[nodiscard]] std::expected<Buffer*, Result> create_buffer(
-        const Buffer_Create_Info& create_info) noexcept = 0;
+        virtual [[nodiscard]] std::expected<Buffer*, Result> create_buffer(
+        const Buffer_Create_Info& create_info, uint32_t index = NO_RESOURCE_INDEX) noexcept = 0;
     virtual [[nodiscard]] std::expected<Buffer_View*, Result> create_buffer_view(
-        Buffer* buffer, const Buffer_View_Create_Info& create_info) noexcept = 0;
+        Buffer* buffer, const Buffer_View_Create_Info& create_info, uint32_t index = NO_RESOURCE_INDEX) noexcept = 0;
     virtual void destroy_buffer(Buffer* buffer) noexcept = 0;
 
     virtual [[nodiscard]] std::expected<Image*, Result> create_image(
-        const Image_Create_Info& create_info) noexcept = 0;
+        const Image_Create_Info& create_info, uint32_t index = NO_RESOURCE_INDEX) noexcept = 0;
     virtual [[nodiscard]] std::expected<Image_View*, Result> create_image_view(
-        Image* image, const Image_View_Create_Info& create_info) noexcept = 0;
+        Image* image, const Image_View_Create_Info& create_info, uint32_t index = NO_RESOURCE_INDEX) noexcept = 0;
     virtual void destroy_image(Image* image) noexcept = 0;
 
     virtual [[nodiscard]] std::expected<Sampler*, Result> create_sampler(
