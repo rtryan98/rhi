@@ -139,7 +139,7 @@ public:
     virtual void destroy_image(Image* image) noexcept override;
 
     virtual [[nodiscard]] std::expected<Sampler*, Result> create_sampler(
-        const Sampler_Create_Info& create_info) noexcept override;
+        const Sampler_Create_Info& create_info, uint32_t index = NO_RESOURCE_INDEX) noexcept override;
     virtual void destroy_sampler(Sampler* sampler) noexcept override;
 
     virtual [[nodiscard]] std::expected<Shader_Blob*, Result> create_shader_blob(
@@ -228,6 +228,7 @@ private:
     plf::colony<D3D12_Pipeline> m_pipelines;
 
     uint32_t m_max_dynamic_resource_index;
+    uint32_t m_max_dynamic_sampler_index;
     std::vector<uint32_t> m_resource_descriptor_indices;
     std::vector<uint32_t> m_sampler_descriptor_indices;
     std::vector<uint32_t> m_rtv_descriptor_indices;

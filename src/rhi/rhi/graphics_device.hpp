@@ -73,6 +73,7 @@ struct Graphics_Device_Create_Info
     bool enable_gpu_validation;
     bool enable_locking;
     uint32_t reserved_bindless_resource_index_count;
+    uint32_t reserved_bindless_sampler_index_count;
 };
 
 class Graphics_Device
@@ -98,7 +99,7 @@ public:
     virtual [[nodsicard]] std::expected<Fence*, Result> create_fence(uint64_t initial_value) noexcept = 0;
     virtual void destroy_fence(Fence* fence) noexcept = 0;
 
-        virtual [[nodiscard]] std::expected<Buffer*, Result> create_buffer(
+    virtual [[nodiscard]] std::expected<Buffer*, Result> create_buffer(
         const Buffer_Create_Info& create_info, uint32_t index = NO_RESOURCE_INDEX) noexcept = 0;
     virtual [[nodiscard]] std::expected<Buffer_View*, Result> create_buffer_view(
         Buffer* buffer, const Buffer_View_Create_Info& create_info, uint32_t index = NO_RESOURCE_INDEX) noexcept = 0;
@@ -111,7 +112,7 @@ public:
     virtual void destroy_image(Image* image) noexcept = 0;
 
     virtual [[nodiscard]] std::expected<Sampler*, Result> create_sampler(
-        const Sampler_Create_Info& create_info) noexcept = 0;
+        const Sampler_Create_Info& create_info, uint32_t index = NO_RESOURCE_INDEX) noexcept = 0;
     virtual void destroy_sampler(Sampler* sampler) noexcept = 0;
 
     virtual [[nodiscard]] std::expected<Shader_Blob*, Result> create_shader_blob(

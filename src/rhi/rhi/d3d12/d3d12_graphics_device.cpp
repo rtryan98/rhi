@@ -406,24 +406,25 @@ D3D12_Graphics_Device::D3D12_Graphics_Device(const Graphics_Device_Create_Info& 
     m_indirect_signatures = create_execute_indirect_signatures();
 
     m_max_dynamic_resource_index = MAX_RESOURCE_INDEX - create_info.reserved_bindless_resource_index_count;
+    m_max_dynamic_sampler_index = MAX_SAMPLER_INDEX - create_info.reserved_bindless_sampler_index_count;
 
     m_resource_descriptor_indices.reserve(m_max_dynamic_resource_index);
-    for (auto i = int32_t(m_max_dynamic_resource_index) - 1; i >= 0; --i)
+    for (auto i = static_cast<int32_t>(m_max_dynamic_resource_index) - 1; i >= 0; --i)
     {
         m_resource_descriptor_indices.push_back(uint32_t(i * 2));
     }
-    m_sampler_descriptor_indices.reserve(D3D12_MAX_SHADER_VISIBLE_SAMPLER_HEAP_SIZE);
-    for (auto i = D3D12_MAX_SHADER_VISIBLE_SAMPLER_HEAP_SIZE - 1; i >= 0; --i)
+    m_sampler_descriptor_indices.reserve(m_max_dynamic_sampler_index);
+    for (auto i = static_cast<int32_t>(m_max_dynamic_sampler_index) - 1; i >= 0; --i)
     {
         m_sampler_descriptor_indices.push_back(uint32_t(i));
     }
     m_rtv_descriptor_indices.reserve(MAX_RTV_DSV_DESCRIPTORS);
-    for (auto i = int32_t(MAX_RTV_DSV_DESCRIPTORS) - 1; i >= 0; --i)
+    for (auto i = static_cast<int32_t>(MAX_RTV_DSV_DESCRIPTORS) - 1; i >= 0; --i)
     {
         m_rtv_descriptor_indices.push_back(uint32_t(i));
     }
     m_dsv_descriptor_indices.reserve(MAX_RTV_DSV_DESCRIPTORS);
-    for (auto i = int32_t(MAX_RTV_DSV_DESCRIPTORS) - 1; i >= 0; --i)
+    for (auto i = static_cast<int32_t>(MAX_RTV_DSV_DESCRIPTORS) - 1; i >= 0; --i)
     {
         m_dsv_descriptor_indices.push_back(uint32_t(i));
     }
@@ -1040,7 +1041,7 @@ D3D12_TEXTURE_ADDRESS_MODE translate_texture_address_mode(Image_Sample_Address_M
     }
 }
 
-std::expected<Sampler*, Result> D3D12_Graphics_Device::create_sampler(const Sampler_Create_Info& create_info) noexcept
+std::expected<Sampler*, Result> D3D12_Graphics_Device::create_sampler(const Sampler_Create_Info& create_info, uint32_t index) noexcept
 {
     std::unique_lock<std::mutex> lock_guard(m_resource_mutex, std::defer_lock);
     if (m_use_mutex)
@@ -1071,7 +1072,7 @@ std::expected<Sampler*, Result> D3D12_Graphics_Device::create_sampler(const Samp
         .MinLOD = create_info.min_lod,
         .MaxLOD = create_info.max_lod
     };
-    auto descriptor_index = create_descriptor_index(D3D12_DESCRIPTOR_HEAP_TYPE_SAMPLER);
+    auto descriptor_index = index != NO_RESOURCE_INDEX ? index : create_descriptor_index(D3D12_DESCRIPTOR_HEAP_TYPE_SAMPLER);
     auto dest_descriptor = get_cpu_descriptor_handle(descriptor_index, D3D12_DESCRIPTOR_HEAP_TYPE_SAMPLER);
     m_context.device->CreateSampler(&sampler_desc, dest_descriptor);
     sampler->bindless_index = descriptor_index;
@@ -1668,7 +1669,10 @@ void D3D12_Graphics_Device::release_descriptor_index(uint32_t index, D3D12_DESCR
         }
         break;
     case D3D12_DESCRIPTOR_HEAP_TYPE_SAMPLER:
-        m_sampler_descriptor_indices.push_back(index);
+        if (index < m_max_dynamic_sampler_index)
+        {
+            m_sampler_descriptor_indices.push_back(index);
+        }
         break;
     case D3D12_DESCRIPTOR_HEAP_TYPE_RTV:
         m_rtv_descriptor_indices.push_back(index);
