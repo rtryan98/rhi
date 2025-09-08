@@ -10,8 +10,7 @@ namespace rhi::d3d12
 
 [[nodiscard]] D3D12_SHADER_RESOURCE_VIEW_DESC make_full_texture_srv(
     DXGI_FORMAT format,
-    D3D12_SRV_DIMENSION srv_dimension,
-    uint32_t depth_or_array_layers);
+    D3D12_SRV_DIMENSION srv_dimension);
 
 [[nodiscard]] D3D12_SHADER_RESOURCE_VIEW_DESC make_texture_srv(
     DXGI_FORMAT format,
@@ -25,9 +24,7 @@ namespace rhi::d3d12
 [[nodiscard]] D3D12_UNORDERED_ACCESS_VIEW_DESC make_full_texture_uav(
     DXGI_FORMAT format,
     D3D12_UAV_DIMENSION uav_dimension,
-    uint32_t depth_or_array_layers,
-    uint32_t mip_slice,
-    uint32_t plane_slice);
+    uint32_t mip_slice);
 
 [[nodiscard]] D3D12_UNORDERED_ACCESS_VIEW_DESC make_texture_uav(
     DXGI_FORMAT format,

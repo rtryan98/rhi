@@ -818,13 +818,10 @@ std::expected<Image*, Result> D3D12_Graphics_Device::create_image(const Image_Cr
 
     auto srv_desc = make_full_texture_srv(
         translate_format(image->format),
-        translate_view_type_srv(image->primary_view_type),
-        std::max(image->depth, uint32_t(image->array_size)));
+        translate_view_type_srv(image->primary_view_type));
     auto uav_desc = make_full_texture_uav(
         translate_format(image->format),
         translate_view_type_uav(image->primary_view_type),
-        std::max(image->depth, uint32_t(image->array_size)),
-        0,
         0);
     auto rtv_desc = make_full_texture_rtv(
         translate_format(image->format),
@@ -921,10 +918,11 @@ std::expected<Image_View*, Result> D3D12_Graphics_Device::create_image_view(
             get_cpu_descriptor_handle(image_view->bindless_index, D3D12_DESCRIPTOR_HEAP_TYPE_CBV_SRV_UAV));
         if (bool(d3d12_image->usage & Image_Usage::Unordered_Access))
         {
-            auto uav_desc = make_full_texture_uav(
+            auto uav_desc = make_texture_uav(
                 translate_format(d3d12_image->format),
                 translate_view_type_uav(create_info.view_type),
                 create_info.first_array_level,
+                create_info.array_levels,
                 create_info.first_mip_level,
                 0);
             m_context.device->CreateUnorderedAccessView(
@@ -1505,13 +1503,11 @@ void D3D12_Graphics_Device::create_initial_image_descriptors(D3D12_Image* image)
     uint32_t depth_or_array_size = image->depth > image->array_size ? image->depth : image->array_size;
     auto srv_desc = make_full_texture_srv(
         format,
-        translate_view_type_srv(image->primary_view_type),
-        depth_or_array_size);
+        translate_view_type_srv(image->primary_view_type));
     auto uav_desc = make_full_texture_uav(
         format,
         translate_view_type_uav(image->primary_view_type),
-        depth_or_array_size,
-        0, 0);
+        0);
     auto rtv_desc = make_full_texture_rtv(
         format,
         translate_view_type_rtv(image->primary_view_type),
