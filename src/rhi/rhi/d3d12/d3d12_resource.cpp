@@ -82,6 +82,12 @@ DXGI_FORMAT translate_format(Image_Format format) noexcept
         return DXGI_FORMAT_R32G32_SINT;
     case Image_Format::R32G32_SFLOAT:
         return DXGI_FORMAT_R32G32_FLOAT;
+    case Image_Format::R32G32B32_UINT:
+        return DXGI_FORMAT_R32G32B32_UINT;
+    case Image_Format::R32G32B32_SINT:
+        return DXGI_FORMAT_R32G32B32_SINT;
+    case Image_Format::R32G32B32_SFLOAT:
+        return DXGI_FORMAT_R32G32B32_FLOAT;
     case Image_Format::R32G32B32A32_UINT:
         return DXGI_FORMAT_R32G32B32A32_UINT;
     case Image_Format::R32G32B32A32_SINT:

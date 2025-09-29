@@ -1044,6 +1044,85 @@ ID3D12GraphicsCommandList7* D3D12_Command_List::get_internal_command_list() cons
     return m_cmd;
 }
 
+void D3D12_Command_List::build_acceleration_structure(
+    const Acceleration_Structure_Build_Geometry_Info& build_info, uint64_t scratch_memory_address) noexcept
+{
+    D3D12_BUILD_RAYTRACING_ACCELERATION_STRUCTURE_INPUTS inputs = {
+        .Flags = std::bit_cast<D3D12_RAYTRACING_ACCELERATION_STRUCTURE_BUILD_FLAGS>(build_info.flags),
+        .NumDescs = build_info.geometry_or_instance_count,
+    };
+    if (build_info.type == Acceleration_Structure_Type::Bottom_Level)
+    {
+        inputs.Type = D3D12_RAYTRACING_ACCELERATION_STRUCTURE_TYPE_BOTTOM_LEVEL;
+        inputs.DescsLayout = D3D12_ELEMENTS_LAYOUT_ARRAY;
+        std::vector<D3D12_RAYTRACING_GEOMETRY_DESC> geometry_descs = {};
+        geometry_descs.reserve(inputs.NumDescs);
+        for (auto i = 0; i < inputs.NumDescs; ++i)
+        {
+            const auto& geometry_data = build_info.geometry[i];
+            auto& geometry_desc = geometry_descs.emplace_back();
+            geometry_desc = {
+                .Flags = std::bit_cast<D3D12_RAYTRACING_GEOMETRY_FLAGS>(geometry_data.flags)
+            };
+            if (geometry_data.type == Acceleration_Structure_Geometry_Type::Triangles)
+            {
+                const auto& triangles = geometry_data.geometry.triangles;
+
+                geometry_desc.Type = D3D12_RAYTRACING_GEOMETRY_TYPE_TRIANGLES;
+                geometry_desc.Triangles = {
+                    .Transform3x4 = triangles.transform_gpu_address,
+                    .IndexFormat = triangles.index_type == Index_Type::U32
+                        ? DXGI_FORMAT_R32_UINT : DXGI_FORMAT_R16_UINT,
+                    .VertexFormat = translate_format(triangles.vertex_format),
+                    .IndexCount = triangles.index_count,
+                    .VertexCount = triangles.vertex_count,
+                    .IndexBuffer = triangles.index_gpu_address,
+                    .VertexBuffer = {
+                        .StartAddress = triangles.vertex_gpu_address,
+                        .StrideInBytes = triangles.vertex_stride
+                    }
+                };
+            }
+            else
+            {
+                const auto& aabbs = geometry_data.geometry.aabbs;
+
+                geometry_desc.Type = D3D12_RAYTRACING_GEOMETRY_TYPE_PROCEDURAL_PRIMITIVE_AABBS;
+                geometry_desc.AABBs = {
+                    .AABBCount = aabbs.aabb_count,
+                    .AABBs = {
+                        .StartAddress = aabbs.aabb_gpu_address,
+                        .StrideInBytes = aabbs.aabb_stride
+                    }
+                };
+            }
+
+            inputs.pGeometryDescs = geometry_descs.data();
+
+            D3D12_BUILD_RAYTRACING_ACCELERATION_STRUCTURE_DESC build_desc = {
+                .DestAccelerationStructureData = build_info.dst->address,
+                .Inputs = inputs,
+                .SourceAccelerationStructureData = build_info.src != nullptr? build_info.src->address : 0,
+                .ScratchAccelerationStructureData = scratch_memory_address
+            };
+            m_cmd->BuildRaytracingAccelerationStructure(&build_desc, 0, nullptr);
+        }
+    }
+    else // TLAS
+    {
+        if (build_info.instances.array_of_pointers) inputs.DescsLayout = D3D12_ELEMENTS_LAYOUT_ARRAY_OF_POINTERS;
+        inputs.InstanceDescs = build_info.instances.instance_gpu_address;
+
+        D3D12_BUILD_RAYTRACING_ACCELERATION_STRUCTURE_DESC build_desc = {
+            .DestAccelerationStructureData = build_info.dst->address,
+            .Inputs = inputs,
+            .SourceAccelerationStructureData = build_info.src != nullptr ? build_info.src->address : 0,
+            .ScratchAccelerationStructureData = scratch_memory_address
+        };
+        m_cmd->BuildRaytracingAccelerationStructure(&build_desc, 0, nullptr);
+    }
+}
+
 D3D12_COMMAND_LIST_TYPE translate_command_list_type(Queue_Type queue_type)
 {
     switch (queue_type)

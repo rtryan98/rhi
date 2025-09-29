@@ -79,11 +79,15 @@ public:
     virtual void set_scissor(int32_t x, int32_t y, uint32_t width, uint32_t height) noexcept override;
     virtual void set_viewport(float x, float y, float width, float height, float min_depth, float max_depth) noexcept override;
 
+    virtual void build_acceleration_structure(
+        const Acceleration_Structure_Build_Geometry_Info& build_info, uint64_t scratch_memory_address) noexcept override;
+
     [[nodiscard]] D3D12_Command_List_Underlying_Type get_internal_command_list() const noexcept;
 
 private:
     D3D12_Command_List_Underlying_Type m_cmd;
     D3D12_Graphics_Device* m_device;
+
 };
 
 class D3D12_Command_Pool final : public Command_Pool

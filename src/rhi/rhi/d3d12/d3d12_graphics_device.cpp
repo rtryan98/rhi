@@ -566,7 +566,15 @@ std::expected<Buffer*, Result> D3D12_Graphics_Device::create_buffer(const Buffer
         lock_guard.lock();
     }
 
-    bool allow_uav = create_info.heap == Memory_Heap_Type::GPU;
+    D3D12_RESOURCE_FLAGS flags = D3D12_RESOURCE_FLAG_NONE;
+    if (!create_info.acceleration_structure_memory && create_info.heap == Memory_Heap_Type::GPU)
+    {
+        flags |= D3D12_RESOURCE_FLAG_ALLOW_UNORDERED_ACCESS;
+    }
+    else if (create_info.acceleration_structure_memory && create_info.heap == Memory_Heap_Type::GPU)
+    {
+        flags |= D3D12_RESOURCE_FLAG_RAYTRACING_ACCELERATION_STRUCTURE;
+    }
 
     D3D12_RESOURCE_DESC1 resource_desc = {
         .Dimension = D3D12_RESOURCE_DIMENSION_BUFFER,
@@ -578,9 +586,7 @@ std::expected<Buffer*, Result> D3D12_Graphics_Device::create_buffer(const Buffer
         .Format = DXGI_FORMAT_UNKNOWN,
         .SampleDesc = { .Count = 1, .Quality = 0 },
         .Layout = D3D12_TEXTURE_LAYOUT_ROW_MAJOR,
-        .Flags = allow_uav
-            ? D3D12_RESOURCE_FLAG_ALLOW_UNORDERED_ACCESS
-            : D3D12_RESOURCE_FLAG_NONE,
+        .Flags = flags,
         .SamplerFeedbackMipRegion = {}
     };
     D3D12MA::ALLOCATION_DESC allocation_desc = {
@@ -616,11 +622,12 @@ std::expected<Buffer*, Result> D3D12_Graphics_Device::create_buffer(const Buffer
     buffer->buffer_view->buffer = buffer;
     static_cast<D3D12_Buffer_View*>(buffer->buffer_view)->next_buffer_view = nullptr;
     buffer->data = mapped_data;
+    buffer->gpu_address = resource->GetGPUVirtualAddress();
     buffer->resource = resource;
     buffer->allocation = allocation;
     buffer->buffer_view_linked_list_head = nullptr;
 
-    create_initial_buffer_descriptors(buffer);
+    create_initial_buffer_descriptors(buffer, (flags & D3D12_RESOURCE_FLAG_ALLOW_UNORDERED_ACCESS) != 0);
 
     return buffer;
 }
@@ -1092,6 +1099,72 @@ void D3D12_Graphics_Device::destroy_sampler(Sampler* sampler) noexcept
     m_samplers.erase(m_samplers.get_iterator(d3d12_sampler));
 }
 
+std::expected<Acceleration_Structure*, Result> D3D12_Graphics_Device::create_acceleration_structure(
+    const Acceleration_Structure_Create_Info& create_info) noexcept
+{
+    if ((create_info.offset & 127) > 0)
+    {
+        return std::unexpected(Result::Error_Acceleration_Structure_Invalid_Alignment);
+    }
+
+    std::unique_lock<std::mutex> lock_guard(m_resource_mutex, std::defer_lock);
+    if (m_use_mutex)
+    {
+        lock_guard.lock();
+    }
+
+    auto* d3d12_buffer = static_cast<D3D12_Buffer*>(create_info.buffer);
+    auto gpu_address = d3d12_buffer->resource->GetGPUVirtualAddress();
+    gpu_address += create_info.offset;
+
+    auto acceleration_structure = &*m_acceleration_structures.emplace();
+    acceleration_structure->buffer = create_info.buffer;
+    acceleration_structure->address = gpu_address;
+    acceleration_structure->type = create_info.type;
+    acceleration_structure->bindless_index = NO_RESOURCE_INDEX;
+
+    if (create_info.type == Acceleration_Structure_Type::Top_Level)
+    {
+        D3D12_SHADER_RESOURCE_VIEW_DESC srv_desc = {
+            .Format = DXGI_FORMAT_UNKNOWN,
+            .ViewDimension = D3D12_SRV_DIMENSION_RAYTRACING_ACCELERATION_STRUCTURE,
+            .Shader4ComponentMapping = D3D12_DEFAULT_SHADER_4_COMPONENT_MAPPING,
+            .RaytracingAccelerationStructure = {
+                .Location = gpu_address
+            }
+        };
+
+        auto index = create_descriptor_index(D3D12_DESCRIPTOR_HEAP_TYPE_CBV_SRV_UAV);
+        auto descriptor = get_cpu_descriptor_handle(index, D3D12_DESCRIPTOR_HEAP_TYPE_CBV_SRV_UAV);
+
+        m_context.device->CreateShaderResourceView(
+            d3d12_buffer->resource,
+            &srv_desc,
+            descriptor);
+
+        acceleration_structure->bindless_index = index;
+    }
+
+    return acceleration_structure;
+}
+
+void D3D12_Graphics_Device::destroy_acceleration_structure(Acceleration_Structure* acceleration_structure) noexcept
+{
+    if (!acceleration_structure) return;
+
+    std::unique_lock<std::mutex> lock_guard(m_resource_mutex, std::defer_lock);
+    if (m_use_mutex)
+    {
+        lock_guard.lock();
+    }
+
+    if (acceleration_structure->bindless_index != NO_RESOURCE_INDEX)
+    {
+        release_descriptor_index(acceleration_structure->bindless_index, D3D12_DESCRIPTOR_HEAP_TYPE_CBV_SRV_UAV);
+    }
+    m_acceleration_structures.erase(m_acceleration_structures.get_iterator(acceleration_structure));
+}
+
 std::expected<Shader_Blob*, Result> D3D12_Graphics_Device::create_shader_blob(
     const Shader_Blob_Create_Info& create_info) noexcept
 {
@@ -1486,7 +1559,7 @@ const Indirect_Signatures& D3D12_Graphics_Device::get_indirect_signatures() cons
     return m_indirect_signatures;
 }
 
-void D3D12_Graphics_Device::create_initial_buffer_descriptors(D3D12_Buffer* buffer) noexcept
+void D3D12_Graphics_Device::create_initial_buffer_descriptors(D3D12_Buffer* buffer, bool create_uav) noexcept
 {
     auto srv_desc = make_raw_buffer_srv(buffer->size);
     auto uav_desc = make_raw_buffer_uav(buffer->size);
@@ -1494,7 +1567,7 @@ void D3D12_Graphics_Device::create_initial_buffer_descriptors(D3D12_Buffer* buff
         buffer->resource,
         buffer->buffer_view->bindless_index,
         &srv_desc,
-        buffer->heap_type == Memory_Heap_Type::GPU ? &uav_desc : nullptr);
+        create_uav ? &uav_desc : nullptr);
 }
 
 void D3D12_Graphics_Device::create_initial_image_descriptors(D3D12_Image* image) noexcept
@@ -1734,6 +1807,81 @@ Indirect_Signatures D3D12_Graphics_Device::create_execute_indirect_signatures() 
         nullptr,
         IID_PPV_ARGS(&result.dispatch_indirect));
 
+    return result;
+}
+
+Acceleration_Structure_Build_Sizes D3D12_Graphics_Device::get_acceleration_structure_build_sizes(
+    const Acceleration_Structure_Build_Geometry_Info& build_info) noexcept
+{
+    D3D12_RAYTRACING_ACCELERATION_STRUCTURE_PREBUILD_INFO prebuild_info = {};
+
+    D3D12_BUILD_RAYTRACING_ACCELERATION_STRUCTURE_INPUTS inputs = {
+        .Flags = std::bit_cast<D3D12_RAYTRACING_ACCELERATION_STRUCTURE_BUILD_FLAGS>(build_info.flags),
+        .NumDescs = build_info.geometry_or_instance_count,
+    };
+    if (build_info.type == Acceleration_Structure_Type::Bottom_Level)
+    {
+        inputs.Type = D3D12_RAYTRACING_ACCELERATION_STRUCTURE_TYPE_BOTTOM_LEVEL;
+        inputs.DescsLayout = D3D12_ELEMENTS_LAYOUT_ARRAY;
+        std::vector<D3D12_RAYTRACING_GEOMETRY_DESC> geometry_descs = {};
+        geometry_descs.reserve(inputs.NumDescs);
+        for (auto i = 0; i < inputs.NumDescs; ++i)
+        {
+            const auto& geometry_data = build_info.geometry[i];
+            auto& geometry_desc = geometry_descs.emplace_back();
+            geometry_desc = {
+                .Flags = std::bit_cast<D3D12_RAYTRACING_GEOMETRY_FLAGS>(geometry_data.flags)
+            };
+            if (geometry_data.type == Acceleration_Structure_Geometry_Type::Triangles)
+            {
+                const auto& triangles = geometry_data.geometry.triangles;
+
+                geometry_desc.Type = D3D12_RAYTRACING_GEOMETRY_TYPE_TRIANGLES;
+                geometry_desc.Triangles = {
+                    .Transform3x4 = triangles.transform_gpu_address,
+                    .IndexFormat = triangles.index_type == Index_Type::U32
+                        ? DXGI_FORMAT_R32_UINT : DXGI_FORMAT_R16_UINT,
+                    .VertexFormat = translate_format(triangles.vertex_format),
+                    .IndexCount = triangles.index_count,
+                    .VertexCount = triangles.vertex_count,
+                    .IndexBuffer = triangles.index_gpu_address,
+                    .VertexBuffer = {
+                        .StartAddress = triangles.vertex_gpu_address,
+                        .StrideInBytes = triangles.vertex_stride
+                    }
+                };
+            }
+            else
+            {
+                const auto& aabbs = geometry_data.geometry.aabbs;
+
+                geometry_desc.Type = D3D12_RAYTRACING_GEOMETRY_TYPE_PROCEDURAL_PRIMITIVE_AABBS;
+                geometry_desc.AABBs = {
+                    .AABBCount = aabbs.aabb_count,
+                    .AABBs = {
+                        .StartAddress = aabbs.aabb_gpu_address,
+                        .StrideInBytes = aabbs.aabb_stride
+                    }
+                };
+            }
+
+            inputs.pGeometryDescs = geometry_descs.data();
+        }
+
+        m_context.device->GetRaytracingAccelerationStructurePrebuildInfo(&inputs, &prebuild_info);
+    }
+    else // TLAS
+    {
+        if (build_info.instances.array_of_pointers) inputs.DescsLayout = D3D12_ELEMENTS_LAYOUT_ARRAY_OF_POINTERS;
+        inputs.InstanceDescs = build_info.instances.instance_gpu_address;
+        m_context.device->GetRaytracingAccelerationStructurePrebuildInfo(&inputs, &prebuild_info);
+    }
+
+    Acceleration_Structure_Build_Sizes result = {
+        .acceleration_structure_size = prebuild_info.ResultDataMaxSizeInBytes,
+        .acceleration_structure_scratch_build_size = prebuild_info.ScratchDataSizeInBytes,
+        .acceleration_structure_scratch_update_size = prebuild_info.UpdateScratchDataSizeInBytes
+    };
     return result;
 }
 

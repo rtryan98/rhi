@@ -67,6 +67,9 @@ enum class Image_Format
     R32G32_UINT = 101,
     R32G32_SINT = 102,
     R32G32_SFLOAT = 103,
+    R32G32B32_UINT = 104,
+    R32G32B32_SINT = 105,
+    R32G32B32_SFLOAT = 106,
     R32G32B32A32_UINT = 107,
     R32G32B32A32_SINT = 108,
     R32G32B32A32_SFLOAT = 109,
@@ -282,10 +285,23 @@ enum class Image_Sample_Address_Mode
     Border = 4
 };
 
+enum class Acceleration_Structure_Type
+{
+    Top_Level,
+    Bottom_Level
+};
+
+enum class Acceleration_Structure_Geometry_Type
+{
+    Triangles,
+    AABBs
+};
+
 struct Buffer_Create_Info
 {
     uint64_t size;
     Memory_Heap_Type heap;
+    bool acceleration_structure_memory;
 
     auto operator<=>(const Buffer_Create_Info&) const = default;
 };
@@ -296,6 +312,7 @@ struct Buffer
     Memory_Heap_Type heap_type;
     Buffer_View* buffer_view;
     void* data;
+    uint64_t gpu_address;
 
     auto operator<=>(const Buffer&) const = default;
 };
@@ -400,6 +417,29 @@ struct Sampler
     uint32_t bindless_index;
 
     auto operator<=>(const Sampler&) const = default;
+};
+
+struct Acceleration_Structure_Build_Sizes
+{
+    uint64_t acceleration_structure_size;
+    uint64_t acceleration_structure_scratch_build_size;
+    uint64_t acceleration_structure_scratch_update_size;
+};
+
+struct Acceleration_Structure_Create_Info
+{
+    Buffer* buffer;
+    uint64_t offset; // Must be 256 byte aligned
+    uint64_t size;
+    Acceleration_Structure_Type type;
+};
+
+struct Acceleration_Structure
+{
+    Buffer* buffer;
+    uint64_t address;
+    Acceleration_Structure_Type type;
+    uint32_t bindless_index;
 };
 
 struct Shader_Blob_Create_Info

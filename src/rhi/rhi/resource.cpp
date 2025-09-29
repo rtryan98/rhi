@@ -236,6 +236,9 @@ Image_Format_Info get_image_format_info(std::string_view string_format) noexcept
             {"R32G32_UINT", Image_Format::R32G32_UINT},
             {"R32G32_SINT", Image_Format::R32G32_SINT},
             {"R32G32_SFLOAT", Image_Format::R32G32_SFLOAT},
+            {"R32G32B32_UINT", Image_Format::R32G32B32_UINT},
+            {"R32G32B32_SINT", Image_Format::R32G32B32_SINT},
+            {"R32G32B32_SFLOAT", Image_Format::R32G32B32_SFLOAT},
             {"R32G32B32A32_UINT", Image_Format::R32G32B32A32_UINT},
             {"R32G32B32A32_SINT", Image_Format::R32G32B32A32_SINT},
             {"R32G32B32A32_SFLOAT", Image_Format::R32G32B32A32_SFLOAT},
@@ -478,6 +481,21 @@ Image_Format_Info get_image_format_info(Image_Format format) noexcept
         return {
             .format = Image_Format::R32G32_SFLOAT,
             .bytes = 8
+        };
+    case Image_Format::R32G32B32_UINT:
+        return {
+            .format = Image_Format::R32G32B32_UINT,
+            .bytes = 12 // TODO: ?
+        };
+    case Image_Format::R32G32B32_SINT:
+        return {
+            .format = Image_Format::R32G32B32_SINT,
+            .bytes = 12
+        };
+    case Image_Format::R32G32B32_SFLOAT:
+        return {
+            .format = Image_Format::R32G32B32_SFLOAT,
+            .bytes = 12
         };
     case Image_Format::R32G32B32A32_UINT:
         return {

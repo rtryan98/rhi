@@ -32,6 +32,7 @@ enum class Result
     Error_Invalid_Parameters,
     Error_Device_Lost,
     Error_No_Resource, // Create a view of a destroyed resource
+    Error_Acceleration_Structure_Invalid_Alignment,
     Error_Unknown
 };
 
@@ -115,6 +116,10 @@ public:
         const Sampler_Create_Info& create_info, uint32_t index = NO_RESOURCE_INDEX) noexcept = 0;
     virtual void destroy_sampler(Sampler* sampler) noexcept = 0;
 
+    virtual [[nodiscard]] std::expected<Acceleration_Structure*, Result> create_acceleration_structure(
+        const Acceleration_Structure_Create_Info& create_info) noexcept = 0;
+    virtual void destroy_acceleration_structure(Acceleration_Structure* acceleration_structure) noexcept = 0;
+
     virtual [[nodiscard]] std::expected<Shader_Blob*, Result> create_shader_blob(
         const Shader_Blob_Create_Info& create_info) noexcept = 0;
     virtual Result recreate_shader_blob(Shader_Blob* shader_blob, const Shader_Blob_Create_Info& create_info) noexcept = 0;
@@ -126,6 +131,9 @@ public:
     virtual [[nodiscard]] std::expected<Pipeline*, Result> create_pipeline(const Mesh_Shading_Pipeline_Create_Info& create_info) noexcept = 0;
     // virtual [[nodiscard]] std::expected<Pipeline*, Error> create_pipeline(const Ray_Tracing_Pipeline_Create_Info& create_info) noexcept = 0;
     virtual void destroy_pipeline(Pipeline* pipeline) noexcept = 0;
+
+    virtual [[nodiscard]] Acceleration_Structure_Build_Sizes get_acceleration_structure_build_sizes(
+        const Acceleration_Structure_Build_Geometry_Info& build_info) noexcept = 0;
 
     virtual Result submit(const Submit_Info& submit_info) noexcept = 0;
 

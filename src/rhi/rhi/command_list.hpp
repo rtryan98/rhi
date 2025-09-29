@@ -15,9 +15,13 @@ struct Buffer;
 struct Buffer_View;
 struct Image;
 struct Image_View;
+struct Acceleration_Structure;
 struct Pipeline;
 enum class Queue_Type;
 enum class Graphics_API;
+enum class Acceleration_Structure_Type;
+enum class Acceleration_Structure_Geometry_Type;
+enum class Image_Format;
 
 enum class Render_Pass_Attachment_Load_Op
 {
@@ -238,11 +242,84 @@ struct Extent_3D
     uint32_t z;
 };
 
+enum class Acceleration_Structure_Flags
+{
+    None = 0x0,
+    Allow_Update = 0x1,
+    Allow_Compaction = 0x2,
+    Fast_Trace = 0x4,
+    Fast_Build = 0x8,
+};
+
+enum class Acceleration_Structure_Geometry_Flags
+{
+    None = 0x0,
+    Opaque = 0x1,
+    No_Duplicate_Any_Hit_Invocation = 0x2,
+};
+
+struct Acceleration_Structure_Instance
+{
+    float transform[3][4];
+    uint32_t instance_id : 24;
+    uint32_t instance_mask : 8;
+    uint32_t instance_sbt_record_offset : 24;
+    uint32_t flags : 8;
+    uint64_t acceleration_structure_gpu_address;
+};
+
+struct Acceleration_Structure_Geometry_Data
+{
+    Acceleration_Structure_Geometry_Type type;
+    Acceleration_Structure_Geometry_Flags flags;
+    union
+    {
+        struct
+        {
+            uint64_t transform_gpu_address;
+            uint64_t vertex_gpu_address;
+            uint64_t index_gpu_address;
+            alignas(uint64_t) Image_Format vertex_format;
+            alignas(uint64_t) uint32_t vertex_count;
+            alignas(uint64_t) uint32_t vertex_stride;
+            alignas(uint64_t) uint32_t index_count;
+            alignas(uint64_t) Index_Type index_type;
+        } triangles;
+        struct
+        {
+            uint64_t aabb_count;
+            uint64_t aabb_gpu_address;
+            alignas(uint64_t) uint32_t aabb_stride;
+        } aabbs;
+    } geometry;
+};
+
+struct Acceleration_Structure_Instance_Data
+{
+    bool array_of_pointers;
+    uint64_t instance_gpu_address;
+};
+
+struct Acceleration_Structure_Build_Geometry_Info
+{
+    Acceleration_Structure_Type type;
+    Acceleration_Structure_Flags flags;
+    uint32_t geometry_or_instance_count;
+    Acceleration_Structure* src; // if not null -> update
+    Acceleration_Structure* dst;
+    union {
+        Acceleration_Structure_Geometry_Data* geometry;
+        Acceleration_Structure_Instance_Data instances;
+    };
+};
+
 class Command_List
 {
 public:
+    virtual ~Command_List() = default;
+
     // Meta commands
-    virtual [[nodiscard]] Graphics_API get_graphics_api() const noexcept = 0;
+    [[nodiscard]] virtual Graphics_API get_graphics_api() const noexcept = 0;
 
     // Barrier commands
     virtual void barrier(const Barrier_Info& barrier_info) noexcept = 0;
@@ -304,8 +381,12 @@ public:
     virtual void set_scissor(int32_t x, int32_t y, uint32_t width, uint32_t height) noexcept = 0;
     virtual void set_viewport(float x, float y, float width, float height, float min_depth, float max_depth) noexcept = 0;
 
+    // Ray tracing commands
+    virtual void build_acceleration_structure(
+        const Acceleration_Structure_Build_Geometry_Info& build_info, uint64_t scratch_memory_address) noexcept = 0;
+
 protected:
-    Queue_Type m_queue_type;
+    Queue_Type m_queue_type = {};
 };
 
 struct Command_Pool_Create_Info
@@ -332,3 +413,6 @@ constexpr static bool RHI_ENABLE_BIT_OPERATORS<rhi::Barrier_Pipeline_Stage> = tr
 
 template<>
 constexpr static bool RHI_ENABLE_BIT_OPERATORS<rhi::Barrier_Access> = true;
+
+template<>
+constexpr static bool RHI_ENABLE_BIT_OPERATORS<rhi::Acceleration_Structure_Flags> = true;

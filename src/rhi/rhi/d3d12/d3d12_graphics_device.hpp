@@ -142,6 +142,10 @@ public:
         const Sampler_Create_Info& create_info, uint32_t index = NO_RESOURCE_INDEX) noexcept override;
     virtual void destroy_sampler(Sampler* sampler) noexcept override;
 
+    virtual [[nodiscard]] std::expected<Acceleration_Structure*, Result> create_acceleration_structure(
+        const Acceleration_Structure_Create_Info& create_info) noexcept override;
+    virtual void destroy_acceleration_structure(Acceleration_Structure* acceleration_structure) noexcept override;
+
     virtual [[nodiscard]] std::expected<Shader_Blob*, Result> create_shader_blob(
         const Shader_Blob_Create_Info& create_info) noexcept override;
     virtual Result recreate_shader_blob(Shader_Blob* shader_blob, const Shader_Blob_Create_Info& create_info) noexcept override;
@@ -178,7 +182,7 @@ public:
     void release_custom_allocated_image(D3D12_Image* image) noexcept;
 
 private:
-    void create_initial_buffer_descriptors(D3D12_Buffer* buffer) noexcept;
+    void create_initial_buffer_descriptors(D3D12_Buffer* buffer, bool create_uav) noexcept;
     void create_initial_image_descriptors(D3D12_Image* image) noexcept;
 
     void create_srv_and_uav(
@@ -203,6 +207,9 @@ private:
     [[nodiscard]] Descriptor_Increment_Sizes acquire_descriptor_increment_sizes() noexcept;
     [[nodiscard]] Indirect_Signatures create_execute_indirect_signatures() noexcept;
 
+    [[nodiscard]] Acceleration_Structure_Build_Sizes get_acceleration_structure_build_sizes(
+        const Acceleration_Structure_Build_Geometry_Info& build_info) noexcept override;
+
 private:
     constexpr static std::size_t ARRAY_VECTOR_SIZE = 512;
 
@@ -224,6 +231,7 @@ private:
     plf::colony<D3D12_Image> m_images;
     plf::colony<D3D12_Image_View> m_image_views;
     plf::colony<D3D12_Sampler> m_samplers;
+    plf::colony<Acceleration_Structure> m_acceleration_structures; // D3D12 doesn't need a special type for AS
     plf::colony<Shader_Blob> m_shader_blobs;
     plf::colony<D3D12_Pipeline> m_pipelines;
 
