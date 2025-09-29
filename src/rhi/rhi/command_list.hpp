@@ -258,7 +258,7 @@ enum class Acceleration_Structure_Geometry_Flags
     No_Duplicate_Any_Hit_Invocation = 0x2,
 };
 
-struct Acceleration_Structure_Instance
+struct alignas(16) Acceleration_Structure_Instance
 {
     float transform[3][4];
     uint32_t instance_id : 24;

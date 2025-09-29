@@ -1138,7 +1138,7 @@ std::expected<Acceleration_Structure*, Result> D3D12_Graphics_Device::create_acc
         auto descriptor = get_cpu_descriptor_handle(index, D3D12_DESCRIPTOR_HEAP_TYPE_CBV_SRV_UAV);
 
         m_context.device->CreateShaderResourceView(
-            d3d12_buffer->resource,
+            nullptr,
             &srv_desc,
             descriptor);
 
