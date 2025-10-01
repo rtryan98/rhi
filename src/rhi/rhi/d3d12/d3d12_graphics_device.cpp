@@ -7,7 +7,7 @@
 #include <D3D12MemAlloc.h>
 #include <dxgidebug.h>
 
-extern "C" __declspec(dllexport) extern const uint32_t D3D12SDKVersion = 613;
+extern "C" __declspec(dllexport) extern const uint32_t D3D12SDKVersion = 618;
 extern "C" __declspec(dllexport) extern const char* D3D12SDKPath = ".\\D3D12\\";
 
 namespace rhi::d3d12

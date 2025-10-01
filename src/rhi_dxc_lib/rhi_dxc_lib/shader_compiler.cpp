@@ -227,7 +227,11 @@ Shader Shader_Compiler::compile_from_memory(
         arguments_wchar_ptr.push_back(L"-fspv-extension=SPV_EXT_mesh_shader");
         [[fallthrough]];
     case Shader_Type::Vertex:
-        [[fallthrough]];
+        arguments_wchar_ptr.push_back(L"-fvk-invert-y");
+        break;
+    case Shader_Type::Compute:
+        arguments_wchar_ptr.push_back(L"-fspv-extension=SPV_KHR_ray_query");
+        break;
     case Shader_Type::Ray_Gen:
         [[fallthrough]];
     case Shader_Type::Ray_Any_Hit:
@@ -240,6 +244,7 @@ Shader Shader_Compiler::compile_from_memory(
         [[fallthrough]];
     case Shader_Type::Ray_Callable:
         arguments_wchar_ptr.push_back(L"-fvk-invert-y");
+        arguments_wchar_ptr.push_back(L"-fspv-extension=SPV_KHR_ray_tracing");
         break;
     default:
         break;
@@ -247,7 +252,7 @@ Shader Shader_Compiler::compile_from_memory(
 
     if (compile_info.embed_debug)
     {
-        arguments_wchar_ptr.push_back(L"-fspv-debug=vulkan-with-source");
+        // arguments_wchar_ptr.push_back(L"-fspv-debug=vulkan-with-source");
     }
 
     m_compiler->Compile(

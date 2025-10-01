@@ -258,6 +258,15 @@ enum class Acceleration_Structure_Geometry_Flags
     No_Duplicate_Any_Hit_Invocation = 0x2,
 };
 
+enum class Acceleration_Structure_Instance_Flags : uint32_t
+{
+    None = 0x0,
+    Triangle_Cull_Disable = 0x1,
+    Triangle_Front_CCW = 0x2,
+    Force_Opaque = 0x4,
+    Force_Non_Opaque = 0x8
+};
+
 struct alignas(16) Acceleration_Structure_Instance
 {
     float transform[3][4];
@@ -416,3 +425,6 @@ constexpr static bool RHI_ENABLE_BIT_OPERATORS<rhi::Barrier_Access> = true;
 
 template<>
 constexpr static bool RHI_ENABLE_BIT_OPERATORS<rhi::Acceleration_Structure_Flags> = true;
+
+template<>
+constexpr static bool RHI_ENABLE_BIT_OPERATORS<rhi::Acceleration_Structure_Instance_Flags> = true;
