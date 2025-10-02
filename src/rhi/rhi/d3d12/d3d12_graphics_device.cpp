@@ -567,12 +567,13 @@ std::expected<Buffer*, Result> D3D12_Graphics_Device::create_buffer(const Buffer
     }
 
     D3D12_RESOURCE_FLAGS flags = D3D12_RESOURCE_FLAG_NONE;
-    if (!create_info.acceleration_structure_memory && create_info.heap == Memory_Heap_Type::GPU)
+    if (create_info.heap == Memory_Heap_Type::GPU)
     {
         flags |= D3D12_RESOURCE_FLAG_ALLOW_UNORDERED_ACCESS;
     }
-    else if (create_info.acceleration_structure_memory && create_info.heap == Memory_Heap_Type::GPU)
+    if (create_info.acceleration_structure_memory)
     {
+        flags |= D3D12_RESOURCE_FLAG_ALLOW_UNORDERED_ACCESS;
         flags |= D3D12_RESOURCE_FLAG_RAYTRACING_ACCELERATION_STRUCTURE;
     }
 
@@ -627,7 +628,13 @@ std::expected<Buffer*, Result> D3D12_Graphics_Device::create_buffer(const Buffer
     buffer->allocation = allocation;
     buffer->buffer_view_linked_list_head = nullptr;
 
-    create_initial_buffer_descriptors(buffer, (flags & D3D12_RESOURCE_FLAG_ALLOW_UNORDERED_ACCESS) != 0);
+    bool create_srv = true;
+    create_srv &= (flags & D3D12_RESOURCE_FLAG_RAYTRACING_ACCELERATION_STRUCTURE) == 0;
+    bool create_uav = true;
+    create_uav &= (flags & D3D12_RESOURCE_FLAG_RAYTRACING_ACCELERATION_STRUCTURE) == 0;
+    create_uav &= (flags & D3D12_RESOURCE_FLAG_ALLOW_UNORDERED_ACCESS) != 0;
+
+    create_initial_buffer_descriptors(buffer, create_srv, create_uav);
 
     return buffer;
 }
@@ -1559,14 +1566,14 @@ const Indirect_Signatures& D3D12_Graphics_Device::get_indirect_signatures() cons
     return m_indirect_signatures;
 }
 
-void D3D12_Graphics_Device::create_initial_buffer_descriptors(D3D12_Buffer* buffer, bool create_uav) noexcept
+void D3D12_Graphics_Device::create_initial_buffer_descriptors(D3D12_Buffer* buffer, bool create_srv, bool create_uav) noexcept
 {
     auto srv_desc = make_raw_buffer_srv(buffer->size);
     auto uav_desc = make_raw_buffer_uav(buffer->size);
     create_srv_and_uav(
         buffer->resource,
         buffer->buffer_view->bindless_index,
-        &srv_desc,
+        create_srv ? &srv_desc : nullptr,
         create_uav ? &uav_desc : nullptr);
 }
 

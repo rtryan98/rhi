@@ -27,10 +27,6 @@ auto translate_barrier_Image_layout(
             return D3D12_BARRIER_LAYOUT_DIRECT_QUEUE_COMMON;
         case Queue_Type::Compute:
             return D3D12_BARRIER_LAYOUT_COMPUTE_QUEUE_COMMON;
-        case Queue_Type::Video_Decode:
-            return D3D12_BARRIER_LAYOUT_VIDEO_QUEUE_COMMON;
-        case Queue_Type::Video_Encode:
-            return D3D12_BARRIER_LAYOUT_VIDEO_QUEUE_COMMON;
         default:
             return D3D12_BARRIER_LAYOUT_COMMON;
         }
