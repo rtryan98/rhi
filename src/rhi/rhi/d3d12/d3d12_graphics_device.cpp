@@ -570,6 +570,7 @@ std::expected<Buffer*, Result> D3D12_Graphics_Device::create_buffer(const Buffer
     if (create_info.heap == Memory_Heap_Type::GPU)
     {
         flags |= D3D12_RESOURCE_FLAG_ALLOW_UNORDERED_ACCESS;
+        flags |= D3D12_RESOURCE_FLAG_USE_TIGHT_ALIGNMENT;
     }
     if (create_info.acceleration_structure_memory)
     {
