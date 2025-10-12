@@ -3,7 +3,8 @@
 #include "rhi/graphics_device.hpp"
 #include "rhi/d3d12/d3d12_resource.hpp"
 
-#include <core/d3d12/d3d12_device.hpp>
+#include <agility_sdk/d3d12.h>
+#include <dxgi1_6.h>
 #include <mutex>
 #include <plf_colony.h>
 

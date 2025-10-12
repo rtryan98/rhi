@@ -1,1 +1,1 @@
-add_subdirectory(core)
+add_subdirectory(D3D12MemoryAllocator)

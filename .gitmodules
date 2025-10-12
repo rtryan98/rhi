@@ -1,6 +1,6 @@
-[submodule "thirdparty/core"]
-	path = thirdparty/core
-	url = https://github.com/rtryan98/core
 [submodule "thirdparty/plf_colony"]
 	path = thirdparty/plf_colony
 	url = https://github.com/mattreecebentley/plf_colony
+[submodule "thirdparty/D3D12MemoryAllocator"]
+	path = thirdparty/D3D12MemoryAllocator
+	url = https://github.com/GPUOpen-LibrariesAndSDKs/D3D12MemoryAllocator

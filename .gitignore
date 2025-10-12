@@ -1,3 +1,4 @@
 [Bb]uild/
 thirdparty/win_pix_event_runtime/
 thirdparty/directx_shader_compiler/
+thirdparty/d3d12_agility_sdk/
