@@ -609,7 +609,8 @@ std::expected<Buffer*, Result> D3D12_Graphics_Device::create_buffer(const Buffer
     }
 
     void* mapped_data = nullptr;
-    if (create_info.heap == Memory_Heap_Type::CPU_Upload)
+    if (create_info.heap == Memory_Heap_Type::CPU_Upload ||
+        create_info.heap == Memory_Heap_Type::CPU_Readback)
     {
         resource->Map(0, nullptr, &mapped_data);
     }
