@@ -401,6 +401,8 @@ D3D12_Graphics_Device::D3D12_Graphics_Device(const Graphics_Device_Create_Info& 
         .pAdapter = m_context.adapter
     };
     D3D12MA::CreateAllocator(&allocator_desc, &m_allocator);
+    allocator_desc.Flags |= D3D12MA::ALLOCATOR_FLAG_DONT_USE_TIGHT_ALIGNMENT;
+    D3D12MA::CreateAllocator(&allocator_desc, &m_image_allocator);
 
     m_descriptor_increment_sizes = acquire_descriptor_increment_sizes();
     m_indirect_signatures = create_execute_indirect_signatures();
@@ -474,6 +476,7 @@ D3D12_Graphics_Device::~D3D12_Graphics_Device() noexcept
     m_indirect_signatures.draw_indexed_indirect->Release();
     m_indirect_signatures.draw_mesh_tasks_indirect->Release();
     m_indirect_signatures.dispatch_indirect->Release();
+    m_image_allocator->Release();
     m_allocator->Release();
     destroy_d3d12_context(&m_context);
 }
@@ -791,7 +794,7 @@ std::expected<Image*, Result> D3D12_Graphics_Device::create_image(const Image_Cr
     };
     D3D12MA::Allocation* allocation = nullptr;
     ID3D12Resource2* resource = nullptr;
-    auto result = result_from_hresult(m_allocator->CreateResource3(
+    auto result = result_from_hresult(m_image_allocator->CreateResource3(
         &allocation_desc, &resource_desc, D3D12_BARRIER_LAYOUT_UNDEFINED,
         nullptr, 0, nullptr, &allocation, IID_PPV_ARGS(&resource)));
     if (result != Result::Success)

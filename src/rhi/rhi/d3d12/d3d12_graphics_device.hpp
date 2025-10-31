@@ -216,6 +216,7 @@ private:
 
     D3D12_Context m_context;
     D3D12MA::Allocator* m_allocator;
+    D3D12MA::Allocator* m_image_allocator; // HACK: workaround for images throwing validation errors due to implicit tight alignment
 
     Descriptor_Increment_Sizes m_descriptor_increment_sizes;
     Indirect_Signatures m_indirect_signatures;
