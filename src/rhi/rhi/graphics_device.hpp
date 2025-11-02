@@ -105,6 +105,8 @@ public:
     virtual [[nodiscard]] std::expected<Buffer_View*, Result> create_buffer_view(
         Buffer* buffer, const Buffer_View_Create_Info& create_info, uint32_t index = NO_RESOURCE_INDEX) noexcept = 0;
     virtual void destroy_buffer(Buffer* buffer) noexcept = 0;
+    virtual void map_buffer(Buffer* buffer, std::size_t offset, std::size_t size) noexcept = 0;
+    virtual void unmap_buffer(Buffer* buffer) noexcept = 0;
 
     virtual [[nodiscard]] std::expected<Image*, Result> create_image(
         const Image_Create_Info& create_info, uint32_t index = NO_RESOURCE_INDEX) noexcept = 0;

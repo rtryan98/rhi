@@ -132,6 +132,8 @@ public:
     virtual [[nodiscard]] std::expected<Buffer_View*, Result> create_buffer_view(
         Buffer* buffer, const Buffer_View_Create_Info& create_info, uint32_t index = NO_RESOURCE_INDEX) noexcept override;
     virtual void destroy_buffer(Buffer* buffer) noexcept override;
+    virtual void map_buffer(Buffer* buffer, std::size_t offset, std::size_t size) noexcept override;
+    virtual void unmap_buffer(Buffer* buffer) noexcept override;
 
         virtual [[nodiscard]] std::expected<Image*, Result> create_image(
         const Image_Create_Info& create_info, uint32_t index = NO_RESOURCE_INDEX) noexcept override;
@@ -216,7 +218,7 @@ private:
 
     D3D12_Context m_context;
     D3D12MA::Allocator* m_allocator;
-    D3D12MA::Allocator* m_image_allocator; // HACK: workaround for images throwing validation errors due to implicit tight alignment
+    D3D12MA::Allocator* m_allocator_legacy_alignment; // HACK: workaround for images throwing validation errors due to implicit tight alignment
 
     Descriptor_Increment_Sizes m_descriptor_increment_sizes;
     Indirect_Signatures m_indirect_signatures;

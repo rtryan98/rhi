@@ -384,7 +384,7 @@ D3D12_Graphics_Device::D3D12_Graphics_Device(const Graphics_Device_Create_Info& 
         .enable_validation = create_info.enable_validation,
         .enable_gpu_validation = create_info.enable_gpu_validation,
         .disable_tdr = false,
-                .feature_level = D3D_FEATURE_LEVEL_12_2, // TODO: customizable feature level?
+        .feature_level = D3D_FEATURE_LEVEL_12_2, // TODO: customizable feature level?
         .resource_descriptor_heap_size = MAX_RESOURCE_INDEX * 2,
         .sampler_descriptor_heap_size = D3D12_MAX_SHADER_VISIBLE_SAMPLER_HEAP_SIZE,
         .rtv_descriptor_heap_size = MAX_RTV_DSV_DESCRIPTORS,
@@ -402,7 +402,7 @@ D3D12_Graphics_Device::D3D12_Graphics_Device(const Graphics_Device_Create_Info& 
     };
     D3D12MA::CreateAllocator(&allocator_desc, &m_allocator);
     allocator_desc.Flags |= D3D12MA::ALLOCATOR_FLAG_DONT_USE_TIGHT_ALIGNMENT;
-    D3D12MA::CreateAllocator(&allocator_desc, &m_image_allocator);
+    D3D12MA::CreateAllocator(&allocator_desc, &m_allocator_legacy_alignment);
 
     m_descriptor_increment_sizes = acquire_descriptor_increment_sizes();
     m_indirect_signatures = create_execute_indirect_signatures();
@@ -476,7 +476,7 @@ D3D12_Graphics_Device::~D3D12_Graphics_Device() noexcept
     m_indirect_signatures.draw_indexed_indirect->Release();
     m_indirect_signatures.draw_mesh_tasks_indirect->Release();
     m_indirect_signatures.dispatch_indirect->Release();
-    m_image_allocator->Release();
+    m_allocator_legacy_alignment->Release();
     m_allocator->Release();
     destroy_d3d12_context(&m_context);
 }
@@ -603,7 +603,11 @@ std::expected<Buffer*, Result> D3D12_Graphics_Device::create_buffer(const Buffer
     };
     D3D12MA::Allocation* allocation = nullptr;
     ID3D12Resource2* resource = nullptr;
-    auto result = result_from_hresult(m_allocator->CreateResource3(
+
+    // HACK: workaround for Renderdoc/PIX crash with tight alignment enabled on readback buffers
+    auto* allocator = create_info.heap == Memory_Heap_Type::CPU_Readback ? m_allocator_legacy_alignment : m_allocator;
+
+    auto result = result_from_hresult(allocator->CreateResource3(
         &allocation_desc, &resource_desc, D3D12_BARRIER_LAYOUT_UNDEFINED,
         nullptr, 0, nullptr, &allocation, IID_PPV_ARGS(&resource)));
     if (result != Result::Success)
@@ -612,8 +616,7 @@ std::expected<Buffer*, Result> D3D12_Graphics_Device::create_buffer(const Buffer
     }
 
     void* mapped_data = nullptr;
-    if (create_info.heap == Memory_Heap_Type::CPU_Upload ||
-        create_info.heap == Memory_Heap_Type::CPU_Readback)
+    if (create_info.heap == Memory_Heap_Type::CPU_Upload)
     {
         resource->Map(0, nullptr, &mapped_data);
     }
@@ -639,7 +642,8 @@ std::expected<Buffer*, Result> D3D12_Graphics_Device::create_buffer(const Buffer
     create_uav &= (flags & D3D12_RESOURCE_FLAG_RAYTRACING_ACCELERATION_STRUCTURE) == 0;
     create_uav &= (flags & D3D12_RESOURCE_FLAG_ALLOW_UNORDERED_ACCESS) != 0;
 
-    create_initial_buffer_descriptors(buffer, create_srv, create_uav);
+    if (create_info.heap != Memory_Heap_Type::CPU_Readback)
+        create_initial_buffer_descriptors(buffer, create_srv, create_uav);
 
     return buffer;
 }
@@ -698,6 +702,27 @@ void D3D12_Graphics_Device::destroy_buffer(Buffer* buffer) noexcept
     }
 
     m_buffers.erase(m_buffers.get_iterator(d3d12_buffer));
+}
+
+void D3D12_Graphics_Device::map_buffer(Buffer* buffer, std::size_t offset, std::size_t size) noexcept
+{
+    if (!buffer) return;
+
+    auto d3d12_buffer = static_cast<D3D12_Buffer*>(buffer);
+    D3D12_RANGE read_range = {
+        .Begin = offset,
+        .End = offset + size
+    };
+    d3d12_buffer->resource->Map(0, &read_range, &buffer->data);
+}
+
+void D3D12_Graphics_Device::unmap_buffer(Buffer* buffer) noexcept
+{
+    if (!buffer) return;
+
+    auto d3d12_buffer = static_cast<D3D12_Buffer*>(buffer);
+    d3d12_buffer->resource->Unmap(0, nullptr);
+    d3d12_buffer->data = nullptr;
 }
 
 std::expected<Image*, Result> D3D12_Graphics_Device::create_image(const Image_Create_Info& create_info, uint32_t index) noexcept
@@ -794,7 +819,7 @@ std::expected<Image*, Result> D3D12_Graphics_Device::create_image(const Image_Cr
     };
     D3D12MA::Allocation* allocation = nullptr;
     ID3D12Resource2* resource = nullptr;
-    auto result = result_from_hresult(m_image_allocator->CreateResource3(
+    auto result = result_from_hresult(m_allocator_legacy_alignment->CreateResource3(
         &allocation_desc, &resource_desc, D3D12_BARRIER_LAYOUT_UNDEFINED,
         nullptr, 0, nullptr, &allocation, IID_PPV_ARGS(&resource)));
     if (result != Result::Success)
