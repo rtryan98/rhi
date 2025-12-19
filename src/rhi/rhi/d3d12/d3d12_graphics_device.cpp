@@ -947,6 +947,8 @@ std::expected<Image_View*, Result> D3D12_Graphics_Device::create_image_view(
     switch (create_info.descriptor_type)
     {
     case Descriptor_Type::Resource:
+    {
+
         image_view->bindless_index = (index != NO_RESOURCE_INDEX) ? (index * 2) : create_descriptor_index(D3D12_DESCRIPTOR_HEAP_TYPE_CBV_SRV_UAV);
         auto srv_desc = make_texture_srv(
             translate_format(d3d12_image->format),
@@ -979,7 +981,9 @@ std::expected<Image_View*, Result> D3D12_Graphics_Device::create_image_view(
                         D3D12_DESCRIPTOR_HEAP_TYPE_CBV_SRV_UAV));
         }
         break;
+    }
     case Descriptor_Type::Color_Attachment:
+    {
         image_view->rtv_dsv_index = create_descriptor_index(D3D12_DESCRIPTOR_HEAP_TYPE_RTV);
         auto rtv_desc = make_full_texture_rtv(
             translate_format(d3d12_image->format),
@@ -992,7 +996,9 @@ std::expected<Image_View*, Result> D3D12_Graphics_Device::create_image_view(
             &rtv_desc,
             get_cpu_descriptor_handle(image_view->rtv_dsv_index, D3D12_DESCRIPTOR_HEAP_TYPE_RTV));
         break;
+    }
     case Descriptor_Type::Depth_Stencil_Attachment:
+    {
         image_view->rtv_dsv_index = create_descriptor_index(D3D12_DESCRIPTOR_HEAP_TYPE_DSV);
         auto dsv_desc = make_full_texture_dsv(
             translate_format(d3d12_image->format),
@@ -1004,6 +1010,7 @@ std::expected<Image_View*, Result> D3D12_Graphics_Device::create_image_view(
             &dsv_desc,
             get_cpu_descriptor_handle(image_view->rtv_dsv_index, D3D12_DESCRIPTOR_HEAP_TYPE_DSV));
         break;
+    }
     default:
         break;
     }
