@@ -1,5 +1,7 @@
 target_sources(
     rhi PRIVATE
+    d3d12_cast.cpp
+    d3d12_cast.hpp
     d3d12_command_list.cpp
     d3d12_command_list.hpp
     d3d12_descriptor_util.cpp
