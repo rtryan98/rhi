@@ -102,6 +102,10 @@ if(${RHI_BUILD_VULKAN})
         vk-bootstrap::vk-bootstrap
         GPUOpen::VulkanMemoryAllocator
     )
+    target_include_directories(
+        rhi PUBLIC
+        ${CMAKE_CURRENT_LIST_DIR}/thirdparty/volk
+    )
 endif()
 if(NOT ${RHI_BUILD_D3D12} AND NOT ${RHI_BUILD_VULKAN})
     message(WARNING "No graphics API backend is being built. RHI will be unusable.")
