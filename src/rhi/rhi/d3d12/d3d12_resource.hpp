@@ -61,8 +61,6 @@ struct D3D12_Pipeline : public Pipeline
     const Pipeline_Color_Attachment_Blend_Info& attachment_blend_info) noexcept;
 [[nodiscard]] D3D12_BLEND_DESC translate_blend_state_desc(
     const Pipeline_Blend_State_Info& blend_info) noexcept;
-[[nodiscard]] D3D12_COMPARISON_FUNC translate_comparison_func(Comparison_Func comparison_func) noexcept;
-[[nodiscard]] D3D12_STENCIL_OP translate_stencil_op(Stencil_Op stencil_op) noexcept;
 [[nodiscard]] D3D12_DEPTH_STENCILOP_DESC1 translate_depth_stencilop_desc(
     const Pipeline_Depth_Stencil_Op_Info& ds_op_info) noexcept;
 [[nodiscard]] D3D12_DEPTH_STENCIL_DESC2 translate_depth_stencil_desc(

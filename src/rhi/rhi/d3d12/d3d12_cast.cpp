@@ -1,9 +1,95 @@
 #include "rhi/d3d12/d3d12_cast.hpp"
 
 #include "rhi/d3d12/d3d12_resource.hpp"
+#include <bit>
 
 namespace rhi::d3d12
 {
+template<>
+uint32_t d3d12_cast<uint32_t, Image_Component_Swizzle>(const Image_Component_Swizzle swizzle, uint32_t identity)
+{
+    switch (swizzle)
+    {
+    case rhi::Image_Component_Swizzle::Identity:
+        // HACK: D3D12 does not have an identity mapping
+        return D3D12_SHADER_COMPONENT_MAPPING(identity % 4);
+    case rhi::Image_Component_Swizzle::Zero:
+        return D3D12_SHADER_COMPONENT_MAPPING_FORCE_VALUE_0;
+    case rhi::Image_Component_Swizzle::One:
+        return D3D12_SHADER_COMPONENT_MAPPING_FORCE_VALUE_1;
+    case rhi::Image_Component_Swizzle::R:
+        return D3D12_SHADER_COMPONENT_MAPPING_FROM_MEMORY_COMPONENT_0;
+    case rhi::Image_Component_Swizzle::G:
+        return D3D12_SHADER_COMPONENT_MAPPING_FROM_MEMORY_COMPONENT_1;
+    case rhi::Image_Component_Swizzle::B:
+        return D3D12_SHADER_COMPONENT_MAPPING_FROM_MEMORY_COMPONENT_2;
+    case rhi::Image_Component_Swizzle::A:
+        return D3D12_SHADER_COMPONENT_MAPPING_FROM_MEMORY_COMPONENT_3;
+    default:
+        return D3D12_SHADER_COMPONENT_MAPPING(identity % 4);
+    }
+}
+
+template<>
+uint32_t d3d12_cast<uint32_t, Image_Component_Swizzle>(
+    const Image_Component_Swizzle r,
+    const Image_Component_Swizzle g,
+    const Image_Component_Swizzle b,
+    const Image_Component_Swizzle a)
+{
+    auto r_ = d3d12_cast<uint32_t>(r, 0);
+    auto g_ = d3d12_cast<uint32_t>(g, 1);
+    auto b_ = d3d12_cast<uint32_t>(b, 2);
+    auto a_ = d3d12_cast<uint32_t>(a, 3);
+    return D3D12_ENCODE_SHADER_4_COMPONENT_MAPPING(r_, g_, b_, a_);
+}
+
+template<>
+D3D12_TEXTURE_ADDRESS_MODE d3d12_cast<D3D12_TEXTURE_ADDRESS_MODE, Image_Sample_Address_Mode>(const Image_Sample_Address_Mode address_mode)
+{
+    switch (address_mode)
+    {
+    case Image_Sample_Address_Mode::Wrap:
+        return D3D12_TEXTURE_ADDRESS_MODE_WRAP;
+    case Image_Sample_Address_Mode::Mirror:
+        return D3D12_TEXTURE_ADDRESS_MODE_MIRROR;
+    case Image_Sample_Address_Mode::Clamp:
+        return D3D12_TEXTURE_ADDRESS_MODE_CLAMP;
+    case Image_Sample_Address_Mode::Border:
+        return D3D12_TEXTURE_ADDRESS_MODE_BORDER;
+    default:
+        return D3D12_TEXTURE_ADDRESS_MODE_WRAP;
+    }
+}
+
+template<>
+D3D12_COMPARISON_FUNC d3d12_cast<D3D12_COMPARISON_FUNC, Comparison_Func>(const Comparison_Func comparison_func)
+{
+    return std::bit_cast<D3D12_COMPARISON_FUNC>(comparison_func);
+}
+
+template<>
+D3D12_STENCIL_OP d3d12_cast<D3D12_STENCIL_OP, Stencil_Op>(const Stencil_Op stencil_op)
+{
+    return std::bit_cast<D3D12_STENCIL_OP>(stencil_op);
+}
+
+template<>
+D3D12_HEAP_TYPE d3d12_cast<D3D12_HEAP_TYPE, Memory_Heap_Type>(const Memory_Heap_Type heap_type)
+{
+    switch (heap_type)
+    {
+    case Memory_Heap_Type::GPU:
+        return D3D12_HEAP_TYPE_DEFAULT;
+    case Memory_Heap_Type::CPU_Upload:
+        return D3D12_HEAP_TYPE_UPLOAD;
+    case Memory_Heap_Type::CPU_Readback:
+        return D3D12_HEAP_TYPE_READBACK;
+    default:
+        return D3D12_HEAP_TYPE_DEFAULT;
+    }
+}
+
 template<>
 DXGI_FORMAT d3d12_cast<DXGI_FORMAT, Image_Format>(const Image_Format image_format)
 {

@@ -1,6 +1,7 @@
 #pragma once
 
 #include "rhi/d3d12/d3d12_resource.hpp"
+#include "rhi/d3d12/d3d12_cast.hpp"
 
 #include <bit>
 
@@ -343,23 +344,13 @@ D3D12_BLEND_DESC translate_blend_state_desc(const Pipeline_Blend_State_Info& ble
     return result;
 }
 
-D3D12_COMPARISON_FUNC translate_comparison_func(Comparison_Func comparison_func) noexcept
-{
-    return std::bit_cast<D3D12_COMPARISON_FUNC>(comparison_func);
-}
-
-D3D12_STENCIL_OP translate_stencil_op(Stencil_Op stencil_op) noexcept
-{
-    return std::bit_cast<D3D12_STENCIL_OP>(stencil_op);
-}
-
 D3D12_DEPTH_STENCILOP_DESC1 translate_depth_stencilop_desc(const Pipeline_Depth_Stencil_Op_Info& ds_op_info) noexcept
 {
     D3D12_DEPTH_STENCILOP_DESC1 result = {
-        .StencilFailOp = translate_stencil_op(ds_op_info.fail),
-        .StencilDepthFailOp = translate_stencil_op(ds_op_info.depth_fail),
-        .StencilPassOp = translate_stencil_op(ds_op_info.pass),
-        .StencilFunc = translate_comparison_func(ds_op_info.comparison_func),
+        .StencilFailOp = d3d12_cast<D3D12_STENCIL_OP>(ds_op_info.fail),
+        .StencilDepthFailOp = d3d12_cast<D3D12_STENCIL_OP>(ds_op_info.depth_fail),
+        .StencilPassOp = d3d12_cast<D3D12_STENCIL_OP>(ds_op_info.pass),
+        .StencilFunc = d3d12_cast<D3D12_COMPARISON_FUNC>(ds_op_info.comparison_func),
         .StencilReadMask = ds_op_info.stencil_read_mask,
         .StencilWriteMask = ds_op_info.stencil_write_mask
     };
@@ -371,7 +362,7 @@ D3D12_DEPTH_STENCIL_DESC2 translate_depth_stencil_desc(const Pipeline_Depth_Sten
     D3D12_DEPTH_STENCIL_DESC2 result = {
         .DepthEnable = ds_info.depth_enable,
         .DepthWriteMask = ds_info.depth_enable ? D3D12_DEPTH_WRITE_MASK_ALL : D3D12_DEPTH_WRITE_MASK_ZERO,
-        .DepthFunc = translate_comparison_func(ds_info.comparison_func),
+        .DepthFunc = d3d12_cast<D3D12_COMPARISON_FUNC>(ds_info.comparison_func),
         .StencilEnable = ds_info.stencil_enable,
         .FrontFace = translate_depth_stencilop_desc(ds_info.stencil_front_face),
         .BackFace = translate_depth_stencilop_desc(ds_info.stencil_back_face),

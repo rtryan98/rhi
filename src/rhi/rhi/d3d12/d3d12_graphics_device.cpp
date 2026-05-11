@@ -332,21 +332,6 @@ Result wait_result_from_dword(DWORD dword) noexcept
     }
 }
 
-D3D12_HEAP_TYPE translate_heap_type(Memory_Heap_Type heap_type) noexcept
-{
-    switch (heap_type)
-    {
-    case Memory_Heap_Type::GPU:
-        return D3D12_HEAP_TYPE_DEFAULT;
-    case Memory_Heap_Type::CPU_Upload:
-        return D3D12_HEAP_TYPE_UPLOAD;
-    case Memory_Heap_Type::CPU_Readback:
-        return D3D12_HEAP_TYPE_READBACK;
-    default:
-        return D3D12_HEAP_TYPE_DEFAULT;
-    }
-}
-
 Result D3D12_Fence::get_status(uint64_t value) noexcept
 {
     return wait_result_from_dword(await_fence(fence, value, 0));
@@ -597,7 +582,7 @@ std::expected<Buffer*, Result> D3D12_Graphics_Device::create_buffer(const Buffer
     };
     D3D12MA::ALLOCATION_DESC allocation_desc = {
         .Flags = D3D12MA::ALLOCATION_FLAG_NONE,
-        .HeapType = translate_heap_type(create_info.heap),
+        .HeapType = d3d12_cast<D3D12_HEAP_TYPE>(create_info.heap),
         .ExtraHeapFlags = D3D12_HEAP_FLAG_NONE,
         .CustomPool = nullptr,
         .pPrivateData = nullptr
@@ -894,39 +879,6 @@ std::expected<Image*, Result> D3D12_Graphics_Device::create_image(const Image_Cr
     return image;
 }
 
-uint32_t translate_shader_swizzle(Image_Component_Swizzle swizzle, uint32_t identity_component)
-{
-    switch (swizzle)
-    {
-    case rhi::Image_Component_Swizzle::Identity:
-        // HACK: D3D12 does not have an identity mapping
-        return D3D12_SHADER_COMPONENT_MAPPING(identity_component % 4);
-    case rhi::Image_Component_Swizzle::Zero:
-        return D3D12_SHADER_COMPONENT_MAPPING_FORCE_VALUE_0;
-    case rhi::Image_Component_Swizzle::One:
-        return D3D12_SHADER_COMPONENT_MAPPING_FORCE_VALUE_1;
-    case rhi::Image_Component_Swizzle::R:
-        return D3D12_SHADER_COMPONENT_MAPPING_FROM_MEMORY_COMPONENT_0;
-    case rhi::Image_Component_Swizzle::G:
-        return D3D12_SHADER_COMPONENT_MAPPING_FROM_MEMORY_COMPONENT_1;
-    case rhi::Image_Component_Swizzle::B:
-        return D3D12_SHADER_COMPONENT_MAPPING_FROM_MEMORY_COMPONENT_2;
-    case rhi::Image_Component_Swizzle::A:
-        return D3D12_SHADER_COMPONENT_MAPPING_FROM_MEMORY_COMPONENT_3;
-    default:
-        return D3D12_SHADER_COMPONENT_MAPPING(identity_component % 4);
-    }
-}
-
-uint32_t translate_shader_4_component_mapping(Image_Component_Mapping mapping)
-{
-    uint32_t r = translate_shader_swizzle(mapping.r, 0);
-    uint32_t g = translate_shader_swizzle(mapping.g, 1);
-    uint32_t b = translate_shader_swizzle(mapping.b, 2);
-    uint32_t a = translate_shader_swizzle(mapping.a, 3);
-    return D3D12_ENCODE_SHADER_4_COMPONENT_MAPPING(r,g,b,a);
-}
-
 std::expected<Image_View*, Result> D3D12_Graphics_Device::create_image_view(
     Image* image, const Image_View_Create_Info& create_info, uint32_t index) noexcept
 {
@@ -958,7 +910,11 @@ std::expected<Image_View*, Result> D3D12_Graphics_Device::create_image_view(
             create_info.array_levels,
             create_info.first_mip_level,
             create_info.mip_levels,
-            translate_shader_4_component_mapping(create_info.component_mapping));
+            d3d12_cast<uint32_t>(
+                create_info.component_mapping.r,
+                create_info.component_mapping.g,
+                create_info.component_mapping.b,
+                create_info.component_mapping.a));
         m_context.device->CreateShaderResourceView(
             d3d12_image->resource,
             &srv_desc,
@@ -1074,23 +1030,6 @@ void D3D12_Graphics_Device::destroy_image(Image* image) noexcept
     m_images.erase(m_images.get_iterator(d3d12_image));
 }
 
-D3D12_TEXTURE_ADDRESS_MODE translate_texture_address_mode(Image_Sample_Address_Mode address_mode) noexcept
-{
-    switch (address_mode)
-    {
-    case Image_Sample_Address_Mode::Wrap:
-        return D3D12_TEXTURE_ADDRESS_MODE_WRAP;
-    case Image_Sample_Address_Mode::Mirror:
-        return D3D12_TEXTURE_ADDRESS_MODE_MIRROR;
-    case Image_Sample_Address_Mode::Clamp:
-        return D3D12_TEXTURE_ADDRESS_MODE_CLAMP;
-    case Image_Sample_Address_Mode::Border:
-        return D3D12_TEXTURE_ADDRESS_MODE_BORDER;
-    default:
-        return D3D12_TEXTURE_ADDRESS_MODE_WRAP;
-    }
-}
-
 std::expected<Sampler*, Result> D3D12_Graphics_Device::create_sampler(const Sampler_Create_Info& create_info, uint32_t index) noexcept
 {
     std::unique_lock<std::mutex> lock_guard(m_resource_mutex, std::defer_lock);
@@ -1107,12 +1046,12 @@ std::expected<Sampler*, Result> D3D12_Graphics_Device::create_sampler(const Samp
             create_info.filter_mip,
             create_info.reduction,
             create_info.anisotropy_enable),
-        .AddressU = translate_texture_address_mode(create_info.address_mode_u),
-        .AddressV = translate_texture_address_mode(create_info.address_mode_v),
-        .AddressW = translate_texture_address_mode(create_info.address_mode_w),
+        .AddressU = d3d12_cast<D3D12_TEXTURE_ADDRESS_MODE>(create_info.address_mode_u),
+        .AddressV = d3d12_cast<D3D12_TEXTURE_ADDRESS_MODE>(create_info.address_mode_v),
+        .AddressW = d3d12_cast<D3D12_TEXTURE_ADDRESS_MODE>(create_info.address_mode_w),
         .MipLODBias = create_info.mip_lod_bias,
         .MaxAnisotropy = create_info.max_anisotropy,
-        .ComparisonFunc = translate_comparison_func(create_info.comparison_func),
+        .ComparisonFunc = d3d12_cast<D3D12_COMPARISON_FUNC>(create_info.comparison_func),
         .BorderColor = {
             create_info.border_color[0],
             create_info.border_color[1],
