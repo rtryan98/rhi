@@ -1,4 +1,5 @@
 #include "rhi/d3d12/d3d12_graphics_device.hpp"
+#include "rhi/d3d12/d3d12_cast.hpp"
 #include "rhi/d3d12/d3d12_command_list.hpp"
 #include "rhi/d3d12/d3d12_swapchain.hpp"
 #include "rhi/d3d12/d3d12_pso.hpp"
@@ -629,12 +630,12 @@ std::expected<Buffer*, Result> D3D12_Graphics_Device::create_buffer(const Buffer
     buffer->buffer_view->size = buffer->size;
     buffer->buffer_view->offset = 0;
     buffer->buffer_view->buffer = buffer;
-    static_cast<D3D12_Buffer_View*>(buffer->buffer_view)->next_buffer_view = nullptr;
+    buffer->buffer_view->next_buffer_view = nullptr;
     buffer->data = mapped_data;
     buffer->gpu_address = resource->GetGPUVirtualAddress();
     buffer->resource = resource;
     buffer->allocation = allocation;
-    buffer->buffer_view_linked_list_head = nullptr;
+    buffer->buffer_view_linked_list_head = buffer->buffer_view;
 
     bool create_srv = true;
     create_srv &= (flags & D3D12_RESOURCE_FLAG_RAYTRACING_ACCELERATION_STRUCTURE) == 0;
@@ -669,8 +670,8 @@ std::expected<Buffer_View*, Result> D3D12_Graphics_Device::create_buffer_view(
     buffer_view->size = create_info.size;
     buffer_view->offset = create_info.offset;
     buffer_view->buffer = buffer;
-    buffer_view->next_buffer_view = nullptr;
-    static_cast<D3D12_Buffer_View*>(buffer->buffer_view)->next_buffer_view = buffer_view;
+    buffer_view->next_buffer_view = buffer->buffer_view_linked_list_head;
+    buffer->buffer_view_linked_list_head = buffer_view;
 
     return buffer_view;
 }
@@ -698,7 +699,7 @@ void D3D12_Graphics_Device::destroy_buffer(Buffer* buffer) noexcept
         auto current_buffer_view = next_buffer_view;
         release_descriptor_index(current_buffer_view->bindless_index, D3D12_DESCRIPTOR_HEAP_TYPE_CBV_SRV_UAV);
         next_buffer_view = current_buffer_view->next_buffer_view;
-        m_buffer_views.erase(m_buffer_views.get_iterator(current_buffer_view));
+        m_buffer_views.erase(m_buffer_views.get_iterator(static_cast<D3D12_Buffer_View*>(current_buffer_view)));
     }
 
     m_buffers.erase(m_buffers.get_iterator(d3d12_buffer));
@@ -855,27 +856,27 @@ std::expected<Image*, Result> D3D12_Graphics_Device::create_image(const Image_Cr
         : is_dsv
             ? Descriptor_Type::Depth_Stencil_Attachment
             : Descriptor_Type::Color_Attachment;
-    static_cast<D3D12_Image_View*>(image->image_view)->next_image_view = nullptr;
+    image->image_view->next_image_view = nullptr;
     image->resource = resource;
     image->allocation = allocation;
-    image->image_view_linked_list_head = nullptr;
+    image->image_view_linked_list_head = image->image_view;
 
     auto srv_desc = make_full_texture_srv(
         translate_format(image->format),
-        translate_view_type_srv(image->primary_view_type));
+        d3d12_cast<D3D12_SRV_DIMENSION>(image->primary_view_type));
     auto uav_desc = make_full_texture_uav(
         translate_format(image->format),
-        translate_view_type_uav(image->primary_view_type),
+        d3d12_cast<D3D12_UAV_DIMENSION>(image->primary_view_type),
         0);
     auto rtv_desc = make_full_texture_rtv(
         translate_format(image->format),
-        translate_view_type_rtv(image->primary_view_type),
+        d3d12_cast<D3D12_RTV_DIMENSION>(image->primary_view_type),
         std::max(image->depth, uint32_t(image->array_size)),
         0,
         0);
     auto dsv_desc = make_full_texture_dsv(
         translate_format(image->format),
-        translate_view_type_dsv(image->primary_view_type),
+        d3d12_cast<D3D12_DSV_DIMENSION>(image->primary_view_type),
         std::max(image->depth, uint32_t(image->array_size)),
         0);
 
@@ -952,7 +953,7 @@ std::expected<Image_View*, Result> D3D12_Graphics_Device::create_image_view(
         image_view->bindless_index = (index != NO_RESOURCE_INDEX) ? (index * 2) : create_descriptor_index(D3D12_DESCRIPTOR_HEAP_TYPE_CBV_SRV_UAV);
         auto srv_desc = make_texture_srv(
             translate_format(d3d12_image->format),
-            translate_view_type_srv(create_info.view_type),
+            d3d12_cast<D3D12_SRV_DIMENSION>(create_info.view_type),
             create_info.first_array_level,
             create_info.array_levels,
             create_info.first_mip_level,
@@ -966,7 +967,7 @@ std::expected<Image_View*, Result> D3D12_Graphics_Device::create_image_view(
         {
             auto uav_desc = make_texture_uav(
                 translate_format(d3d12_image->format),
-                translate_view_type_uav(create_info.view_type),
+                d3d12_cast<D3D12_UAV_DIMENSION>(create_info.view_type),
                 create_info.first_array_level,
                 create_info.array_levels,
                 create_info.first_mip_level,
@@ -987,7 +988,7 @@ std::expected<Image_View*, Result> D3D12_Graphics_Device::create_image_view(
         image_view->rtv_dsv_index = create_descriptor_index(D3D12_DESCRIPTOR_HEAP_TYPE_RTV);
         auto rtv_desc = make_full_texture_rtv(
             translate_format(d3d12_image->format),
-            translate_view_type_rtv(create_info.view_type),
+            d3d12_cast<D3D12_RTV_DIMENSION>(create_info.view_type),
             create_info.array_levels,
             create_info.first_mip_level,
             0);
@@ -1002,7 +1003,7 @@ std::expected<Image_View*, Result> D3D12_Graphics_Device::create_image_view(
         image_view->rtv_dsv_index = create_descriptor_index(D3D12_DESCRIPTOR_HEAP_TYPE_DSV);
         auto dsv_desc = make_full_texture_dsv(
             translate_format(d3d12_image->format),
-            translate_view_type_dsv(create_info.view_type),
+            d3d12_cast<D3D12_DSV_DIMENSION>(create_info.view_type),
             create_info.array_levels,
             create_info.first_mip_level);
         m_context.device->CreateDepthStencilView(
@@ -1049,7 +1050,7 @@ void D3D12_Graphics_Device::destroy_image(Image* image) noexcept
     auto next_image_view = d3d12_image->image_view_linked_list_head;
     while (next_image_view != nullptr)
     {
-        auto current_image_view = next_image_view;
+        auto current_image_view = static_cast<D3D12_Image_View*>(next_image_view);
         switch (current_image_view->descriptor_type)
         {
         case Descriptor_Type::Resource:
@@ -1620,19 +1621,19 @@ void D3D12_Graphics_Device::create_initial_image_descriptors(D3D12_Image* image)
     uint32_t depth_or_array_size = image->depth > image->array_size ? image->depth : image->array_size;
     auto srv_desc = make_full_texture_srv(
         format,
-        translate_view_type_srv(image->primary_view_type));
+        d3d12_cast<D3D12_SRV_DIMENSION>(image->primary_view_type));
     auto uav_desc = make_full_texture_uav(
         format,
-        translate_view_type_uav(image->primary_view_type),
+        d3d12_cast<D3D12_UAV_DIMENSION>(image->primary_view_type),
         0);
     auto rtv_desc = make_full_texture_rtv(
         format,
-        translate_view_type_rtv(image->primary_view_type),
+        d3d12_cast<D3D12_RTV_DIMENSION>(image->primary_view_type),
         depth_or_array_size,
         0, 0);
     auto dsv_desc = make_full_texture_dsv(
         format,
-        translate_view_type_dsv(image->primary_view_type),
+        d3d12_cast<D3D12_DSV_DIMENSION>(image->primary_view_type),
         depth_or_array_size,
         0);
 
