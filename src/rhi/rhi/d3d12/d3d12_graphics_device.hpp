@@ -214,8 +214,6 @@ private:
         const Acceleration_Structure_Build_Geometry_Info& build_info) noexcept override;
 
 private:
-    constexpr static std::size_t ARRAY_VECTOR_SIZE = 512;
-
     D3D12_Context m_context;
     D3D12MA::Allocator* m_allocator;
     D3D12MA::Allocator* m_allocator_legacy_alignment; // HACK: workaround for images throwing validation errors due to implicit tight alignment
