@@ -1,6 +1,7 @@
 #pragma once
 
 #include "rhi/resource.hpp"
+#include "rhi/result.hpp"
 #include "rhi/command_list.hpp"
 
 #include <memory>
@@ -21,19 +22,6 @@ enum class Graphics_API
 #ifdef RHI_GRAPHICS_API_VULKAN
     Vulkan = 1,
 #endif
-};
-
-enum class Result
-{
-    Success,
-    Wait_Timeout,
-    Error_Wait_Failed,
-    Error_Out_Of_Memory,
-    Error_Invalid_Parameters,
-    Error_Device_Lost,
-    Error_No_Resource, // Create a view of a destroyed resource
-    Error_Acceleration_Structure_Invalid_Alignment,
-    Error_Unknown
 };
 
 enum class Queue_Type
