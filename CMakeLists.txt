@@ -73,6 +73,7 @@ set_target_properties(
     CXX_STANDARD 23
 )
 if(${RHI_BUILD_D3D12})
+    message(STATUS "Building RHI with D3D12")
     target_compile_definitions(
         rhi PUBLIC
         RHI_GRAPHICS_API_D3D12
@@ -89,9 +90,17 @@ if(${RHI_BUILD_D3D12})
     endif()
 endif()
 if(${RHI_BUILD_VULKAN})
+    message(STATUS "Building RHI with Vulkan")
     target_compile_definitions(
         rhi PUBLIC
         RHI_GRAPHICS_API_VULKAN
+    )
+    find_package(Vulkan REQUIRED)
+    target_link_libraries(
+        rhi PUBLIC
+        Vulkan::Vulkan
+        vk-bootstrap::vk-bootstrap
+        GPUOpen::VulkanMemoryAllocator
     )
 endif()
 if(NOT ${RHI_BUILD_D3D12} AND NOT ${RHI_BUILD_VULKAN})

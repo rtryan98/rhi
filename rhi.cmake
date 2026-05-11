@@ -1,3 +1,5 @@
+set(RHI_DOWNLOAD_CACHE ${CMAKE_SOURCE_DIR}/download_cache)
+
 function(rhi_symlink_shaders ABSOLUTE_TARGET_SHADER_DIRECTORY)
     if(NOT UNIX)
         file(TO_NATIVE_PATH ${ABSOLUTE_TARGET_SHADER_DIRECTORY}/rhi DST_PATH)
@@ -10,25 +12,25 @@ function(rhi_symlink_shaders ABSOLUTE_TARGET_SHADER_DIRECTORY)
 endfunction()
 
 function(rhi_download_and_extract_zip URL DST_FOLDER FOLDER_NAME)
-    if(NOT EXISTS ${CMAKE_BINARY_DIR}/download/${FOLDER_NAME}.zip)
+    if(NOT EXISTS ${RHI_DOWNLOAD_CACHE}/${FOLDER_NAME}.zip)
         message(STATUS "Downloading ${URL} and unpacking to ${DST_FOLDER}/${FOLDER_NAME}.")
         file(
             DOWNLOAD
             ${URL}
-            ${CMAKE_BINARY_DIR}/download/${FOLDER_NAME}.zip
+            ${RHI_DOWNLOAD_CACHE}/${FOLDER_NAME}.zip
         )
     else()
-        message(STATUS "${CMAKE_BINARY_DIR}/download/${FOLDER_NAME}.zip already exists. No download required.")
+        message(STATUS "${RHI_DOWNLOAD_CACHE}/${FOLDER_NAME}.zip already exists. No download required.")
     endif()
     if(NOT EXISTS ${DST_FOLDER}/${FOLDER_NAME})
-        message(STATUS "Extracting ${CMAKE_BINARY_DIR}/download/${FOLDER_NAME}.zip to ${DST_FOLDER}/${FOLDER_NAME}.")
+        message(STATUS "Extracting ${RHI_DOWNLOAD_CACHE}/${FOLDER_NAME}.zip to ${DST_FOLDER}/${FOLDER_NAME}.")
         file(
             ARCHIVE_EXTRACT
-            INPUT ${CMAKE_BINARY_DIR}/download/${FOLDER_NAME}.zip
+            INPUT ${RHI_DOWNLOAD_CACHE}/${FOLDER_NAME}.zip
             DESTINATION ${DST_FOLDER}/${FOLDER_NAME}
         )
     else()
-        message(STATUS "${CMAKE_BINARY_DIR}/download/${FOLDER_NAME}.zip is already extracted to ${DST_FOLDER}/${FOLDER_NAME}.")
+        message(STATUS "${RHI_DOWNLOAD_CACHE}/${FOLDER_NAME}.zip is already extracted to ${DST_FOLDER}/${FOLDER_NAME}.")
     endif()
 endfunction()
 
