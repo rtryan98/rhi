@@ -1,5 +1,6 @@
 target_sources(
     rhi PRIVATE
+    acceleration_structure.hpp
     command_list.hpp
     graphics_device.cpp
     graphics_device.hpp

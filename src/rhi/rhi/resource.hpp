@@ -4,8 +4,9 @@
 #include <vector>
 #include <string_view>
 
-#include "rhi/common/bitmask.hpp"
+#include "rhi/acceleration_structure.hpp"
 #include "rhi/image_format.hpp"
+#include "rhi/common/bitmask.hpp"
 
 namespace rhi
 {
@@ -213,18 +214,6 @@ enum class Image_Sample_Address_Mode
     Border = 4
 };
 
-enum class Acceleration_Structure_Type
-{
-    Top_Level,
-    Bottom_Level
-};
-
-enum class Acceleration_Structure_Geometry_Type
-{
-    Triangles,
-    AABBs
-};
-
 struct Buffer_Create_Info
 {
     uint64_t size;
@@ -349,29 +338,6 @@ struct Sampler
     uint32_t bindless_index;
 
     auto operator<=>(const Sampler&) const = default;
-};
-
-struct Acceleration_Structure_Build_Sizes
-{
-    uint64_t acceleration_structure_size;
-    uint64_t acceleration_structure_scratch_build_size;
-    uint64_t acceleration_structure_scratch_update_size;
-};
-
-struct Acceleration_Structure_Create_Info
-{
-    Buffer* buffer;
-    uint64_t offset; // Must be 256 byte aligned
-    uint64_t size;
-    Acceleration_Structure_Type type;
-};
-
-struct Acceleration_Structure
-{
-    Buffer* buffer;
-    uint64_t address;
-    Acceleration_Structure_Type type;
-    uint32_t bindless_index;
 };
 
 struct Shader_Blob_Create_Info
