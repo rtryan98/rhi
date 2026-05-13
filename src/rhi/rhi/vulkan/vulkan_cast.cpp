@@ -154,5 +154,6 @@ VkCompareOp vulkan_cast<VkCompareOp>(const Comparison_Func comparison_func)
     case Comparison_Func::Always:
         return VK_COMPARE_OP_ALWAYS;
     }
+    return VK_COMPARE_OP_NEVER;
 }
 }
