@@ -39,7 +39,6 @@ public:
         std::function<void(Buffer_View_Type*)> buffer_view_delete_function;
         std::function<void(Image_Type*)> image_delete_function;
         std::function<void(Image_View_Type*)> image_view_delete_function;
-        std::function<void(Sampler_Type*)> sampler_delete_function;
     };
 
 public:
@@ -71,22 +70,17 @@ public:
         {
             m_deleters.image_delete_function(&image);
         }
-        for (auto& sampler : m_samplers)
-        {
-            m_deleters.sampler_delete_function(&sampler);
-        }
     }
 
     [[nodiscard]] Buffer_Type* acquire_buffer(
         const Buffer_Create_Info& buffer_create_info,
-        uint32_t bindless_resource_index = ~0u,
-        uint32_t bindless_resource_index_stride = 1u)
+        uint32_t bindless_resource_index = ~0u)
     {
         auto buffer = &*m_buffers.emplace();
         buffer->size = buffer_create_info.size;
         buffer->heap_type = buffer_create_info.heap;
         buffer->buffer_view = &*m_buffer_views.emplace();
-        buffer->buffer_view->bindless_index = maybe_acquire_resource_index(bindless_resource_index, bindless_resource_index_stride);
+        buffer->buffer_view->bindless_index = maybe_acquire_resource_index(bindless_resource_index);
         buffer->buffer_view->size = buffer->size;
         buffer->buffer_view->offset = 0;
         buffer->buffer_view->buffer = buffer;
@@ -99,11 +93,10 @@ public:
     [[nodiscard]] Buffer_View_Type* acquire_buffer_view(
         Buffer* buffer,
         const Buffer_View_Create_Info& buffer_view_create_info,
-        uint32_t bindless_resource_index = ~0u,
-        uint32_t bindless_resource_index_stride = 1u)
+        uint32_t bindless_resource_index = ~0u)
     {
         auto buffer_view = &*m_buffer_views.emplace();
-        buffer_view->bindless_index = maybe_acquire_resource_index(bindless_resource_index, bindless_resource_index_stride);
+        buffer_view->bindless_index = maybe_acquire_resource_index(bindless_resource_index);
         buffer_view->size = buffer_view_create_info.size;
         buffer_view->offset = buffer_view_create_info.offset;
         buffer_view->buffer = buffer;
@@ -132,8 +125,7 @@ public:
 
     [[nodiscard]] Image_Type* acquire_image(
         const Image_Create_Info& image_create_info,
-        uint32_t bindless_resource_index = ~0u,
-        uint32_t bindless_resource_index_stride = 1u)
+        uint32_t bindless_resource_index = ~0u)
     {
         auto image = &*m_images.emplace();
         image->format = image_create_info.format;
@@ -145,7 +137,7 @@ public:
         image->usage = image_create_info.usage;
         image->primary_view_type = image_create_info.primary_view_type;
         image->image_view = &*m_image_views.emplace();
-        image->image_view->bindless_index = maybe_acquire_resource_index(bindless_resource_index, bindless_resource_index_stride);
+        image->image_view->bindless_index = maybe_acquire_resource_index(bindless_resource_index);
         image->image_view->image = image;
         image->image_view_linked_list_head = image->image_view;
 
@@ -165,13 +157,12 @@ public:
     [[nodiscard]] Image_View_Type* acquire_image_view(
         Image* image,
         const Image_View_Create_Info& image_view_create_info,
-        uint32_t bindless_resource_index = ~0u,
-        uint32_t bindless_resource_index_stride = 1u)
+        uint32_t bindless_resource_index = ~0u)
     {
         auto image_view = &*m_image_views.emplace();
 
         image_view->image = image;
-        image_view->bindless_index = maybe_acquire_resource_index(bindless_resource_index, bindless_resource_index_stride);
+        image_view->bindless_index = maybe_acquire_resource_index(bindless_resource_index);
         image_view->next_image_view = image->image_view_linked_list_head;
         image->image_view_linked_list_head = image_view;
 
@@ -196,12 +187,11 @@ public:
     }
 
     [[nodiscard]] Sampler_Type* acquire_sampler(
-        uint32_t bindless_resource_index = ~0u,
-        uint32_t bindless_resource_index_stride = 1u)
+        uint32_t bindless_resource_index = ~0u)
     {
         auto sampler = &*m_samplers.emplace();
 
-        sampler->bindless_index = maybe_acquire_sampler_index(bindless_resource_index, bindless_resource_index_stride);
+        sampler->bindless_index = maybe_acquire_sampler_index(bindless_resource_index);
 
         return sampler;
     }
@@ -210,30 +200,28 @@ public:
     {
         m_sampler_indices.release_index(base_sampler->bindless_index);
         auto derived_sampler = static_cast<Sampler_Type*>(base_sampler);
-        m_deleters.sampler_delete_function(derived_sampler);
         m_samplers.erase(m_samplers.get_iterator(derived_sampler));
     }
 
 private:
     uint32_t maybe_acquire_resource_index(
-        uint32_t bindless_resource_index,
-        uint32_t bindless_resource_index_stride)
+        uint32_t bindless_resource_index)
     {
         return (bindless_resource_index != NO_RESOURCE_INDEX)
-            ? (bindless_resource_index * bindless_resource_index_stride)
+            ? (bindless_resource_index * m_resource_stride)
             : m_resource_indices.acquire_index();
     }
 
     uint32_t maybe_acquire_sampler_index(
-        uint32_t bindless_resource_index,
-        uint32_t bindless_resource_index_stride)
+        uint32_t bindless_resource_index)
     {
         return (bindless_resource_index != NO_RESOURCE_INDEX)
-            ? (bindless_resource_index * bindless_resource_index_stride)
+            ? (bindless_resource_index * m_resource_stride)
             : m_sampler_indices.acquire_index();
     }
 
 private:
+    uint32_t m_resource_stride;
     Index_Free_List m_resource_indices;
     Index_Free_List m_sampler_indices;
     Deleters m_deleters;
