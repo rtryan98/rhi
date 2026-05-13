@@ -1040,7 +1040,7 @@ std::expected<Sampler*, Result> D3D12_Graphics_Device::create_sampler(const Samp
 
     auto sampler = &*m_samplers.emplace();
     D3D12_SAMPLER_DESC sampler_desc = {
-        .Filter = translate_filter(
+        .Filter = d3d12_cast<D3D12_FILTER>(
             create_info.filter_min,
             create_info.filter_mag,
             create_info.filter_mip,
@@ -1238,11 +1238,11 @@ std::expected<Pipeline*, Result> D3D12_Graphics_Device::create_pipeline(
 
     Graphics_Pipeline_Desc graphics_pipeline_stream = {
         .root_signature = { .data = m_context.bindless_root_signature },
-        .vs = { .data = translate_shader_blob_safe(create_info.vs) },
-        .hs = { .data = translate_shader_blob_safe(create_info.hs) },
-        .ds = { .data = translate_shader_blob_safe(create_info.ds) },
-        .gs = { .data = translate_shader_blob_safe(create_info.gs) },
-        .ps = { .data = translate_shader_blob_safe(create_info.ps) },
+        .vs = { .data = d3d12_cast<D3D12_SHADER_BYTECODE>(create_info.vs) },
+        .hs = { .data = d3d12_cast<D3D12_SHADER_BYTECODE>(create_info.hs) },
+        .ds = { .data = d3d12_cast<D3D12_SHADER_BYTECODE>(create_info.ds) },
+        .gs = { .data = d3d12_cast<D3D12_SHADER_BYTECODE>(create_info.gs) },
+        .ps = { .data = d3d12_cast<D3D12_SHADER_BYTECODE>(create_info.ps) },
         .stream_output = { .data = {} },
         .blend_state = { .data = translate_blend_state_desc(create_info.blend_state_info)},
         .sample_mask = { .data = ~0u },
@@ -1292,7 +1292,7 @@ std::expected<Pipeline*, Result> D3D12_Graphics_Device::create_pipeline(
 
     D3D12_COMPUTE_PIPELINE_STATE_DESC compute_pipeline_desc = {
         .pRootSignature = m_context.bindless_root_signature,
-        .CS = translate_shader_blob_safe(create_info.cs),
+        .CS = d3d12_cast<D3D12_SHADER_BYTECODE>(create_info.cs),
         .NodeMask = 0,
         .CachedPSO = {},
         .Flags = D3D12_PIPELINE_STATE_FLAG_NONE
@@ -1324,9 +1324,9 @@ std::expected<Pipeline*, Result> D3D12_Graphics_Device::create_pipeline(
 
     Mesh_Shader_Pipeline_Desc mesh_pipeline_stream = {
         .root_signature = {.data = m_context.bindless_root_signature },
-        .as = {.data = translate_shader_blob_safe(create_info.ts) },
-        .ms = {.data = translate_shader_blob_safe(create_info.ms) },
-        .ps = {.data = translate_shader_blob_safe(create_info.ps) },
+        .as = {.data = d3d12_cast<D3D12_SHADER_BYTECODE>(create_info.ts) },
+        .ms = {.data = d3d12_cast<D3D12_SHADER_BYTECODE>(create_info.ms) },
+        .ps = {.data = d3d12_cast<D3D12_SHADER_BYTECODE>(create_info.ps) },
         .blend_state = {.data = translate_blend_state_desc(create_info.blend_state_info)},
         .sample_mask = {.data = ~0u },
         .rasterizer_state = {.data = translate_rasterizer_desc(create_info.rasterizer_state_info)},

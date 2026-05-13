@@ -144,101 +144,11 @@ DXGI_FORMAT translate_format(Image_Format format) noexcept
     }
 }
 
-D3D12_FILTER_TYPE translate_filter_type(Sampler_Filter filter)
-{
-    if (filter == Sampler_Filter::Nearest)
-    {
-        return D3D12_FILTER_TYPE_POINT;
-    }
-    else
-    {
-        return D3D12_FILTER_TYPE_LINEAR;
-    }
-}
-
-D3D12_FILTER_REDUCTION_TYPE translate_filter_reduction_type(Sampler_Reduction_Type reduction)
-{
-    if (reduction == Sampler_Reduction_Type::Standard)
-    {
-        return D3D12_FILTER_REDUCTION_TYPE_STANDARD;
-    }
-    else
-    {
-        return D3D12_FILTER_REDUCTION_TYPE_COMPARISON;
-    }
-}
-
-#define RHI_D3D12_ENCODE_ANISOTROPIC_FILTER(mip, reduction) \
-    ( ( D3D12_FILTER ) ( \
-    D3D12_ANISOTROPIC_FILTERING_BIT | \
-    D3D12_ENCODE_BASIC_FILTER(  D3D12_FILTER_TYPE_LINEAR, \
-                                D3D12_FILTER_TYPE_LINEAR, \
-                                mip, \
-                                reduction ) ) )
-
-D3D12_FILTER translate_filter(
-    Sampler_Filter min,
-    Sampler_Filter mag,
-    Sampler_Filter mip,
-    Sampler_Reduction_Type reduction,
-    bool aniso) noexcept
-{
-    if (aniso)
-    {
-        return RHI_D3D12_ENCODE_ANISOTROPIC_FILTER(
-            translate_filter_type(mip),
-            translate_filter_reduction_type(reduction));
-    }
-    else
-    {
-        return D3D12_ENCODE_BASIC_FILTER(
-            translate_filter_type(min),
-            translate_filter_type(mag),
-            translate_filter_type(mip),
-            translate_filter_reduction_type(reduction));
-    }
-}
-
-
-D3D12_SHADER_BYTECODE translate_shader_blob_safe(Shader_Blob* blob) noexcept
-{
-    D3D12_SHADER_BYTECODE bytecode = {};
-    if (blob)
-    {
-        bytecode.BytecodeLength = blob->data.size();
-        bytecode.pShaderBytecode = blob->data.data();
-    }
-    return bytecode;
-}
-
-D3D12_FILL_MODE translate_fill_mode(Fill_Mode fill_mode) noexcept
-{
-    return fill_mode == Fill_Mode::Solid
-        ? D3D12_FILL_MODE_SOLID
-        : D3D12_FILL_MODE_WIREFRAME;
-}
-
-D3D12_CULL_MODE translate_cull_mode(Cull_Mode cull_mode) noexcept
-{
-    switch (cull_mode)
-    {
-    case rhi::Cull_Mode::None:
-        return D3D12_CULL_MODE_NONE;
-    case rhi::Cull_Mode::Front:
-        return D3D12_CULL_MODE_FRONT;
-    case rhi::Cull_Mode::Back:
-        return D3D12_CULL_MODE_BACK;
-    default:
-        return D3D12_CULL_MODE_NONE;
-    }
-    return D3D12_CULL_MODE_NONE;
-}
-
 D3D12_RASTERIZER_DESC1 translate_rasterizer_desc(const Pipeline_Rasterization_State_Info& raster_info) noexcept
 {
     D3D12_RASTERIZER_DESC1 result = {
-        .FillMode = translate_fill_mode(raster_info.fill_mode),
-        .CullMode = translate_cull_mode(raster_info.cull_mode),
+        .FillMode = d3d12_cast<D3D12_FILL_MODE>(raster_info.fill_mode),
+        .CullMode = d3d12_cast<D3D12_CULL_MODE>(raster_info.cull_mode),
         .FrontCounterClockwise = raster_info.winding_order == Winding_Order::Front_Face_CCW ? true : false,
         .DepthBias = raster_info.depth_bias,
         .DepthBiasClamp = raster_info.depth_bias_clamp,

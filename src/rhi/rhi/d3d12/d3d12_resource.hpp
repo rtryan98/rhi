@@ -11,18 +11,14 @@ class Allocation;
 
 namespace rhi::d3d12
 {
-struct D3D12_Buffer_View;
-struct D3D12_Image_View;
-
 struct D3D12_Buffer : public Buffer
 {
     ID3D12Resource2* resource;
     D3D12MA::Allocation* allocation;
 };
 
-struct D3D12_Buffer_View : public Buffer_View
-{
-};
+// No extra members required in D3D12
+using D3D12_Buffer_View = Buffer_View;
 
 struct D3D12_Image : public Image
 {
@@ -30,13 +26,14 @@ struct D3D12_Image : public Image
     D3D12MA::Allocation* allocation;
 };
 
+// TODO: remove; Allocate RTVs/DSVs on demand.
 struct D3D12_Image_View : public Image_View
 {
     uint32_t rtv_dsv_index;
 };
 
-struct D3D12_Sampler : public Sampler
-{};
+// No extra members required in D3D12
+using D3D12_Sampler = Sampler;
 
 struct D3D12_Pipeline : public Pipeline
 {
@@ -45,12 +42,6 @@ struct D3D12_Pipeline : public Pipeline
 };
 
 [[nodiscard]] DXGI_FORMAT translate_format(Image_Format format) noexcept;
-[[nodiscard]] D3D12_FILTER translate_filter(
-    Sampler_Filter min, Sampler_Filter mag, Sampler_Filter mip,
-    Sampler_Reduction_Type reduction, bool aniso) noexcept;
-[[nodiscard]] D3D12_SHADER_BYTECODE translate_shader_blob_safe(Shader_Blob* blob) noexcept;
-[[nodiscard]] D3D12_FILL_MODE translate_fill_mode(Fill_Mode fill_mode) noexcept;
-[[nodiscard]] D3D12_CULL_MODE translate_cull_mode(Cull_Mode cull_mode) noexcept;
 [[nodiscard]] D3D12_RASTERIZER_DESC1 translate_rasterizer_desc(
     const Pipeline_Rasterization_State_Info& raster_info) noexcept;
 [[nodiscard]] D3D12_BLEND translate_blend(Blend_Factor blend_factor) noexcept;

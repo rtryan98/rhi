@@ -207,4 +207,84 @@ D3D12_DSV_DIMENSION d3d12_cast<D3D12_DSV_DIMENSION, Image_View_Type>(const Image
         return D3D12_DSV_DIMENSION_UNKNOWN;
     }
 }
+
+template<>
+D3D12_FILTER_TYPE d3d12_cast<D3D12_FILTER_TYPE, Sampler_Filter>(const Sampler_Filter filter)
+{
+    if (filter == Sampler_Filter::Linear)
+        return D3D12_FILTER_TYPE_LINEAR;
+    return D3D12_FILTER_TYPE_POINT;
+}
+
+template<>
+D3D12_FILTER_REDUCTION_TYPE d3d12_cast<D3D12_FILTER_REDUCTION_TYPE, Sampler_Reduction_Type>(const Sampler_Reduction_Type reduction_type)
+{
+    if (reduction_type == Sampler_Reduction_Type::Standard)
+        return D3D12_FILTER_REDUCTION_TYPE_STANDARD;
+    return D3D12_FILTER_REDUCTION_TYPE_COMPARISON;
+}
+
+template<>
+D3D12_SHADER_BYTECODE d3d12_cast<D3D12_SHADER_BYTECODE, Shader_Blob>(Shader_Blob* blob)
+{
+    D3D12_SHADER_BYTECODE bytecode = {};
+    if (blob)
+    {
+        bytecode.BytecodeLength = blob->data.size();
+        bytecode.pShaderBytecode = blob->data.data();
+    }
+    return bytecode;
+}
+
+#define RHI_D3D12_ENCODE_ANISOTROPIC_FILTER(mip, reduction) \
+    ( ( D3D12_FILTER ) ( \
+    D3D12_ANISOTROPIC_FILTERING_BIT | \
+    D3D12_ENCODE_BASIC_FILTER(  D3D12_FILTER_TYPE_LINEAR, \
+                                D3D12_FILTER_TYPE_LINEAR, \
+                                mip, \
+                                reduction ) ) )
+
+template<>
+D3D12_FILL_MODE d3d12_cast<D3D12_FILL_MODE, Fill_Mode>(const Fill_Mode fill_mode)
+{
+    if (fill_mode == Fill_Mode::Solid)
+        return D3D12_FILL_MODE_SOLID;
+    return D3D12_FILL_MODE_WIREFRAME;
+}
+
+template<>
+D3D12_CULL_MODE d3d12_cast<D3D12_CULL_MODE, Cull_Mode>(const Cull_Mode cull_mode)
+{
+    switch (cull_mode)
+    {
+    case rhi::Cull_Mode::None:
+        return D3D12_CULL_MODE_NONE;
+    case rhi::Cull_Mode::Front:
+        return D3D12_CULL_MODE_FRONT;
+    case rhi::Cull_Mode::Back:
+        return D3D12_CULL_MODE_BACK;
+    default:
+        return D3D12_CULL_MODE_NONE;
+    }
+    return D3D12_CULL_MODE_NONE;
+}
+
+template<>
+D3D12_FILTER d3d12_cast(Sampler_Filter min, Sampler_Filter mag, Sampler_Filter mip, Sampler_Reduction_Type reduction, bool aniso)
+{
+    if (aniso)
+    {
+        return RHI_D3D12_ENCODE_ANISOTROPIC_FILTER(
+            d3d12_cast<D3D12_FILTER_TYPE>(mip),
+            d3d12_cast<D3D12_FILTER_REDUCTION_TYPE>(reduction));
+    }
+    else
+    {
+        return D3D12_ENCODE_BASIC_FILTER(
+            d3d12_cast<D3D12_FILTER_TYPE>(min),
+            d3d12_cast<D3D12_FILTER_TYPE>(mag),
+            d3d12_cast<D3D12_FILTER_TYPE>(mip),
+            d3d12_cast<D3D12_FILTER_REDUCTION_TYPE>(reduction));
+    }
+}
 }
