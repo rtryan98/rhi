@@ -84,6 +84,12 @@ public:
     virtual void name_resource(Buffer* buffer, const char* name) noexcept override;
     virtual void name_resource(Image* image, const char* name) noexcept override;
 
+    [[nodiscard]] VkInstance get_instance() const noexcept { return m_instance.instance; }
+    [[nodiscard]] VkPhysicalDevice get_physical_device() const noexcept { return m_physical_device.physical_device; }
+    [[nodiscard]] VkDevice get_device() const noexcept { return m_device.device; }
+    [[nodiscard]] VkQueue get_graphics_queue() const noexcept { return m_device.get_queue(vkb::QueueType::graphics).value(); }
+    [[nodiscard]] uint32_t get_graphics_queue_family() const noexcept { return m_device.get_queue_index(vkb::QueueType::graphics).value(); }
+
 private:
     void create_acceleration_structure_descriptor(Vulkan_Buffer* buffer);
     void create_buffer_descriptors(Vulkan_Buffer* buffer, bool create_storage_buffer_descriptor);
