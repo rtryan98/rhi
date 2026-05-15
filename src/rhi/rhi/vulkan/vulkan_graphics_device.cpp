@@ -116,6 +116,48 @@ auto select_physical_device(vkb::Instance& instance)
         .shaderUntypedPointers = VK_TRUE
     };
 
+    // Ray tracing
+    constexpr static VkPhysicalDeviceAccelerationStructureFeaturesKHR REQUIRED_ACCELERATION_STRUCTURE_FEATURES = {
+        .sType = VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_ACCELERATION_STRUCTURE_FEATURES_KHR,
+        .pNext = nullptr,
+        .accelerationStructure = VK_TRUE,
+        .accelerationStructureCaptureReplay = VK_FALSE,
+        .accelerationStructureIndirectBuild = VK_FALSE,
+        .accelerationStructureHostCommands = VK_FALSE,
+        .descriptorBindingAccelerationStructureUpdateAfterBind = VK_FALSE
+    };
+    constexpr static VkPhysicalDeviceRayTracingPipelineFeaturesKHR REQUIRED_RAY_TRACING_PIPELINE_FEATURES = {
+        .sType = VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_RAY_TRACING_PIPELINE_FEATURES_KHR,
+        .pNext = nullptr,
+        .rayTracingPipeline = VK_TRUE,
+        .rayTracingPipelineShaderGroupHandleCaptureReplay = VK_FALSE,
+        .rayTracingPipelineShaderGroupHandleCaptureReplayMixed = VK_FALSE,
+        .rayTracingPipelineTraceRaysIndirect = VK_TRUE,
+        .rayTraversalPrimitiveCulling = VK_TRUE
+    };
+    constexpr static VkPhysicalDeviceRayQueryFeaturesKHR REQUIRED_RAY_QUERY_FEATURES = {
+        .sType = VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_RAY_QUERY_FEATURES_KHR,
+        .pNext = nullptr,
+        .rayQuery = VK_TRUE
+    };
+    constexpr static VkPhysicalDeviceRayTracingMaintenance1FeaturesKHR REQUIRED_RAY_TRACING_MAINTENANCE1_FEATURES = {
+        .sType = VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_RAY_TRACING_MAINTENANCE_1_FEATURES_KHR,
+        .pNext = nullptr,
+        .rayTracingMaintenance1 = VK_TRUE,
+        .rayTracingPipelineTraceRaysIndirect2 = VK_FALSE
+    };
+
+    // Mesh shading
+    constexpr static VkPhysicalDeviceMeshShaderFeaturesEXT REQUIRED_MESH_SHADER_FEATURES = {
+        .sType = VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_MESH_SHADER_FEATURES_EXT,
+        .pNext = nullptr,
+        .taskShader = VK_TRUE,
+        .meshShader = VK_TRUE,
+        .multiviewMeshShader = VK_FALSE,
+        .primitiveFragmentShadingRateMeshShader = VK_FALSE,
+        .meshShaderQueries = VK_TRUE
+    };
+
     physical_device_selector
         .prefer_gpu_device_type(vkb::PreferredDeviceType::discrete)
         .require_present()
@@ -129,6 +171,17 @@ auto select_physical_device(vkb::Instance& instance)
         .add_required_extension(VK_EXT_DESCRIPTOR_HEAP_EXTENSION_NAME)
         .add_required_extension_features(REQUIRED_DESCRIPTOR_HEAP_FEATURES)
         .add_required_extension(VK_KHR_SHADER_UNTYPED_POINTERS_EXTENSION_NAME)
+        .add_required_extension_features(REQUIRED_SHADER_UNTYPED_POINTERS_FEATURES)
+        .add_required_extension(VK_KHR_ACCELERATION_STRUCTURE_EXTENSION_NAME)
+        .add_required_extension_features(REQUIRED_ACCELERATION_STRUCTURE_FEATURES)
+        .add_required_extension(VK_KHR_RAY_TRACING_PIPELINE_EXTENSION_NAME)
+        .add_required_extension_features(REQUIRED_RAY_TRACING_PIPELINE_FEATURES)
+        .add_required_extension(VK_KHR_RAY_QUERY_EXTENSION_NAME)
+        .add_required_extension_features(REQUIRED_RAY_QUERY_FEATURES)
+        .add_required_extension(VK_KHR_RAY_TRACING_MAINTENANCE_1_EXTENSION_NAME)
+        .add_required_extension_features(REQUIRED_RAY_TRACING_MAINTENANCE1_FEATURES)
+        .add_required_extension(VK_EXT_MESH_SHADER_EXTENSION_NAME)
+        .add_required_extension_features(REQUIRED_MESH_SHADER_FEATURES)
         .defer_surface_initialization();
     return physical_device_selector.select();
 }
