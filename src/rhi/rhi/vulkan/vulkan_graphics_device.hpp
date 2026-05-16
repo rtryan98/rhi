@@ -24,6 +24,8 @@ struct Vulkan_Fence : public Fence
     virtual Result wait_for_value(uint64_t value) noexcept override;
 };
 
+using Vulkan_Resource_Pool = Resource_Pool<Vulkan_Buffer, Vulkan_Buffer_View, Vulkan_Image, Vulkan_Image_View, Vulkan_Sampler>;
+
 class Vulkan_Graphics_Device final : public Graphics_Device
 {
 public:
@@ -57,6 +59,9 @@ public:
         Image* image, const Image_View_Create_Info& create_info, uint32_t index = NO_RESOURCE_INDEX) noexcept override;
     virtual void destroy_image(Image* image) noexcept override;
 
+    [[nodiscard]] Vulkan_Image* create_proxy_image() noexcept;
+    void destroy_proxy_image(Vulkan_Image* image) noexcept;
+
     virtual [[nodiscard]] std::expected<Sampler*, Result> create_sampler(
         const Sampler_Create_Info& create_info, uint32_t index = NO_RESOURCE_INDEX) noexcept override;
     virtual void destroy_sampler(Sampler* sampler) noexcept override;
@@ -86,7 +91,7 @@ public:
 
     [[nodiscard]] VkInstance get_instance() const noexcept { return m_instance.instance; }
     [[nodiscard]] VkPhysicalDevice get_physical_device() const noexcept { return m_physical_device.physical_device; }
-    [[nodiscard]] VkDevice get_device() const noexcept { return m_device.device; }
+    [[nodiscard]] const vkb::Device& get_device() const noexcept { return m_device; }
     [[nodiscard]] VkQueue get_graphics_queue() const noexcept { return m_device.get_queue(vkb::QueueType::graphics).value(); }
     [[nodiscard]] uint32_t get_graphics_queue_family() const noexcept { return m_device.get_queue_index(vkb::QueueType::graphics).value(); }
 
@@ -108,12 +113,7 @@ private:
     std::mutex m_compute_queue_mutex;
     std::mutex m_copy_queue_mutex;
 
-    Resource_Pool<
-        Vulkan_Buffer,
-        Vulkan_Buffer_View,
-        Vulkan_Image,
-        Vulkan_Image_View,
-        Vulkan_Sampler> m_resource_pool;
+    Vulkan_Resource_Pool m_resource_pool;
 
     plf::colony<Vulkan_Fence> m_fences;
     plf::colony<Acceleration_Structure> m_acceleration_structures;
