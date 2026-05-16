@@ -142,6 +142,8 @@ public:
         image->image_view_linked_list_head = image->image_view;
 
         // TODO: Change this?
+        // ANSWER: Yes, change this. Remove descriptor type entirely and create RTV/DSV descriptors
+        //         instead when using images as attachments.
         bool is_rtv = bool(image->usage & Image_Usage::Color_Attachment);
         bool is_dsv = bool(image->usage & Image_Usage::Depth_Stencil_Attachment);
 
@@ -149,7 +151,7 @@ public:
             ? Descriptor_Type::Color_Attachment
             : is_dsv
                 ? Descriptor_Type::Depth_Stencil_Attachment
-                : Descriptor_Type::Color_Attachment;
+                : Descriptor_Type::Resource;
 
         return image;
     }
@@ -184,6 +186,22 @@ public:
         auto derived_image = static_cast<Image_Type*>(base_image);
         m_deleters.image_delete_function(derived_image);
         m_images.erase(m_images.get_iterator(derived_image));
+    }
+
+    [[nodiscard]] Image_Type* acquire_proxy_image()
+    {
+        auto image = &*m_images.emplace();
+        image->image_view = &*m_image_views.emplace();
+        image->image_view->image = image;
+        image->image_view_linked_list_head = image->image_view;
+
+        return image;
+    }
+
+    void release_proxy_image(Image* base_image)
+    {
+        m_image_views.erase(m_image_views.get_iterator(static_cast<Image_View_Type*>(base_image->image_view)));
+        m_images.erase(m_images.get_iterator(static_cast<Image_Type*>(base_image)));
     }
 
     [[nodiscard]] Sampler_Type* acquire_sampler(
