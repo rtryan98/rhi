@@ -288,7 +288,7 @@ D3D12_PRIMITIVE_TOPOLOGY_TYPE translate_primitive_topology_type(Primitive_Topolo
     return std::bit_cast<D3D12_PRIMITIVE_TOPOLOGY_TYPE>(topology);
 }
 
-Image_Format translate_image_format_to_dxgi_format(DXGI_FORMAT format) noexcept
+Image_Format translate_dxgi_format_to_image_format(DXGI_FORMAT format) noexcept
 {
     switch (format)
     {

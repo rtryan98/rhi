@@ -105,7 +105,7 @@ Image_Format D3D12_Swapchain::get_image_format() noexcept
 {
     DXGI_SWAP_CHAIN_DESC1 desc = {};
     m_dxgi_swapchain->GetDesc1(&desc);
-    return translate_image_format_to_dxgi_format(desc.Format);
+    return translate_dxgi_format_to_image_format(desc.Format);
 }
 
 Image_View* D3D12_Swapchain::get_current_image_view() noexcept
@@ -145,7 +145,7 @@ void D3D12_Swapchain::recreate_resources() noexcept
             m_dxgi_swapchain->GetBuffer(i, IID_PPV_ARGS(&image->resource));
             image->allocation = nullptr;
             image->image_view_linked_list_head = nullptr;
-            image->format = translate_image_format_to_dxgi_format(desc.Format);
+            image->format = translate_dxgi_format_to_image_format(desc.Format);
             image->width = desc.Width;
             image->height = desc.Height;
             image->depth = 1;

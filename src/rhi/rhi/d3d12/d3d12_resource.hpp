@@ -58,5 +58,5 @@ struct D3D12_Pipeline : public Pipeline
     const Pipeline_Depth_Stencil_State_Info& ds_info) noexcept;
 [[nodiscard]] D3D12_PRIMITIVE_TOPOLOGY_TYPE translate_primitive_topology_type(
     Primitive_Topology_Type topology) noexcept;
-[[nodiscard]] Image_Format translate_image_format_to_dxgi_format(DXGI_FORMAT format) noexcept;
+[[nodiscard]] Image_Format translate_dxgi_format_to_image_format(DXGI_FORMAT format) noexcept;
 }
