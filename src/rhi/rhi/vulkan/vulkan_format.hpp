@@ -88,7 +88,7 @@ inline VkFormat translate_format(Image_Format image_format)
 }
 
 // TODO: finish up implementation
-inline Image_Format translate_image_format(VkFormat vk_format)
+inline Image_Format translate_vkformat_to_image_format(VkFormat vk_format)
 {
     switch (vk_format)
     {
