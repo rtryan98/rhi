@@ -234,7 +234,8 @@ Vulkan_Graphics_Device::Vulkan_Graphics_Device(const Graphics_Device_Create_Info
         .set_engine_name(APPLICATION_ENGINE_NAME)
         .set_engine_version(VULKAN_RHI_VERSION)
         .require_api_version(VK_VERSION_1_4)
-        .request_validation_layers(create_info.enable_validation);
+        .request_validation_layers(create_info.enable_validation)
+        .enable_extension(VK_EXT_SWAPCHAIN_COLOR_SPACE_EXTENSION_NAME);
     if (create_info.enable_gpu_validation)
     {
         instance_builder.add_validation_feature_enable(VK_VALIDATION_FEATURE_ENABLE_GPU_ASSISTED_EXT);
