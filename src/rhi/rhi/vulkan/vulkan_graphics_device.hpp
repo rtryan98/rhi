@@ -26,6 +26,19 @@ struct Vulkan_Fence : public Fence
 
 using Vulkan_Resource_Pool = Resource_Pool<Vulkan_Buffer, Vulkan_Buffer_View, Vulkan_Image, Vulkan_Image_View, Vulkan_Sampler>;
 
+// Descriptor heap management
+struct Descriptor_Heap
+{
+    VkBuffer buffer;
+    VmaAllocation allocation;
+    void* data;
+    VkDeviceSize descriptor_size;
+    VkDeviceSize stride;
+    VkDeviceAddressRangeEXT heap_range;
+    VkDeviceSize reserved_offset;
+    VkDeviceSize reserved_size;
+};
+
 class Vulkan_Graphics_Device final : public Graphics_Device
 {
 public:
@@ -95,6 +108,14 @@ public:
     [[nodiscard]] VkQueue get_graphics_queue() const noexcept { return m_device.get_queue(vkb::QueueType::graphics).value(); }
     [[nodiscard]] uint32_t get_graphics_queue_family() const noexcept { return m_device.get_queue_index(vkb::QueueType::graphics).value(); }
 
+    [[nodiscard]] uint32_t get_queue_family_index( vkb::QueueType queue_type ) const noexcept
+    {
+        return m_device.get_queue_index(queue_type).value();
+    }
+
+    [[nodiscard]] const Descriptor_Heap& get_resource_descriptor_heap() const noexcept { return m_resource_descriptor_heap; }
+    [[nodiscard]] const Descriptor_Heap& get_sampler_descriptor_heap() const noexcept { return m_sampler_descriptor_heap; }
+
 private:
     void create_acceleration_structure_descriptor(Vulkan_Buffer* buffer);
     void create_buffer_descriptors(Vulkan_Buffer* buffer, bool create_storage_buffer_descriptor);
@@ -120,16 +141,6 @@ private:
     plf::colony<Shader_Blob> m_shader_blobs;
     plf::colony<Vulkan_Pipeline> m_pipelines;
 
-    // Descriptor heap management
-    struct Descriptor_Heap
-    {
-        VkBuffer buffer;
-        VmaAllocation allocation;
-        void* data;
-        VkDeviceSize alignment;
-        VkDeviceSize reserved_offset;
-        VkDeviceSize reserved_size;
-    };
     Descriptor_Heap m_resource_descriptor_heap;
     Descriptor_Heap m_sampler_descriptor_heap;
 };

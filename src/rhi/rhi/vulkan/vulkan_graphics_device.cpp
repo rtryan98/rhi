@@ -295,9 +295,15 @@ Vulkan_Graphics_Device::Vulkan_Graphics_Device(const Graphics_Device_Create_Info
             });
 
         Descriptor_Heap result = {
-            .alignment = sampler_heap
-                ? sampler_descriptor_size * MAX_SAMPLER_INDEX
-                : resource_descriptor_size * MAX_RESOURCE_INDEX * 2 // Two descriptor slots per resource
+            .descriptor_size = sampler_heap
+                ? sampler_descriptor_size
+                : resource_descriptor_size,
+            .stride = sampler_heap ? 1ull : 2ull, // Two descriptor slots per resource
+            .heap_range = {
+                .size = sampler_heap
+                    ? result.descriptor_size * MAX_SAMPLER_INDEX * result.stride
+                    : result.descriptor_size * MAX_RESOURCE_INDEX * result.stride
+            }
         };
 
         VkPhysicalDeviceDescriptorHeapPropertiesEXT descriptor_heap_properties = {
@@ -310,7 +316,7 @@ Vulkan_Graphics_Device::Vulkan_Graphics_Device(const Graphics_Device_Create_Info
         };
         vkGetPhysicalDeviceProperties2(m_physical_device, &physical_device_properties2);
 
-        result.reserved_offset = result.alignment;
+        result.reserved_offset = result.descriptor_size;
 
         if (sampler_heap)
         {
@@ -331,7 +337,7 @@ Vulkan_Graphics_Device::Vulkan_Graphics_Device(const Graphics_Device_Create_Info
             .sType = VK_STRUCTURE_TYPE_BUFFER_CREATE_INFO,
             .pNext = nullptr,
             .flags = 0,
-            .size = result.alignment + result.reserved_size,
+            .size = result.heap_range.size + result.reserved_size,
             .usage = VK_BUFFER_USAGE_DESCRIPTOR_HEAP_BIT_EXT,
             .sharingMode = VK_SHARING_MODE_CONCURRENT,
             .queueFamilyIndexCount = static_cast<uint32_t>(queue_families.size()),
@@ -344,6 +350,13 @@ Vulkan_Graphics_Device::Vulkan_Graphics_Device(const Graphics_Device_Create_Info
         VmaAllocationInfo allocation_info = {};
         vmaCreateBuffer(m_allocator, &buffer_create_info, &allocation_create_info, &result.buffer, &result.allocation, &allocation_info);
         result.data = allocation_info.pMappedData;
+
+        VkBufferDeviceAddressInfo buffer_device_address_info = {
+            .sType = VK_STRUCTURE_TYPE_BUFFER_DEVICE_ADDRESS_INFO,
+            .pNext = nullptr,
+            .buffer = result.buffer
+        };
+        result.heap_range.address = vkGetBufferDeviceAddress(m_device, &buffer_device_address_info);
 
         return result;
     };
@@ -844,9 +857,11 @@ void Vulkan_Graphics_Device::create_image_descriptors(Vulkan_Image* image, bool 
 VkHostAddressRangeEXT Vulkan_Graphics_Device::descriptor_index_to_address(uint32_t index, uint32_t offset, bool is_sampler)
 {
     Descriptor_Heap descriptor_heap = is_sampler ? m_sampler_descriptor_heap : m_resource_descriptor_heap;
+    auto descriptor_index = index * descriptor_heap.stride + offset;
+    auto descriptor_address = descriptor_index * descriptor_heap.descriptor_size;
     return {
-        .address = static_cast<void*>(&static_cast<char*>(descriptor_heap.data)[(index + offset) * descriptor_heap.alignment]),
-        .size = descriptor_heap.alignment // TODO: always use max size?
+        .address = static_cast<void*>(&static_cast<char*>(descriptor_heap.data)[descriptor_address]),
+        .size = descriptor_heap.descriptor_size // TODO: always use max size?
     };
 }
 }
