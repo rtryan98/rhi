@@ -2,6 +2,7 @@
 
 #include "rhi/command_list.hpp"
 
+#include <array>
 #include <memory>
 
 #ifndef VK_NO_PROTOTYPES
@@ -89,6 +90,9 @@ public:
 private:
     VkCommandBuffer m_cmd;
     Vulkan_Graphics_Device* m_device;
+
+    // TODO: should this be here?
+    std::array<Image_View*, 8> m_bound_image_views;
 };
 
 class Vulkan_Command_Pool final : public Command_Pool
