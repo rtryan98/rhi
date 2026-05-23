@@ -81,6 +81,8 @@ struct Image_Format_Info
 {
     Image_Format format;
     uint32_t bytes;
+    bool is_depth;
+    bool is_stencil;
 };
 
 Image_Format_Info get_image_format_info(std::string_view string_format) noexcept;
