@@ -24,12 +24,16 @@ concept Image_View_Concept = std::is_base_of_v<Image_View, T>;
 template<typename T>
 concept Sampler_Concept = std::is_base_of_v<Sampler, T>;
 
+template<typename T>
+concept Acceleration_Structure_Concept = std::is_base_of_v<Acceleration_Structure, T>;
+
 template<
     Buffer_Concept Buffer_Type,
     Buffer_View_Concept Buffer_View_Type,
     Image_Concept Image_Type,
     Image_View_Concept Image_View_Type,
-    Sampler_Concept Sampler_Type>
+    Sampler_Concept Sampler_Type,
+    Acceleration_Structure_Concept Acceleration_Structure_Type>
 class Resource_Pool
 {
 public:
@@ -39,6 +43,8 @@ public:
         std::function<void(Buffer_View_Type*)> buffer_view_delete_function;
         std::function<void(Image_Type*)> image_delete_function;
         std::function<void(Image_View_Type*)> image_view_delete_function;
+        // Samplers do not require a delete function, neither D3D12 nor Vulkan use sampler objects
+        std::function<void(Acceleration_Structure_Type*)> acceleration_structure_delete_function;
     };
 
 public:
@@ -69,6 +75,10 @@ public:
         for (auto& image : m_images)
         {
             m_deleters.image_delete_function(&image);
+        }
+        for (auto& acceleration_structure : m_acceleration_structures)
+        {
+            m_deleters.acceleration_structure_delete_function(&acceleration_structure);
         }
     }
 
@@ -221,6 +231,23 @@ public:
         m_samplers.erase(m_samplers.get_iterator(derived_sampler));
     }
 
+    [[nodiscard]] Acceleration_Structure_Type* acquire_acceleration_structure(
+        uint32_t bindless_resource_index = ~0u)
+    {
+        auto acceleration_structure = &*m_acceleration_structures.emplace();
+
+        acceleration_structure->bindless_index = maybe_acquire_resource_index(bindless_resource_index);
+
+        return acceleration_structure;
+    }
+
+    void release_acceleration_structure(Acceleration_Structure* base_acceleration_structure)
+    {
+        m_resource_indices.release_index(base_acceleration_structure->bindless_index);
+        auto derived_acceleration_structure = static_cast<Acceleration_Structure_Type*>(base_acceleration_structure);
+        m_acceleration_structures.erase(m_acceleration_structures.get_iterator(derived_acceleration_structure));
+    }
+
 private:
     uint32_t maybe_acquire_resource_index(
         uint32_t bindless_resource_index)
@@ -249,5 +276,6 @@ private:
     plf::colony<Image_Type> m_images;
     plf::colony<Image_View_Type> m_image_views;
     plf::colony<Sampler_Type> m_samplers;
+    plf::colony<Acceleration_Structure_Type> m_acceleration_structures;
 };
 }

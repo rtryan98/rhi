@@ -33,6 +33,9 @@ public:
     virtual [[nodiscard]] uint32_t get_width() const noexcept override;
     virtual [[nodiscard]] uint32_t get_height() const noexcept override;
 
+    VkSemaphore get_current_acquire_semaphore() const noexcept;
+    VkSemaphore get_current_present_semaphore() const noexcept;
+
 private:
     void recreate_resources() noexcept;
     Swapchain_Resize_Info query_resize_internal(Image_Format format) noexcept;

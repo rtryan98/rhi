@@ -24,7 +24,13 @@ struct Vulkan_Fence : public Fence
     virtual Result wait_for_value(uint64_t value) noexcept override;
 };
 
-using Vulkan_Resource_Pool = Resource_Pool<Vulkan_Buffer, Vulkan_Buffer_View, Vulkan_Image, Vulkan_Image_View, Vulkan_Sampler>;
+using Vulkan_Resource_Pool = Resource_Pool<
+    Vulkan_Buffer,
+    Vulkan_Buffer_View,
+    Vulkan_Image,
+    Vulkan_Image_View,
+    Vulkan_Sampler,
+    Vulkan_Acceleration_Structure>;
 
 // Descriptor heap management
 struct Descriptor_Heap
@@ -117,9 +123,11 @@ public:
     [[nodiscard]] const Descriptor_Heap& get_sampler_descriptor_heap() const noexcept { return m_sampler_descriptor_heap; }
 
 private:
-    void create_acceleration_structure_descriptor(Vulkan_Buffer* buffer);
+    void create_acceleration_structure_descriptor(Vulkan_Acceleration_Structure* acceleration_structure);
     void create_buffer_descriptors(Vulkan_Buffer* buffer, bool create_storage_buffer_descriptor);
     void create_image_descriptors(Vulkan_Image* image, bool create_storage_image_descriptor);
+    void create_image_view_descriptors(
+        Vulkan_Image_View* image_view, const Image_View_Create_Info& create_info, bool create_storage_image_descriptor);
     VkHostAddressRangeEXT descriptor_index_to_address(uint32_t index, uint32_t offset, bool is_sampler);
 
 private:
@@ -137,7 +145,6 @@ private:
     Vulkan_Resource_Pool m_resource_pool;
 
     plf::colony<Vulkan_Fence> m_fences;
-    plf::colony<Acceleration_Structure> m_acceleration_structures;
     plf::colony<Shader_Blob> m_shader_blobs;
     plf::colony<Vulkan_Pipeline> m_pipelines;
 

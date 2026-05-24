@@ -1,8 +1,10 @@
 #include "rhi/vulkan/vulkan_graphics_device.hpp"
 
 #include "rhi/vulkan/vulkan_cast.hpp"
+#include "rhi/vulkan/vulkan_command_list.hpp"
 #include "rhi/vulkan/vulkan_resource.hpp"
 #include "rhi/vulkan/vulkan_result.hpp"
+#include "rhi/vulkan/vulkan_swapchain.hpp"
 
 #ifndef VOLK_IMPLEMENTATION
 #define VOLK_IMPLEMENTATION
@@ -158,6 +160,13 @@ auto select_physical_device(vkb::Instance& instance)
         .meshShaderQueries = VK_TRUE
     };
 
+    // Depth Clip
+    constexpr static VkPhysicalDeviceDepthClipEnableFeaturesEXT REQUIRED_DEPTH_CLIP_ENABLE_FEATURES = {
+        .sType = VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_DEPTH_CLIP_ENABLE_FEATURES_EXT,
+        .pNext = nullptr,
+        .depthClipEnable = VK_TRUE
+    };
+
     physical_device_selector
         .prefer_gpu_device_type(vkb::PreferredDeviceType::discrete)
         .require_present()
@@ -182,6 +191,8 @@ auto select_physical_device(vkb::Instance& instance)
         .add_required_extension_features(REQUIRED_RAY_TRACING_MAINTENANCE1_FEATURES)
         .add_required_extension(VK_EXT_MESH_SHADER_EXTENSION_NAME)
         .add_required_extension_features(REQUIRED_MESH_SHADER_FEATURES)
+        .add_required_extension(VK_EXT_DEPTH_CLIP_ENABLE_EXTENSION_NAME)
+        .add_required_extension_features(REQUIRED_DEPTH_CLIP_ENABLE_FEATURES)
         .defer_surface_initialization();
     return physical_device_selector.select();
 }
@@ -221,6 +232,13 @@ Vulkan_Graphics_Device::Vulkan_Graphics_Device(const Graphics_Device_Create_Info
                 {
                     vkDestroyImageView(m_device.device, image_view->image_view, nullptr);
                     image_view->image_view = VK_NULL_HANDLE;
+                }
+            },
+            .acceleration_structure_delete_function = [this](Vulkan_Acceleration_Structure* acceleration_structure) {
+                if (acceleration_structure && acceleration_structure->acceleration_structure != VK_NULL_HANDLE)
+                {
+                    vkDestroyAccelerationStructureKHR(m_device.device, acceleration_structure->acceleration_structure, nullptr);
+                    acceleration_structure->acceleration_structure = VK_NULL_HANDLE;
                 }
             }
         })
@@ -412,6 +430,16 @@ Result Vulkan_Graphics_Device::queue_wait_idle(Queue_Type queue, [[maybe_unused]
 Graphics_API Vulkan_Graphics_Device::get_graphics_api() const noexcept
 {
     return Graphics_API::Vulkan;
+}
+
+std::unique_ptr<Swapchain> Vulkan_Graphics_Device::create_swapchain(const Swapchain_Win32_Create_Info& create_info) noexcept
+{
+    return std::make_unique<Vulkan_Swapchain>(this, create_info);
+}
+
+std::unique_ptr<Command_Pool> Vulkan_Graphics_Device::create_command_pool(const Command_Pool_Create_Info& create_info) noexcept
+{
+    return std::make_unique<Vulkan_Command_Pool>(this, create_info);
 }
 
 std::expected<Fence*, Result> Vulkan_Graphics_Device::create_fence(uint64_t initial_value) noexcept
@@ -618,6 +646,31 @@ void Vulkan_Graphics_Device::unmap_buffer(Buffer* buffer) noexcept
     vkUnmapMemory2(m_device.device, &unmap_info);
 }
 
+// TODO: put this function elsewhere
+inline VkFlags get_aspect_mask(Image* image)
+{
+    auto image_format_info = get_image_format_info(image->format);
+    VkFlags aspect_mask = VK_IMAGE_ASPECT_NONE;
+
+    if (!(image_format_info.is_depth && image_format_info.is_stencil))
+    {
+        aspect_mask = VK_IMAGE_ASPECT_COLOR_BIT;
+    }
+    else
+    {
+        if (image_format_info.is_depth)
+        {
+            aspect_mask |= VK_IMAGE_ASPECT_DEPTH_BIT;
+        }
+        if (image_format_info.is_stencil)
+        {
+            aspect_mask |= VK_IMAGE_ASPECT_STENCIL_BIT;
+        }
+    }
+
+    return aspect_mask;
+}
+
 std::expected<Image*, Result> Vulkan_Graphics_Device::create_image(const Image_Create_Info& create_info, uint32_t index) noexcept
 {
     std::unique_lock<std::mutex> lock_guard(m_resource_mutex, std::defer_lock);
@@ -672,9 +725,64 @@ std::expected<Image*, Result> Vulkan_Graphics_Device::create_image(const Image_C
     image->image = vulkan_image;
     image->allocation = allocation;
 
+    VkImageViewCreateInfo image_view_create_info = {
+        .sType = VK_STRUCTURE_TYPE_IMAGE_VIEW_CREATE_INFO,
+        .pNext = nullptr,
+        .flags = 0,
+        .image = static_cast<Vulkan_Image*>(image)->image,
+        .viewType = vulkan_cast<VkImageViewType>(image->primary_view_type),
+        .format = vulkan_cast<VkFormat>(image->format),
+        .components = {},
+        .subresourceRange = {
+            .aspectMask = get_aspect_mask(image),
+            .baseMipLevel = 0,
+            .levelCount = VK_REMAINING_ARRAY_LAYERS,
+            .baseArrayLayer = 0,
+            .layerCount = VK_REMAINING_MIP_LEVELS
+        }
+    };
+    vkCreateImageView(m_device, &image_view_create_info, nullptr, &static_cast<Vulkan_Image_View*>(image->image_view)->image_view);
+
     create_image_descriptors(image, static_cast<uint32_t>(create_info.usage & Image_Usage::Unordered_Access) > 0u);
 
     return std::unexpected(Result::Error_Unknown);
+}
+
+std::expected<Image_View*, Result> Vulkan_Graphics_Device::create_image_view(
+    Image* image, const Image_View_Create_Info& create_info, uint32_t index) noexcept
+{
+    if (!image) return std::unexpected(Result::Error_Invalid_Parameters);
+
+    std::unique_lock<std::mutex> lock_guard(m_resource_mutex, std::defer_lock);
+    if (m_use_mutex)
+    {
+        lock_guard.lock();
+    }
+
+    auto vulkan_image = static_cast<Vulkan_Image*>(image);
+    auto image_view = m_resource_pool.acquire_image_view(image, create_info, index);
+
+    VkImageViewCreateInfo image_view_create_info = {
+        .sType = VK_STRUCTURE_TYPE_IMAGE_VIEW_CREATE_INFO,
+        .pNext = nullptr,
+        .flags = 0,
+        .image = static_cast<Vulkan_Image*>(image_view->image)->image,
+        .viewType = vulkan_cast<VkImageViewType>(image_view->descriptor_type),
+        .format = vulkan_cast<VkFormat>(image_view->image->format),
+        .components = vulkan_cast<VkComponentMapping>(create_info.component_mapping),
+        .subresourceRange = {
+            .aspectMask = get_aspect_mask(image),
+            .baseMipLevel = create_info.first_mip_level,
+            .levelCount = create_info.array_levels,
+            .baseArrayLayer = create_info.first_array_level,
+            .layerCount = create_info.mip_levels
+        }
+    };
+    vkCreateImageView(m_device, &image_view_create_info, nullptr, &image_view->image_view);
+
+    create_image_view_descriptors(image_view, create_info, create_info.descriptor_type == Descriptor_Type::Resource);
+
+    return image_view;
 }
 
 void Vulkan_Graphics_Device::destroy_image(Image* image) noexcept
@@ -686,6 +794,28 @@ void Vulkan_Graphics_Device::destroy_image(Image* image) noexcept
     }
 
     m_resource_pool.release_image(image);
+}
+
+Vulkan_Image* Vulkan_Graphics_Device::create_proxy_image() noexcept
+{
+    std::unique_lock<std::mutex> lock_guard(m_resource_mutex, std::defer_lock);
+    if (m_use_mutex)
+    {
+        lock_guard.lock();
+    }
+
+    return m_resource_pool.acquire_proxy_image();
+}
+
+void Vulkan_Graphics_Device::destroy_proxy_image(Vulkan_Image* image) noexcept
+{
+    std::unique_lock<std::mutex> lock_guard(m_resource_mutex, std::defer_lock);
+    if (m_use_mutex)
+    {
+        lock_guard.lock();
+    }
+
+    m_resource_pool.release_proxy_image(image);
 }
 
 std::expected<Sampler*, Result> Vulkan_Graphics_Device::create_sampler(const Sampler_Create_Info& create_info, uint32_t index) noexcept
@@ -736,6 +866,518 @@ void Vulkan_Graphics_Device::destroy_sampler(Sampler* sampler) noexcept
     m_resource_pool.release_sampler(sampler);
 }
 
+std::expected<Acceleration_Structure*, Result> Vulkan_Graphics_Device::create_acceleration_structure(
+    const Acceleration_Structure_Create_Info& create_info) noexcept
+{
+    std::unique_lock<std::mutex> lock_guard(m_resource_mutex, std::defer_lock);
+    if (m_use_mutex)
+    {
+        lock_guard.lock();
+    }
+
+    auto* acceleration_structure = m_resource_pool.acquire_acceleration_structure(NO_RESOURCE_INDEX);
+
+    VkAccelerationStructureCreateInfoKHR acceleration_structure_create_info = {
+        .sType = VK_STRUCTURE_TYPE_ACCELERATION_STRUCTURE_CREATE_INFO_KHR,
+        .pNext = nullptr,
+        .createFlags = 0,
+        .buffer = static_cast<Vulkan_Buffer*>(create_info.buffer)->buffer,
+        .offset = create_info.offset,
+        .size = create_info.size,
+        .type = vulkan_cast<VkAccelerationStructureTypeKHR>(create_info.type),
+        .deviceAddress = create_info.buffer->gpu_address
+    };
+    vkCreateAccelerationStructureKHR(m_device, &acceleration_structure_create_info, nullptr, &acceleration_structure->acceleration_structure);
+
+    create_acceleration_structure_descriptor(acceleration_structure);
+
+    return acceleration_structure;
+}
+
+void Vulkan_Graphics_Device::destroy_acceleration_structure(Acceleration_Structure* acceleration_structure) noexcept
+{
+    std::unique_lock<std::mutex> lock_guard(m_resource_mutex, std::defer_lock);
+    if (m_use_mutex)
+    {
+        lock_guard.lock();
+    }
+
+    m_resource_pool.release_acceleration_structure(acceleration_structure);
+}
+
+std::expected<Shader_Blob*, Result> Vulkan_Graphics_Device::create_shader_blob(const Shader_Blob_Create_Info& create_info) noexcept
+{
+    static_assert(
+        sizeof(decltype(Shader_Blob::data)::value_type) == sizeof(uint8_t),
+        "Size of blob changed.");
+
+    if (create_info.data == nullptr || create_info.data_size == 0)
+    {
+        return std::unexpected(Result::Error_Invalid_Parameters);
+    }
+
+    std::unique_lock<std::mutex> lock_guard(m_resource_mutex, std::defer_lock);
+    if (m_use_mutex)
+    {
+        lock_guard.lock();
+    }
+
+    auto blob = &*m_shader_blobs.emplace();
+    blob->data.resize(create_info.data_size);
+    blob->groups_x = create_info.groups_x;
+    blob->groups_y = create_info.groups_y;
+    blob->groups_z = create_info.groups_z;
+    memcpy(blob->data.data(), create_info.data, create_info.data_size);
+    return blob;
+}
+
+Result Vulkan_Graphics_Device::recreate_shader_blob(Shader_Blob* shader_blob, const Shader_Blob_Create_Info& create_info) noexcept
+{
+    if (!shader_blob) return Result::Error_Invalid_Parameters;
+
+    shader_blob->data.clear();
+    shader_blob->data.reserve(create_info.data_size);
+    shader_blob->groups_x = create_info.groups_x;
+    shader_blob->groups_y = create_info.groups_y;
+    shader_blob->groups_z = create_info.groups_z;
+    memcpy(shader_blob->data.data(), create_info.data, create_info.data_size);
+
+    return Result::Success;
+}
+
+Result Vulkan_Graphics_Device::recreate_shader_blob_deserialize_memory(Shader_Blob* shader_blob, void* memory) noexcept
+{
+    if (!shader_blob || !memory) return Result::Error_Invalid_Parameters;
+
+    uint8_t* blob_ptr = static_cast<uint8_t*>(memory);
+    memcpy(&shader_blob->groups_x, blob_ptr, sizeof(uint32_t));
+    blob_ptr += sizeof(uint32_t);
+    memcpy(&shader_blob->groups_y, blob_ptr, sizeof(uint32_t));
+    blob_ptr += sizeof(uint32_t);
+    memcpy(&shader_blob->groups_z, blob_ptr, sizeof(uint32_t));
+    blob_ptr += sizeof(uint32_t);
+    uint32_t dxil_blob_size = 0;
+    memcpy(&dxil_blob_size, blob_ptr, sizeof(uint32_t));
+    blob_ptr += sizeof(uint32_t);
+    uint32_t spirv_blob_size = 0;
+    memcpy(&spirv_blob_size, blob_ptr, sizeof(uint32_t));
+    blob_ptr += sizeof(uint32_t);
+    blob_ptr += dxil_blob_size;
+
+    shader_blob->data.clear();
+    shader_blob->data.reserve(spirv_blob_size);
+    memcpy(shader_blob->data.data(), blob_ptr, spirv_blob_size);
+
+    return Result::Success;
+}
+
+void Vulkan_Graphics_Device::destroy_shader_blob(Shader_Blob* shader_blob) noexcept
+{
+    if (shader_blob == nullptr) return;
+
+    std::unique_lock<std::mutex> lock_guard(m_resource_mutex, std::defer_lock);
+    if (m_use_mutex)
+    {
+        lock_guard.lock();
+    }
+
+    m_shader_blobs.erase(m_shader_blobs.get_iterator(shader_blob));
+}
+
+std::expected<Pipeline*, Result> Vulkan_Graphics_Device::create_pipeline(const Graphics_Pipeline_Create_Info& create_info) noexcept
+{
+    std::unique_lock<std::mutex> lock_guard(m_resource_mutex, std::defer_lock);
+    if (m_use_mutex)
+    {
+        lock_guard.lock();
+    }
+
+    auto pipeline = &*m_pipelines.emplace();
+    pipeline->type = Pipeline_Type::Vertex_Shading;
+    pipeline->vertex_shading_info = create_info;
+
+    std::vector<VkShaderModuleCreateInfo> shader_module_create_infos;
+    shader_module_create_infos.reserve(5);
+    std::vector<VkPipelineShaderStageCreateInfo> shader_stage_create_infos;
+    shader_stage_create_infos.reserve(5);
+
+    auto create_stage = [&](Shader_Blob* blob, VkShaderStageFlagBits vulkan_stage) {
+        if (!blob)
+            return;
+
+        auto& module = shader_module_create_infos.emplace_back();
+        module = {
+            .sType = VK_STRUCTURE_TYPE_SHADER_MODULE_CREATE_INFO,
+            .pNext = nullptr,
+            .flags = 0,
+            .codeSize = static_cast<uint32_t>(blob->data.size()),
+            .pCode = reinterpret_cast<uint32_t*>(blob->data.data())
+        };
+        auto& stage = shader_stage_create_infos.emplace_back();
+        stage = {
+            .sType = VK_STRUCTURE_TYPE_PIPELINE_SHADER_STAGE_CREATE_INFO,
+            .pNext = &module,
+            .flags = 0,
+            .stage = vulkan_stage,
+            .module = VK_NULL_HANDLE,
+            .pName = "main",
+            .pSpecializationInfo = nullptr
+        };
+    };
+
+    create_stage(create_info.vs, VK_SHADER_STAGE_VERTEX_BIT);
+    create_stage(create_info.hs, VK_SHADER_STAGE_TESSELLATION_CONTROL_BIT);
+    create_stage(create_info.ds, VK_SHADER_STAGE_TESSELLATION_EVALUATION_BIT);
+    create_stage(create_info.gs, VK_SHADER_STAGE_GEOMETRY_BIT);
+    create_stage(create_info.ps, VK_SHADER_STAGE_FRAGMENT_BIT);
+
+    VkPipelineVertexInputStateCreateInfo vertex_input_state_create_info = {
+        .sType = VK_STRUCTURE_TYPE_PIPELINE_VERTEX_INPUT_STATE_CREATE_INFO,
+        .pNext = nullptr,
+        .flags = 0,
+        .vertexBindingDescriptionCount = 0,
+        .pVertexBindingDescriptions = nullptr,
+        .vertexAttributeDescriptionCount = 0,
+        .pVertexAttributeDescriptions = nullptr
+    };
+    VkPipelineInputAssemblyStateCreateInfo input_assembly_state_create_info = {
+        .sType = VK_STRUCTURE_TYPE_PIPELINE_INPUT_ASSEMBLY_STATE_CREATE_INFO,
+        .pNext = nullptr,
+        .flags = 0,
+        .topology = vulkan_cast<VkPrimitiveTopology>(create_info.primitive_topology),
+        .primitiveRestartEnable = VK_FALSE
+    };
+    VkPipelineTessellationStateCreateInfo tessellation_state_create_info = {
+        .sType = VK_STRUCTURE_TYPE_PIPELINE_TESSELLATION_STATE_CREATE_INFO,
+        .pNext = nullptr,
+        .flags = 0,
+        .patchControlPoints = 0
+    };
+    VkPipelineViewportStateCreateInfo viewport_state_create_info = {
+        .sType = VK_STRUCTURE_TYPE_PIPELINE_VIEWPORT_STATE_CREATE_INFO,
+        .pNext = nullptr,
+        .viewportCount = 0,
+        .pViewports = nullptr,
+        .scissorCount = 0,
+        .pScissors = nullptr
+    };
+    VkPipelineRasterizationDepthClipStateCreateInfoEXT depth_clip_state_create_info = {
+        .sType = VK_STRUCTURE_TYPE_PIPELINE_RASTERIZATION_DEPTH_CLIP_STATE_CREATE_INFO_EXT,
+        .pNext = nullptr,
+        .flags = 0,
+        .depthClipEnable = create_info.rasterizer_state_info.depth_clip_enable
+    };
+    VkPipelineRasterizationStateCreateInfo rasterization_state_create_info = {
+        .sType = VK_STRUCTURE_TYPE_PIPELINE_RASTERIZATION_STATE_CREATE_INFO,
+        .pNext = &depth_clip_state_create_info,
+        .flags = 0,
+        .depthClampEnable = VK_FALSE,
+        .rasterizerDiscardEnable = VK_FALSE,
+        .polygonMode = vulkan_cast<VkPolygonMode>(create_info.rasterizer_state_info.fill_mode),
+        .cullMode = vulkan_cast<VkCullModeFlags>(create_info.rasterizer_state_info.cull_mode),
+        .frontFace = vulkan_cast<VkFrontFace>(create_info.rasterizer_state_info.winding_order),
+        .depthBiasEnable = create_info.rasterizer_state_info.depth_bias != 0.f,
+        .depthBiasConstantFactor = create_info.rasterizer_state_info.depth_bias,
+        .depthBiasClamp = create_info.rasterizer_state_info.depth_bias_clamp,
+        .depthBiasSlopeFactor = create_info.rasterizer_state_info.depth_bias_slope_scale,
+        .lineWidth = 1.f
+    };
+    VkPipelineMultisampleStateCreateInfo multisample_state_create_info = {
+        .sType = VK_STRUCTURE_TYPE_PIPELINE_MULTISAMPLE_STATE_CREATE_INFO,
+        .pNext = nullptr,
+        .flags = 0,
+        .rasterizationSamples = VK_SAMPLE_COUNT_1_BIT,
+        .sampleShadingEnable = VK_FALSE,
+        .minSampleShading = 0.f,
+        .pSampleMask = nullptr,
+        .alphaToCoverageEnable = VK_FALSE,
+        .alphaToOneEnable = VK_FALSE
+    };
+    VkPipelineDepthStencilStateCreateInfo depth_stencil_state_create_info = {
+        .sType = VK_STRUCTURE_TYPE_PIPELINE_DEPTH_STENCIL_STATE_CREATE_INFO,
+        .pNext = nullptr,
+        .flags = 0,
+        .depthTestEnable = create_info.depth_stencil_info.depth_enable,
+        .depthWriteEnable = create_info.depth_stencil_info.depth_write_enable,
+        .depthCompareOp = vulkan_cast<VkCompareOp>(create_info.depth_stencil_info.comparison_func),
+        .depthBoundsTestEnable = create_info.depth_stencil_info.depth_bounds_test_mode != Depth_Bounds_Test_Mode::Disabled,
+        .stencilTestEnable = create_info.depth_stencil_info.stencil_enable,
+        .front = {
+            .failOp = vulkan_cast<VkStencilOp>(create_info.depth_stencil_info.stencil_front_face.fail),
+            .passOp = vulkan_cast<VkStencilOp>(create_info.depth_stencil_info.stencil_front_face.pass),
+            .depthFailOp = vulkan_cast<VkStencilOp>(create_info.depth_stencil_info.stencil_front_face.depth_fail),
+            .compareOp = vulkan_cast<VkCompareOp>(create_info.depth_stencil_info.stencil_front_face.comparison_func),
+            .compareMask = ~0u,
+            .writeMask = create_info.depth_stencil_info.stencil_front_face.stencil_write_mask,
+            .reference = create_info.depth_stencil_info.stencil_front_face.stencil_read_mask
+        },
+        .back = {
+            .failOp = vulkan_cast<VkStencilOp>(create_info.depth_stencil_info.stencil_back_face.fail),
+            .passOp = vulkan_cast<VkStencilOp>(create_info.depth_stencil_info.stencil_back_face.pass),
+            .depthFailOp = vulkan_cast<VkStencilOp>(create_info.depth_stencil_info.stencil_back_face.depth_fail),
+            .compareOp = vulkan_cast<VkCompareOp>(create_info.depth_stencil_info.stencil_back_face.comparison_func),
+            .compareMask = ~0u,
+            .writeMask = create_info.depth_stencil_info.stencil_back_face.stencil_write_mask,
+            .reference = create_info.depth_stencil_info.stencil_back_face.stencil_read_mask
+        },
+        .minDepthBounds = create_info.depth_stencil_info.depth_bounds_min,
+        .maxDepthBounds = create_info.depth_stencil_info.depth_bounds_max
+    };
+
+    std::vector<VkPipelineColorBlendAttachmentState> color_blend_attachment_states;
+    color_blend_attachment_states.reserve(create_info.color_attachment_count);
+    for (auto i = 0; i < create_info.color_attachment_count; ++i)
+    {
+        const auto& attachment_create_info = create_info.blend_state_info.color_attachments[i];
+        auto& color_blend_attachment_state = color_blend_attachment_states.emplace_back();
+        color_blend_attachment_state = {
+            .blendEnable = attachment_create_info.blend_enable,
+            .srcColorBlendFactor = vulkan_cast<VkBlendFactor>(attachment_create_info.color_src_blend),
+            .dstColorBlendFactor = vulkan_cast<VkBlendFactor>(attachment_create_info.color_dst_blend),
+            .colorBlendOp = vulkan_cast<VkBlendOp>(attachment_create_info.color_blend_op),
+            .srcAlphaBlendFactor = vulkan_cast<VkBlendFactor>(attachment_create_info.alpha_src_blend),
+            .dstAlphaBlendFactor = vulkan_cast<VkBlendFactor>(attachment_create_info.alpha_dst_blend),
+            .alphaBlendOp = vulkan_cast<VkBlendOp>(attachment_create_info.alpha_blend_op),
+            .colorWriteMask = vulkan_cast<VkColorComponentFlags>(attachment_create_info.color_write_mask)
+        };
+    }
+    VkPipelineColorBlendStateCreateInfo color_blend_state_create_info = {
+        .sType = VK_STRUCTURE_TYPE_PIPELINE_COLOR_BLEND_STATE_CREATE_INFO,
+        .pNext = nullptr,
+        .flags = 0,
+        .logicOpEnable = VK_FALSE,
+        .logicOp = VK_LOGIC_OP_CLEAR,
+        .attachmentCount = static_cast<uint32_t>(color_blend_attachment_states.size()),
+        .pAttachments = color_blend_attachment_states.data(),
+        .blendConstants = {
+            1.f, 1.f, 1.f, 1.f
+        }
+    };
+    for (auto i = 0; i < create_info.color_attachment_count; ++i)
+    {
+        // TODO: this doesn't match nicely to D3D12. Find a better way for logic ops.
+        const auto& attachment_create_info = create_info.blend_state_info.color_attachments[i];
+        if (attachment_create_info.logic_op_enable)
+        {
+            color_blend_state_create_info.logicOpEnable = VK_TRUE;
+            color_blend_state_create_info.logicOp = vulkan_cast<VkLogicOp>(attachment_create_info.logic_op);
+            break;
+        }
+    }
+
+    auto dynamic_states = std::vector<VkDynamicState>({
+        VK_DYNAMIC_STATE_VIEWPORT,
+        VK_DYNAMIC_STATE_SCISSOR
+        });
+    if (create_info.depth_stencil_info.depth_bounds_test_mode == Depth_Bounds_Test_Mode::Dynamic)
+    {
+        dynamic_states.push_back(VK_DYNAMIC_STATE_DEPTH_BOUNDS);
+    }
+    VkPipelineDynamicStateCreateInfo dynamic_state_create_info = {
+        .sType = VK_STRUCTURE_TYPE_PIPELINE_DYNAMIC_STATE_CREATE_INFO,
+        .pNext = nullptr,
+        .flags = 0,
+        .dynamicStateCount = static_cast<uint32_t>(dynamic_states.size()),
+        .pDynamicStates = dynamic_states.data()
+    };
+
+    VkGraphicsPipelineCreateInfo pipeline_create_info = {
+        .sType = VK_STRUCTURE_TYPE_GRAPHICS_PIPELINE_CREATE_INFO,
+        .pNext = nullptr,
+        .flags = 0,
+        .stageCount = static_cast<uint32_t>(shader_stage_create_infos.size()),
+        .pStages = shader_stage_create_infos.data(),
+        .pVertexInputState = &vertex_input_state_create_info,
+        .pInputAssemblyState = &input_assembly_state_create_info,
+        .pTessellationState = &tessellation_state_create_info,
+        .pViewportState = &viewport_state_create_info,
+        .pRasterizationState = &rasterization_state_create_info,
+        .pMultisampleState = &multisample_state_create_info,
+        .pDepthStencilState = &depth_stencil_state_create_info,
+        .pColorBlendState = &color_blend_state_create_info,
+        .pDynamicState = &dynamic_state_create_info,
+        .layout = VK_NULL_HANDLE,
+        .renderPass = VK_NULL_HANDLE,
+        .subpass = 0,
+        .basePipelineHandle = VK_NULL_HANDLE,
+        .basePipelineIndex = 0
+    };
+    vkCreateGraphicsPipelines(m_device, VK_NULL_HANDLE, 1, &pipeline_create_info, nullptr, &pipeline->pipeline);
+
+    return pipeline;
+}
+
+std::expected<Pipeline*, Result> Vulkan_Graphics_Device::create_pipeline(const Compute_Pipeline_Create_Info& create_info) noexcept
+{
+    std::unique_lock<std::mutex> lock_guard(m_resource_mutex, std::defer_lock);
+    if (m_use_mutex)
+    {
+        lock_guard.lock();
+    }
+
+    auto pipeline = &*m_pipelines.emplace();
+    pipeline->type = Pipeline_Type::Compute;
+    pipeline->compute_shading_info = create_info;
+
+    VkShaderModuleCreateInfo stage_create_info = {
+        .sType = VK_STRUCTURE_TYPE_SHADER_MODULE_CREATE_INFO,
+        .pNext = nullptr,
+        .flags = 0,
+        .codeSize = static_cast<uint32_t>(create_info.cs->data.size()),
+        .pCode = reinterpret_cast<uint32_t*>(create_info.cs->data.data())
+    };
+    VkComputePipelineCreateInfo pipeline_create_info = {
+        .sType = VK_STRUCTURE_TYPE_COMPUTE_PIPELINE_CREATE_INFO,
+        .pNext = nullptr,
+        .flags = 0,
+        .stage = {
+            .sType = VK_STRUCTURE_TYPE_PIPELINE_SHADER_STAGE_CREATE_INFO,
+            .pNext = &stage_create_info,
+            .flags = 0,
+            .stage = VK_SHADER_STAGE_COMPUTE_BIT,
+            .module = VK_NULL_HANDLE,
+            .pName = "main",
+            .pSpecializationInfo = nullptr
+        },
+        .layout = VK_NULL_HANDLE,
+        .basePipelineHandle = VK_NULL_HANDLE,
+        .basePipelineIndex = 0
+    };
+    vkCreateComputePipelines(m_device, VK_NULL_HANDLE, 1, &pipeline_create_info, nullptr, &pipeline->pipeline);
+
+    return pipeline;
+}
+
+std::expected<Pipeline*, Result> Vulkan_Graphics_Device::create_pipeline(const Mesh_Shading_Pipeline_Create_Info& create_info) noexcept
+{
+    return std::expected<Pipeline*, Result>();
+}
+
+void Vulkan_Graphics_Device::destroy_pipeline(Pipeline* pipeline) noexcept
+{
+    if (pipeline == nullptr) return;
+
+    std::unique_lock<std::mutex> lock_guard(m_resource_mutex, std::defer_lock);
+    if (m_use_mutex)
+    {
+        lock_guard.lock();
+    }
+
+    auto vulkan_pipeline = static_cast<Vulkan_Pipeline*>(pipeline);
+    if (vulkan_pipeline->pipeline)
+        vkDestroyPipeline(m_device, vulkan_pipeline->pipeline, nullptr);
+    vulkan_pipeline->pipeline = VK_NULL_HANDLE;
+
+    m_pipelines.erase(m_pipelines.get_iterator(vulkan_pipeline));
+}
+
+Result Vulkan_Graphics_Device::submit(const Submit_Info& submit_info) noexcept
+{
+    std::mutex* queue_mutex = nullptr;
+    VkQueue queue = VK_NULL_HANDLE;
+    switch (submit_info.queue_type)
+    {
+    case Queue_Type::Graphics:
+        queue = m_device.get_queue(vkb::QueueType::graphics).value();
+        queue_mutex = &m_direct_queue_mutex;
+        break;
+    case Queue_Type::Compute:
+        queue = m_device.get_queue(vkb::QueueType::compute).value();
+        queue_mutex = &m_compute_queue_mutex;
+        break;
+    case Queue_Type::Copy:
+        queue = m_device.get_queue(vkb::QueueType::transfer).value();
+        queue_mutex = &m_copy_queue_mutex;
+        break;
+    case Queue_Type::Video_Decode:
+        [[fallthrough]]; // TODO: implement video queues
+    case Queue_Type::Video_Encode:
+        [[fallthrough]];
+    default:
+        return Result::Error_Invalid_Parameters;
+    }
+    std::unique_lock<std::mutex> lock_guard(*queue_mutex, std::defer_lock);
+    if (m_use_mutex)
+    {
+        lock_guard.lock();
+    }
+
+    std::vector<VkSemaphoreSubmitInfo> semaphore_submit_wait_infos;
+    semaphore_submit_wait_infos.reserve(submit_info.wait_infos.size() + 1ull);
+    for (const auto& wait_info : submit_info.wait_infos)
+    {
+        semaphore_submit_wait_infos.push_back({
+            .sType = VK_STRUCTURE_TYPE_SEMAPHORE_SUBMIT_INFO,
+            .pNext = nullptr,
+            .semaphore = static_cast<Vulkan_Fence*>(wait_info.fence)->semaphore,
+            .value = wait_info.value,
+            .stageMask = VK_PIPELINE_STAGE_2_ALL_COMMANDS_BIT,
+            .deviceIndex = 0
+            });
+    }
+    if (submit_info.wait_swapchain != nullptr)
+    {
+        semaphore_submit_wait_infos.push_back({
+            .sType = VK_STRUCTURE_TYPE_SEMAPHORE_SUBMIT_INFO,
+            .pNext = nullptr,
+            .semaphore = static_cast<Vulkan_Swapchain*>(submit_info.wait_swapchain)->get_current_acquire_semaphore(),
+            .value = 1,
+            .stageMask = VK_PIPELINE_STAGE_2_ALL_COMMANDS_BIT,
+            .deviceIndex = 0
+            });
+    }
+
+    std::vector<VkCommandBufferSubmitInfo> command_buffer_submit_infos;
+    command_buffer_submit_infos.reserve(submit_info.command_lists.size());
+    for (const auto* command_list : submit_info.command_lists)
+    {
+        command_buffer_submit_infos.push_back({
+            .sType = VK_STRUCTURE_TYPE_COMMAND_BUFFER_SUBMIT_INFO,
+            .pNext = nullptr,
+            .commandBuffer = static_cast<const Vulkan_Command_List*>(command_list)->get_internal_command_list(),
+            .deviceMask = 0
+            });
+    }
+
+    std::vector<VkSemaphoreSubmitInfo> semaphore_submit_signal_infos;
+    semaphore_submit_signal_infos.reserve(submit_info.signal_infos.size() + 1ull);
+    for (const auto& signal_info : submit_info.signal_infos)
+    {
+        semaphore_submit_signal_infos.push_back({
+            .sType = VK_STRUCTURE_TYPE_SEMAPHORE_SUBMIT_INFO,
+            .pNext = nullptr,
+            .semaphore = static_cast<Vulkan_Fence*>(signal_info.fence)->semaphore,
+            .value = signal_info.value,
+            .stageMask = VK_PIPELINE_STAGE_2_ALL_COMMANDS_BIT,
+            .deviceIndex = 0
+            });
+    }
+    if (submit_info.present_swapchain != nullptr)
+    {
+        semaphore_submit_signal_infos.push_back({
+            .sType = VK_STRUCTURE_TYPE_SEMAPHORE_SUBMIT_INFO,
+            .pNext = nullptr,
+            .semaphore = static_cast<Vulkan_Swapchain*>(submit_info.present_swapchain)->get_current_present_semaphore(),
+            .value = 1,
+            .stageMask = VK_PIPELINE_STAGE_2_ALL_COMMANDS_BIT,
+            .deviceIndex = 0
+            });
+    }
+
+    VkSubmitInfo2 submit = {
+        .sType = VK_STRUCTURE_TYPE_SUBMIT_INFO_2,
+        .pNext = nullptr,
+        .flags = 0,
+        .waitSemaphoreInfoCount = static_cast<uint32_t>(semaphore_submit_wait_infos.size()),
+        .pWaitSemaphoreInfos = semaphore_submit_wait_infos.data(),
+        .commandBufferInfoCount = static_cast<uint32_t>(command_buffer_submit_infos.size()),
+        .pCommandBufferInfos = command_buffer_submit_infos.data(),
+        .signalSemaphoreInfoCount = static_cast<uint32_t>(semaphore_submit_signal_infos.size()),
+        .pSignalSemaphoreInfos = semaphore_submit_signal_infos.data()
+    };
+    return translate_result(vkQueueSubmit2(queue, 1, &submit, VK_NULL_HANDLE));
+}
+
 void Vulkan_Graphics_Device::name_resource(Buffer* buffer, const char* name) noexcept
 {
     VkDebugUtilsObjectNameInfoEXT name_info = {
@@ -760,12 +1402,12 @@ void Vulkan_Graphics_Device::name_resource(Image* image, const char* name) noexc
     vkSetDebugUtilsObjectNameEXT(m_device.device, &name_info);
 }
 
-void Vulkan_Graphics_Device::create_acceleration_structure_descriptor(Vulkan_Buffer* buffer)
+void Vulkan_Graphics_Device::create_acceleration_structure_descriptor(Vulkan_Acceleration_Structure* acceleration_structure)
 {
     // The Vulkan specification states:
     // For acceleration structures, the size of the range is not used by the descriptor, and can be set to 0.
     VkDeviceAddressRangeEXT descriptor_address_range = {
-        .address = buffer->gpu_address,
+        .address = acceleration_structure->address,
         .size = 0
     };
     VkResourceDescriptorInfoEXT descriptor_info = {
@@ -776,7 +1418,7 @@ void Vulkan_Graphics_Device::create_acceleration_structure_descriptor(Vulkan_Buf
             .pAddressRange = &descriptor_address_range
         }
     };
-    auto descriptor_range = descriptor_index_to_address(buffer->buffer_view->bindless_index, 0u, false);
+    auto descriptor_range = descriptor_index_to_address(acceleration_structure->bindless_index, 0u, false);
     vkWriteResourceDescriptorsEXT(m_device, 1, &descriptor_info, &descriptor_range);
 }
 
@@ -821,7 +1463,7 @@ void Vulkan_Graphics_Device::create_image_descriptors(Vulkan_Image* image, bool 
         .format = vulkan_cast<VkFormat>(image->format),
         .components = {}, // identity
         .subresourceRange = {
-            .aspectMask = VK_IMAGE_ASPECT_COLOR_BIT,
+            .aspectMask = get_aspect_mask(image),
             .baseMipLevel = 0,
             .levelCount = VK_REMAINING_MIP_LEVELS,
             .baseArrayLayer = 0,
@@ -851,6 +1493,51 @@ void Vulkan_Graphics_Device::create_image_descriptors(Vulkan_Image* image, bool 
 
     descriptor_info.type = VK_DESCRIPTOR_TYPE_STORAGE_IMAGE;
     descriptor_range = descriptor_index_to_address(image->image_view->bindless_index, 1u, false);
+    vkWriteResourceDescriptorsEXT(m_device, 1, &descriptor_info, &descriptor_range);
+}
+
+void Vulkan_Graphics_Device::create_image_view_descriptors(
+    Vulkan_Image_View* image_view, const Image_View_Create_Info& create_info, bool create_storage_image_descriptor)
+{
+    VkImageViewCreateInfo image_view_create_info = {
+        .sType = VK_STRUCTURE_TYPE_IMAGE_VIEW_CREATE_INFO,
+        .pNext = nullptr,
+        .flags = 0,
+        .image = static_cast<Vulkan_Image*>(image_view->image)->image,
+        .viewType = vulkan_cast<VkImageViewType>(image_view->descriptor_type),
+        .format = vulkan_cast<VkFormat>(image_view->image->format),
+        .components = vulkan_cast<VkComponentMapping>(create_info.component_mapping),
+        .subresourceRange = {
+            .aspectMask = get_aspect_mask(image_view->image),
+            .baseMipLevel = create_info.first_mip_level,
+            .levelCount = create_info.array_levels,
+            .baseArrayLayer = create_info.first_array_level,
+            .layerCount = create_info.mip_levels
+        }
+    };
+    VkImageDescriptorInfoEXT image_descriptor_info = {
+        .sType = VK_STRUCTURE_TYPE_IMAGE_DESCRIPTOR_INFO_EXT,
+        .pNext = nullptr,
+        .pView = &image_view_create_info
+    };
+    VkResourceDescriptorInfoEXT descriptor_info = {
+        .sType = VK_STRUCTURE_TYPE_RESOURCE_DESCRIPTOR_INFO_EXT,
+        .pNext = nullptr,
+        .type = VK_DESCRIPTOR_TYPE_SAMPLED_IMAGE,
+        .data = {
+            .pImage = &image_descriptor_info
+        }
+    };
+    auto descriptor_range = descriptor_index_to_address(image_view->bindless_index, 0u, false);
+    vkWriteResourceDescriptorsEXT(m_device, 1, &descriptor_info, &descriptor_range);
+
+    if (!create_storage_image_descriptor)
+    {
+        return;
+    }
+
+    descriptor_info.type = VK_DESCRIPTOR_TYPE_STORAGE_IMAGE;
+    descriptor_range = descriptor_index_to_address(image_view->bindless_index, 1u, false);
     vkWriteResourceDescriptorsEXT(m_device, 1, &descriptor_info, &descriptor_range);
 }
 

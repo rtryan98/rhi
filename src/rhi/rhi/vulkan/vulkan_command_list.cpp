@@ -187,7 +187,7 @@ auto translate_barrier_access_flags(Barrier_Access access)
     return result;
 }
 
-VkFlags get_aspect_mask(Image* image)
+inline VkFlags get_aspect_mask(Image* image)
 {
     auto image_format_info = get_image_format_info(image->format);
     VkFlags aspect_mask = VK_IMAGE_ASPECT_NONE;
@@ -850,9 +850,7 @@ void Vulkan_Command_List::build_acceleration_structure(
     VkAccelerationStructureBuildGeometryInfoKHR build_geometry_info = {
         .sType = VK_STRUCTURE_TYPE_ACCELERATION_STRUCTURE_BUILD_GEOMETRY_INFO_KHR,
         .pNext = nullptr,
-        .type = build_info.type == Acceleration_Structure_Type::Bottom_Level
-            ? VK_ACCELERATION_STRUCTURE_TYPE_BOTTOM_LEVEL_KHR
-            : VK_ACCELERATION_STRUCTURE_TYPE_TOP_LEVEL_KHR,
+        .type = vulkan_cast<VkAccelerationStructureTypeKHR>(build_info.type),
         .flags = flags,
         .mode = build_info.src != nullptr
             ? VK_BUILD_ACCELERATION_STRUCTURE_MODE_UPDATE_KHR

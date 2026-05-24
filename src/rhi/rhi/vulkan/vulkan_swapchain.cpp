@@ -180,6 +180,16 @@ uint32_t Vulkan_Swapchain::get_height() const noexcept
     return m_swapchain.extent.height;
 }
 
+VkSemaphore Vulkan_Swapchain::get_current_acquire_semaphore() const noexcept
+{
+    return m_acquire_semaphores.at(m_current_acquire_semaphore);
+}
+
+VkSemaphore Vulkan_Swapchain::get_current_present_semaphore() const noexcept
+{
+    return m_present_semaphores.at(m_current_image_index);
+}
+
 void Vulkan_Swapchain::recreate_resources() noexcept
 {
     if (m_images[0] == nullptr) // No images have been created yet.
