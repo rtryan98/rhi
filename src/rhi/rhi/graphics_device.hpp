@@ -3,6 +3,7 @@
 #include "rhi/resource.hpp"
 #include "rhi/result.hpp"
 #include "rhi/command_list.hpp"
+#include "rhi/queue_type.hpp"
 
 #include <memory>
 #include <expected>
@@ -22,15 +23,6 @@ enum class Graphics_API
 #ifdef RHI_GRAPHICS_API_VULKAN
     Vulkan = 1,
 #endif
-};
-
-enum class Queue_Type
-{
-    Graphics,
-    Compute,
-    Copy,
-    Video_Decode,
-    Video_Encode
 };
 
 struct Fence

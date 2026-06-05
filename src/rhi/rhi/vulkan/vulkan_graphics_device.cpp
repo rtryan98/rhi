@@ -1,201 +1,16 @@
 #include "rhi/vulkan/vulkan_graphics_device.hpp"
 
+#include "rhi/vulkan/vulkan_init.hpp"
 #include "rhi/vulkan/vulkan_cast.hpp"
 #include "rhi/vulkan/vulkan_command_list.hpp"
 #include "rhi/vulkan/vulkan_resource.hpp"
 #include "rhi/vulkan/vulkan_result.hpp"
 #include "rhi/vulkan/vulkan_swapchain.hpp"
 
-#ifndef VOLK_IMPLEMENTATION
-#define VOLK_IMPLEMENTATION
-#endif
-#include <volk.h>
-
 namespace rhi::vulkan
 {
 constexpr static auto APPLICATION_ENGINE_NAME = "rhi";
 constexpr static auto VULKAN_RHI_VERSION = VK_MAKE_VERSION(0, 1, 0);
-
-auto select_physical_device(vkb::Instance& instance)
-{
-    vkb::PhysicalDeviceSelector physical_device_selector{ instance };
-    constexpr static VkPhysicalDeviceFeatures REQUIRED_VK10_FEATURES = {
-        .fullDrawIndexUint32 = VK_TRUE,
-        .imageCubeArray = VK_TRUE,
-        .independentBlend = VK_TRUE,
-        .geometryShader = VK_TRUE,
-        .tessellationShader = VK_TRUE,
-        .sampleRateShading = VK_TRUE,
-        .dualSrcBlend = VK_TRUE,
-        .logicOp = VK_TRUE,
-        .multiDrawIndirect = VK_TRUE,
-        .drawIndirectFirstInstance = VK_TRUE,
-        .depthClamp = VK_TRUE,
-        .depthBiasClamp = VK_TRUE,
-        .fillModeNonSolid = VK_TRUE,
-        .depthBounds = VK_TRUE,
-        .wideLines = VK_TRUE,
-        .largePoints = VK_TRUE,
-        .alphaToOne = VK_TRUE,
-        .multiViewport = VK_TRUE,
-        .samplerAnisotropy = VK_TRUE,
-        .textureCompressionBC = VK_TRUE,
-        .pipelineStatisticsQuery = VK_TRUE,
-        .vertexPipelineStoresAndAtomics = VK_TRUE,
-        .shaderImageGatherExtended = VK_TRUE,
-        .shaderStorageImageExtendedFormats = VK_TRUE,
-        .shaderStorageImageMultisample = VK_TRUE,
-        .shaderStorageImageReadWithoutFormat = VK_TRUE,
-        .shaderStorageImageWriteWithoutFormat = VK_TRUE,
-        .shaderUniformBufferArrayDynamicIndexing = VK_TRUE,
-        .shaderSampledImageArrayDynamicIndexing = VK_TRUE,
-        .shaderStorageBufferArrayDynamicIndexing = VK_TRUE,
-        .shaderStorageImageArrayDynamicIndexing = VK_TRUE,
-        .shaderClipDistance = VK_TRUE,
-        .shaderCullDistance = VK_TRUE,
-        .shaderInt64 = VK_TRUE,
-        .shaderInt16 = VK_TRUE,
-        .shaderResourceMinLod = VK_TRUE
-    };
-    constexpr static VkPhysicalDeviceVulkan11Features REQUIRED_VK11_FEATURES = {
-        .sType = VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_VULKAN_1_1_FEATURES,
-        .pNext = nullptr,
-        .storageBuffer16BitAccess = VK_TRUE,
-        .uniformAndStorageBuffer16BitAccess = VK_TRUE,
-        .shaderDrawParameters = VK_TRUE
-    };
-    constexpr static VkPhysicalDeviceVulkan12Features REQUIRED_VK12_FEATURES = {
-        .sType = VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_VULKAN_1_2_FEATURES,
-        .pNext = nullptr,
-        .descriptorIndexing = VK_TRUE,
-        .shaderInputAttachmentArrayDynamicIndexing = VK_TRUE,
-        .shaderUniformTexelBufferArrayDynamicIndexing = VK_TRUE,
-        .shaderStorageTexelBufferArrayDynamicIndexing = VK_TRUE,
-        .shaderUniformBufferArrayNonUniformIndexing = VK_TRUE,
-        .shaderSampledImageArrayNonUniformIndexing = VK_TRUE,
-        .shaderStorageBufferArrayNonUniformIndexing = VK_TRUE,
-        .shaderStorageImageArrayNonUniformIndexing = VK_TRUE,
-        .shaderInputAttachmentArrayNonUniformIndexing = VK_TRUE,
-        .shaderUniformTexelBufferArrayNonUniformIndexing = VK_TRUE,
-        .shaderStorageTexelBufferArrayNonUniformIndexing = VK_TRUE,
-        .descriptorBindingUniformBufferUpdateAfterBind = VK_TRUE,
-        .descriptorBindingSampledImageUpdateAfterBind = VK_TRUE,
-        .descriptorBindingStorageImageUpdateAfterBind = VK_TRUE,
-        .descriptorBindingStorageBufferUpdateAfterBind = VK_TRUE,
-        .descriptorBindingUniformTexelBufferUpdateAfterBind = VK_TRUE,
-        .descriptorBindingStorageTexelBufferUpdateAfterBind = VK_TRUE,
-        .descriptorBindingUpdateUnusedWhilePending = VK_TRUE,
-        .descriptorBindingPartiallyBound = VK_TRUE,
-        .descriptorBindingVariableDescriptorCount = VK_TRUE,
-        .runtimeDescriptorArray = VK_TRUE,
-        .timelineSemaphore = VK_TRUE
-    };
-    constexpr static VkPhysicalDeviceVulkan13Features REQUIRED_VK13_FEATURES = {
-        .sType = VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_VULKAN_1_3_FEATURES,
-        .pNext = nullptr,
-        .descriptorBindingInlineUniformBlockUpdateAfterBind = VK_TRUE,
-        .shaderDemoteToHelperInvocation = VK_TRUE, // Match D3D12 behavior
-        .shaderTerminateInvocation = VK_TRUE,
-        .synchronization2 = VK_TRUE,
-        .dynamicRendering = VK_TRUE,
-        .maintenance4 = VK_TRUE
-    };
-    constexpr static VkPhysicalDeviceVulkan14Features REQUIRED_VK14_FEATURES = {
-        .sType = VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_VULKAN_1_4_FEATURES,
-        .pNext = nullptr,
-        .maintenance5 = VK_TRUE,
-        .maintenance6 = VK_TRUE
-    };
-    constexpr static VkPhysicalDeviceDescriptorHeapFeaturesEXT REQUIRED_DESCRIPTOR_HEAP_FEATURES = {
-        .sType = VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_DESCRIPTOR_HEAP_FEATURES_EXT,
-        .pNext = nullptr,
-        .descriptorHeap = VK_TRUE,
-        .descriptorHeapCaptureReplay = VK_FALSE
-    };
-    constexpr static VkPhysicalDeviceShaderUntypedPointersFeaturesKHR REQUIRED_SHADER_UNTYPED_POINTERS_FEATURES = {
-        .sType = VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_SHADER_UNTYPED_POINTERS_FEATURES_KHR,
-        .pNext = nullptr,
-        .shaderUntypedPointers = VK_TRUE
-    };
-
-    // Ray tracing
-    constexpr static VkPhysicalDeviceAccelerationStructureFeaturesKHR REQUIRED_ACCELERATION_STRUCTURE_FEATURES = {
-        .sType = VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_ACCELERATION_STRUCTURE_FEATURES_KHR,
-        .pNext = nullptr,
-        .accelerationStructure = VK_TRUE,
-        .accelerationStructureCaptureReplay = VK_FALSE,
-        .accelerationStructureIndirectBuild = VK_FALSE,
-        .accelerationStructureHostCommands = VK_FALSE,
-        .descriptorBindingAccelerationStructureUpdateAfterBind = VK_FALSE
-    };
-    constexpr static VkPhysicalDeviceRayTracingPipelineFeaturesKHR REQUIRED_RAY_TRACING_PIPELINE_FEATURES = {
-        .sType = VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_RAY_TRACING_PIPELINE_FEATURES_KHR,
-        .pNext = nullptr,
-        .rayTracingPipeline = VK_TRUE,
-        .rayTracingPipelineShaderGroupHandleCaptureReplay = VK_FALSE,
-        .rayTracingPipelineShaderGroupHandleCaptureReplayMixed = VK_FALSE,
-        .rayTracingPipelineTraceRaysIndirect = VK_TRUE,
-        .rayTraversalPrimitiveCulling = VK_TRUE
-    };
-    constexpr static VkPhysicalDeviceRayQueryFeaturesKHR REQUIRED_RAY_QUERY_FEATURES = {
-        .sType = VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_RAY_QUERY_FEATURES_KHR,
-        .pNext = nullptr,
-        .rayQuery = VK_TRUE
-    };
-    constexpr static VkPhysicalDeviceRayTracingMaintenance1FeaturesKHR REQUIRED_RAY_TRACING_MAINTENANCE1_FEATURES = {
-        .sType = VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_RAY_TRACING_MAINTENANCE_1_FEATURES_KHR,
-        .pNext = nullptr,
-        .rayTracingMaintenance1 = VK_TRUE,
-        .rayTracingPipelineTraceRaysIndirect2 = VK_FALSE
-    };
-
-    // Mesh shading
-    constexpr static VkPhysicalDeviceMeshShaderFeaturesEXT REQUIRED_MESH_SHADER_FEATURES = {
-        .sType = VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_MESH_SHADER_FEATURES_EXT,
-        .pNext = nullptr,
-        .taskShader = VK_TRUE,
-        .meshShader = VK_TRUE,
-        .multiviewMeshShader = VK_FALSE,
-        .primitiveFragmentShadingRateMeshShader = VK_FALSE,
-        .meshShaderQueries = VK_TRUE
-    };
-
-    // Depth Clip
-    constexpr static VkPhysicalDeviceDepthClipEnableFeaturesEXT REQUIRED_DEPTH_CLIP_ENABLE_FEATURES = {
-        .sType = VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_DEPTH_CLIP_ENABLE_FEATURES_EXT,
-        .pNext = nullptr,
-        .depthClipEnable = VK_TRUE
-    };
-
-    physical_device_selector
-        .prefer_gpu_device_type(vkb::PreferredDeviceType::discrete)
-        .require_present()
-        .require_separate_compute_queue()
-        .require_separate_transfer_queue()
-        .set_required_features(REQUIRED_VK10_FEATURES)
-        .set_required_features_11(REQUIRED_VK11_FEATURES)
-        .set_required_features_12(REQUIRED_VK12_FEATURES)
-        .set_required_features_13(REQUIRED_VK13_FEATURES)
-        .set_required_features_14(REQUIRED_VK14_FEATURES)
-        .add_required_extension(VK_EXT_DESCRIPTOR_HEAP_EXTENSION_NAME)
-        .add_required_extension_features(REQUIRED_DESCRIPTOR_HEAP_FEATURES)
-        .add_required_extension(VK_KHR_SHADER_UNTYPED_POINTERS_EXTENSION_NAME)
-        .add_required_extension_features(REQUIRED_SHADER_UNTYPED_POINTERS_FEATURES)
-        .add_required_extension(VK_KHR_ACCELERATION_STRUCTURE_EXTENSION_NAME)
-        .add_required_extension_features(REQUIRED_ACCELERATION_STRUCTURE_FEATURES)
-        .add_required_extension(VK_KHR_RAY_TRACING_PIPELINE_EXTENSION_NAME)
-        .add_required_extension_features(REQUIRED_RAY_TRACING_PIPELINE_FEATURES)
-        .add_required_extension(VK_KHR_RAY_QUERY_EXTENSION_NAME)
-        .add_required_extension_features(REQUIRED_RAY_QUERY_FEATURES)
-        .add_required_extension(VK_KHR_RAY_TRACING_MAINTENANCE_1_EXTENSION_NAME)
-        .add_required_extension_features(REQUIRED_RAY_TRACING_MAINTENANCE1_FEATURES)
-        .add_required_extension(VK_EXT_MESH_SHADER_EXTENSION_NAME)
-        .add_required_extension_features(REQUIRED_MESH_SHADER_FEATURES)
-        .add_required_extension(VK_EXT_DEPTH_CLIP_ENABLE_EXTENSION_NAME)
-        .add_required_extension_features(REQUIRED_DEPTH_CLIP_ENABLE_FEATURES)
-        .defer_surface_initialization();
-    return physical_device_selector.select();
-}
 
 Vulkan_Graphics_Device::Vulkan_Graphics_Device(const Graphics_Device_Create_Info& create_info) noexcept
     : m_use_mutex(create_info.enable_locking)
@@ -215,7 +30,7 @@ Vulkan_Graphics_Device::Vulkan_Graphics_Device(const Graphics_Device_Create_Info
             .buffer_view_delete_function = [this](Vulkan_Buffer_View* buffer_view) {
                 if (buffer_view && buffer_view->buffer_view != VK_NULL_HANDLE)
                 {
-                    vkDestroyBufferView(m_device.device, buffer_view->buffer_view, nullptr);
+                    vkDestroyBufferView(m_device, buffer_view->buffer_view, nullptr);
                     buffer_view->buffer_view = VK_NULL_HANDLE;
                 }
             },
@@ -230,14 +45,14 @@ Vulkan_Graphics_Device::Vulkan_Graphics_Device(const Graphics_Device_Create_Info
             .image_view_delete_function = [this](Vulkan_Image_View* image_view) {
                 if (image_view && image_view->image_view != VK_NULL_HANDLE)
                 {
-                    vkDestroyImageView(m_device.device, image_view->image_view, nullptr);
+                    vkDestroyImageView(m_device, image_view->image_view, nullptr);
                     image_view->image_view = VK_NULL_HANDLE;
                 }
             },
             .acceleration_structure_delete_function = [this](Vulkan_Acceleration_Structure* acceleration_structure) {
                 if (acceleration_structure && acceleration_structure->acceleration_structure != VK_NULL_HANDLE)
                 {
-                    vkDestroyAccelerationStructureKHR(m_device.device, acceleration_structure->acceleration_structure, nullptr);
+                    vkDestroyAccelerationStructureKHR(m_device, acceleration_structure->acceleration_structure, nullptr);
                     acceleration_structure->acceleration_structure = VK_NULL_HANDLE;
                 }
             }
@@ -245,59 +60,37 @@ Vulkan_Graphics_Device::Vulkan_Graphics_Device(const Graphics_Device_Create_Info
 {
     volkInitialize();
 
-    vkb::InstanceBuilder instance_builder;
-    instance_builder
-        .set_app_name(APPLICATION_ENGINE_NAME)
-        .set_app_version(VULKAN_RHI_VERSION)
-        .set_engine_name(APPLICATION_ENGINE_NAME)
-        .set_engine_version(VULKAN_RHI_VERSION)
-        .require_api_version(VK_VERSION_1_4)
-        .request_validation_layers(create_info.enable_validation)
-        .enable_extension(VK_EXT_SWAPCHAIN_COLOR_SPACE_EXTENSION_NAME);
-    if (create_info.enable_gpu_validation)
-    {
-        instance_builder.add_validation_feature_enable(VK_VALIDATION_FEATURE_ENABLE_GPU_ASSISTED_EXT);
-    }
-    auto instance_result = instance_builder.build();
-    if (!instance_result)
-    {
-        assert(false && "Failed to create Vulkan instance.");
-    }
-    m_instance = instance_result.value();
+    m_instance = create_instance(create_info.enable_validation, create_info.enable_gpu_validation);
+    m_physical_device = select_physical_device(m_instance);
+    m_device = create_device(m_physical_device);
 
-    volkLoadInstance(m_instance);
+    auto queue_infos = get_queue_infos(m_physical_device);
+    vkGetDeviceQueue(m_device, queue_infos.graphics_queue_index, 0, &m_graphics_queue.queue);
+    m_graphics_queue.index = queue_infos.graphics_queue_index;
+    vkGetDeviceQueue(m_device, queue_infos.compute_queue_index, 0, &m_compute_queue.queue);
+    m_compute_queue.index = queue_infos.compute_queue_index;
+    vkGetDeviceQueue(m_device, queue_infos.copy_queue_index, 0, &m_copy_queue.queue);
+    m_copy_queue.index = queue_infos.copy_queue_index;
 
-    auto physical_device_result = select_physical_device(m_instance);
-    if (!physical_device_result)
-    {
-        assert(false && "Failed to find suitable Vulkan device.");
-    }
-    m_physical_device = physical_device_result.value();
-
-    vkb::DeviceBuilder device_builder{ m_physical_device };
-    auto device_result = device_builder.build();
-    if (!device_result)
-    {
-        assert(false && "Failed to create Vulkan device.");
-    }
-    m_device = device_result.value();
-
-    volkLoadDevice(m_device);
-
+    VmaVulkanFunctions allocator_vulkan_functions = {};
     VmaAllocatorCreateInfo allocator_create_info = {
-        .flags = VMA_ALLOCATOR_CREATE_KHR_MAINTENANCE4_BIT | VMA_ALLOCATOR_CREATE_KHR_MAINTENANCE5_BIT,
-        .physicalDevice = m_physical_device.physical_device,
-        .device = m_device.device,
-        .instance = m_instance.instance,
-        .vulkanApiVersion = m_instance.api_version,
+        .flags = VMA_ALLOCATOR_CREATE_KHR_MAINTENANCE4_BIT
+            | VMA_ALLOCATOR_CREATE_KHR_MAINTENANCE5_BIT
+            | VMA_ALLOCATOR_CREATE_BUFFER_DEVICE_ADDRESS_BIT,
+        .physicalDevice = m_physical_device,
+        .device = m_device,
+        .pVulkanFunctions = &allocator_vulkan_functions,
+        .instance = m_instance,
+        .vulkanApiVersion = VK_API_VERSION_1_4,
     };
+    vmaImportVulkanFunctionsFromVolk(&allocator_create_info, &allocator_vulkan_functions);
     auto allocator_result = vmaCreateAllocator(&allocator_create_info, &m_allocator);
     if (allocator_result != VK_SUCCESS)
     {
         assert(false && "Failed to create Vulkan memory allocator.");
     }
 
-    auto create_descriptor_heap = [this](bool sampler_heap) -> Descriptor_Heap
+    auto create_descriptor_heap = [&, this](bool sampler_heap) -> Descriptor_Heap
     {
         static const auto sampler_descriptor_size = vkGetPhysicalDeviceDescriptorSizeEXT(
             m_physical_device, VK_DESCRIPTOR_TYPE_SAMPLER);
@@ -345,10 +138,10 @@ Vulkan_Graphics_Device::Vulkan_Graphics_Device(const Graphics_Device_Create_Info
             result.reserved_size = descriptor_heap_properties.minResourceHeapReservedRange;
         }
 
-        const auto queue_families = std::to_array({
-            m_device.get_queue_index(vkb::QueueType::graphics).value(),
-            m_device.get_queue_index(vkb::QueueType::compute).value(),
-            m_device.get_queue_index(vkb::QueueType::transfer).value()
+        const auto queue_families = std::to_array<uint32_t>({
+            m_graphics_queue,
+            m_compute_queue,
+            m_copy_queue
             });
 
         VkBufferCreateInfo buffer_create_info = {
@@ -356,13 +149,13 @@ Vulkan_Graphics_Device::Vulkan_Graphics_Device(const Graphics_Device_Create_Info
             .pNext = nullptr,
             .flags = 0,
             .size = result.heap_range.size + result.reserved_size,
-            .usage = VK_BUFFER_USAGE_DESCRIPTOR_HEAP_BIT_EXT,
+            .usage = VK_BUFFER_USAGE_DESCRIPTOR_HEAP_BIT_EXT | VK_BUFFER_USAGE_SHADER_DEVICE_ADDRESS_BIT,
             .sharingMode = VK_SHARING_MODE_CONCURRENT,
             .queueFamilyIndexCount = static_cast<uint32_t>(queue_families.size()),
             .pQueueFamilyIndices = queue_families.data()
         };
         VmaAllocationCreateInfo allocation_create_info = {
-            .flags = VMA_ALLOCATION_CREATE_MAPPED_BIT,
+            .flags = VMA_ALLOCATION_CREATE_MAPPED_BIT | VMA_ALLOCATION_CREATE_HOST_ACCESS_SEQUENTIAL_WRITE_BIT,
             .usage = VMA_MEMORY_USAGE_AUTO
         };
         VmaAllocationInfo allocation_info = {};
@@ -374,6 +167,7 @@ Vulkan_Graphics_Device::Vulkan_Graphics_Device(const Graphics_Device_Create_Info
             .pNext = nullptr,
             .buffer = result.buffer
         };
+
         result.heap_range.address = vkGetBufferDeviceAddress(m_device, &buffer_device_address_info);
 
         return result;
@@ -384,47 +178,38 @@ Vulkan_Graphics_Device::Vulkan_Graphics_Device(const Graphics_Device_Create_Info
 
 Vulkan_Graphics_Device::~Vulkan_Graphics_Device() noexcept
 {
-    vkDeviceWaitIdle(m_device.device);
+    wait_idle();
     vmaDestroyBuffer(m_allocator, m_resource_descriptor_heap.buffer, m_resource_descriptor_heap.allocation);
     vmaDestroyBuffer(m_allocator, m_sampler_descriptor_heap.buffer, m_sampler_descriptor_heap.allocation);
     vmaDestroyAllocator(m_allocator);
-    vkb::destroy_device(m_device);
-    vkb::destroy_instance(m_instance);
+    vkDestroyDevice(m_device, nullptr);
+    vkDestroyInstance(m_instance, nullptr);
 }
 
 Result Vulkan_Graphics_Device::wait_idle() noexcept
 {
-    return(translate_result(vkDeviceWaitIdle(m_device.device)));
+    return(translate_result(vkDeviceWaitIdle(m_device)));
 }
 
 Result Vulkan_Graphics_Device::queue_wait_idle(Queue_Type queue, [[maybe_unused]] uint64_t timeout) noexcept
 {
-    vkb::Result<VkQueue> queue_result{ VK_NULL_HANDLE };
     switch (queue)
     {
     case rhi::Queue_Type::Graphics:
-        queue_result = m_device.get_dedicated_queue(vkb::QueueType::graphics);
-        break;
+        return(translate_result(vkQueueWaitIdle(m_graphics_queue)));
     case rhi::Queue_Type::Compute:
-        queue_result = m_device.get_dedicated_queue(vkb::QueueType::compute);
-        break;
+        return(translate_result(vkQueueWaitIdle(m_compute_queue)));
     case rhi::Queue_Type::Copy:
-        queue_result = m_device.get_dedicated_queue(vkb::QueueType::transfer);
-        break;
+        return(translate_result(vkQueueWaitIdle(m_compute_queue)));
     case rhi::Queue_Type::Video_Decode:
         assert(false && "Vulkan video decode queue is not implemented");
-        break; // TODO: vkb custom queue
+        return Result::Error_Invalid_Parameters;
     case rhi::Queue_Type::Video_Encode:
         assert(false && "Vulkan video encode queue is not implemented");
-        break; // TODO: vkb custom queue
+        return Result::Error_Invalid_Parameters;
     default:
-        break;
-    }
-    if (!queue_result)
-    {
         return Result::Error_Invalid_Parameters;
     }
-    return(translate_result(vkQueueWaitIdle(queue_result.value())));
 }
 
 Graphics_API Vulkan_Graphics_Device::get_graphics_api() const noexcept
@@ -465,7 +250,7 @@ std::expected<Fence*, Result> Vulkan_Graphics_Device::create_fence(uint64_t init
     };
 
     auto result = translate_result(vkCreateSemaphore(
-        m_device.device,
+        m_device,
         &semaphore_create_info,
         nullptr,
         &vulkan_semaphore));
@@ -488,7 +273,7 @@ void Vulkan_Graphics_Device::destroy_fence(Fence* fence) noexcept
     }
 
     auto* vulkan_fence = static_cast<Vulkan_Fence*>(fence);
-    vkDestroySemaphore(m_device.device, vulkan_fence->semaphore, nullptr);
+    vkDestroySemaphore(m_device, vulkan_fence->semaphore, nullptr);
     m_fences.erase(m_fences.get_iterator(vulkan_fence));
 }
 
@@ -501,10 +286,10 @@ std::expected<Buffer*, Result> Vulkan_Graphics_Device::create_buffer(
         lock_guard.lock();
     }
 
-    const auto queue_families = std::to_array({
-        m_device.get_queue_index(vkb::QueueType::graphics).value(),
-        m_device.get_queue_index(vkb::QueueType::compute).value(),
-        m_device.get_queue_index(vkb::QueueType::transfer).value()
+    const auto queue_families = std::to_array<uint32_t>({
+        m_graphics_queue,
+        m_compute_queue,
+        m_copy_queue
         });
 
     VkBuffer vulkan_buffer = VK_NULL_HANDLE;
@@ -519,6 +304,16 @@ std::expected<Buffer*, Result> Vulkan_Graphics_Device::create_buffer(
         .pUserData = nullptr,
         .priority = 0.f
     };
+
+    if (create_info.heap == Memory_Heap_Type::CPU_Readback)
+    {
+        allocation_create_info.flags |= VMA_ALLOCATION_CREATE_HOST_ACCESS_RANDOM_BIT;
+    }
+    else
+    {
+        allocation_create_info.flags |= VMA_ALLOCATION_CREATE_HOST_ACCESS_SEQUENTIAL_WRITE_BIT;
+    }
+
     VkBufferCreateInfo buffer_create_info = {
         .sType = VK_STRUCTURE_TYPE_BUFFER_CREATE_INFO,
         .pNext = nullptr,
@@ -573,7 +368,7 @@ std::expected<Buffer_View*, Result> Vulkan_Graphics_Device::create_buffer_view(
         .range = create_info.size
     };
     VkBufferView vulkan_buffer_view = VK_NULL_HANDLE;
-    auto buffer_view_result = vkCreateBufferView(m_device.device, &buffer_view_create_info, nullptr, &vulkan_buffer_view);
+    auto buffer_view_result = vkCreateBufferView(m_device, &buffer_view_create_info, nullptr, &vulkan_buffer_view);
 
     if (buffer_view_result != VK_SUCCESS)
     {
@@ -628,7 +423,7 @@ void Vulkan_Graphics_Device::map_buffer(Buffer* buffer, std::size_t offset, std:
         .offset = offset,
         .size = size
     };
-    vkMapMemory2(m_device.device, &map_info, &buffer->data);
+    vkMapMemory2(m_device, &map_info, &buffer->data);
 }
 
 void Vulkan_Graphics_Device::unmap_buffer(Buffer* buffer) noexcept
@@ -643,7 +438,7 @@ void Vulkan_Graphics_Device::unmap_buffer(Buffer* buffer) noexcept
         .flags = 0,
         .memory = allocation_info.deviceMemory
     };
-    vkUnmapMemory2(m_device.device, &unmap_info);
+    vkUnmapMemory2(m_device, &unmap_info);
 }
 
 // TODO: put this function elsewhere
@@ -767,7 +562,7 @@ std::expected<Image_View*, Result> Vulkan_Graphics_Device::create_image_view(
         .pNext = nullptr,
         .flags = 0,
         .image = static_cast<Vulkan_Image*>(image_view->image)->image,
-        .viewType = vulkan_cast<VkImageViewType>(image_view->descriptor_type),
+        .viewType = vulkan_cast<VkImageViewType>(create_info.view_type),
         .format = vulkan_cast<VkFormat>(image_view->image->format),
         .components = vulkan_cast<VkComponentMapping>(create_info.component_mapping),
         .subresourceRange = {
@@ -1001,6 +796,55 @@ std::expected<Pipeline*, Result> Vulkan_Graphics_Device::create_pipeline(const G
     std::vector<VkPipelineShaderStageCreateInfo> shader_stage_create_infos;
     shader_stage_create_infos.reserve(5);
 
+    auto mappings = std::to_array<VkDescriptorSetAndBindingMappingEXT>({
+        {
+            .sType = VK_STRUCTURE_TYPE_DESCRIPTOR_SET_AND_BINDING_MAPPING_EXT,
+            .pNext = nullptr,
+            .descriptorSet = 0,
+            .firstBinding = 0,
+            .bindingCount = 1,
+            .resourceMask = VK_SPIRV_RESOURCE_TYPE_SAMPLED_IMAGE_BIT_EXT
+                | VK_SPIRV_RESOURCE_TYPE_READ_ONLY_IMAGE_BIT_EXT
+                | VK_SPIRV_RESOURCE_TYPE_READ_WRITE_IMAGE_BIT_EXT
+                | VK_SPIRV_RESOURCE_TYPE_READ_ONLY_STORAGE_BUFFER_BIT_EXT
+                | VK_SPIRV_RESOURCE_TYPE_READ_WRITE_STORAGE_BUFFER_BIT_EXT
+                | VK_SPIRV_RESOURCE_TYPE_ACCELERATION_STRUCTURE_BIT_EXT,
+            .source = VK_DESCRIPTOR_MAPPING_SOURCE_HEAP_WITH_CONSTANT_OFFSET_EXT,
+            .sourceData = {
+                .constantOffset = {
+                    .heapOffset = 0,
+                    .heapArrayStride = static_cast<uint32_t>(m_resource_descriptor_heap.descriptor_size),
+                    .pEmbeddedSampler = nullptr,
+                    .samplerHeapOffset = 0,
+                    .samplerHeapArrayStride = 0
+                }
+            }
+        },
+        {
+            .sType = VK_STRUCTURE_TYPE_DESCRIPTOR_SET_AND_BINDING_MAPPING_EXT,
+            .pNext = nullptr,
+            .descriptorSet = 0,
+            .firstBinding = 1,
+            .bindingCount = 1,
+            .resourceMask = VK_SPIRV_RESOURCE_TYPE_SAMPLER_BIT_EXT,
+            .source = VK_DESCRIPTOR_MAPPING_SOURCE_HEAP_WITH_CONSTANT_OFFSET_EXT,
+            .sourceData = {
+                .constantOffset = {
+                    .heapOffset = 0,
+                    .heapArrayStride = 0,
+                    .pEmbeddedSampler = nullptr,
+                    .samplerHeapOffset = 0,
+                    .samplerHeapArrayStride = static_cast<uint32_t>(m_sampler_descriptor_heap.descriptor_size)
+                }
+            }
+        }});
+    VkShaderDescriptorSetAndBindingMappingInfoEXT descriptor_set_and_binding_mapping_info = {
+        .sType = VK_STRUCTURE_TYPE_SHADER_DESCRIPTOR_SET_AND_BINDING_MAPPING_INFO_EXT,
+        .pNext = nullptr,
+        .mappingCount = static_cast<uint32_t>(mappings.size()),
+        .pMappings = mappings.data()
+    };
+
     auto create_stage = [&](Shader_Blob* blob, VkShaderStageFlagBits vulkan_stage) {
         if (!blob)
             return;
@@ -1008,7 +852,7 @@ std::expected<Pipeline*, Result> Vulkan_Graphics_Device::create_pipeline(const G
         auto& module = shader_module_create_infos.emplace_back();
         module = {
             .sType = VK_STRUCTURE_TYPE_SHADER_MODULE_CREATE_INFO,
-            .pNext = nullptr,
+            .pNext = &descriptor_set_and_binding_mapping_info,
             .flags = 0,
             .codeSize = static_cast<uint32_t>(blob->data.size()),
             .pCode = reinterpret_cast<uint32_t*>(blob->data.data())
@@ -1053,13 +897,15 @@ std::expected<Pipeline*, Result> Vulkan_Graphics_Device::create_pipeline(const G
         .flags = 0,
         .patchControlPoints = 0
     };
+    VkViewport dummy_viewport = {};
+    VkRect2D dummy_scissor = {};
     VkPipelineViewportStateCreateInfo viewport_state_create_info = {
         .sType = VK_STRUCTURE_TYPE_PIPELINE_VIEWPORT_STATE_CREATE_INFO,
         .pNext = nullptr,
-        .viewportCount = 0,
-        .pViewports = nullptr,
-        .scissorCount = 0,
-        .pScissors = nullptr
+        .viewportCount = 1,
+        .pViewports = &dummy_viewport,
+        .scissorCount = 1,
+        .pScissors = &dummy_scissor
     };
     VkPipelineRasterizationDepthClipStateCreateInfoEXT depth_clip_state_create_info = {
         .sType = VK_STRUCTURE_TYPE_PIPELINE_RASTERIZATION_DEPTH_CLIP_STATE_CREATE_INFO_EXT,
@@ -1181,9 +1027,29 @@ std::expected<Pipeline*, Result> Vulkan_Graphics_Device::create_pipeline(const G
         .pDynamicStates = dynamic_states.data()
     };
 
+    std::vector<VkFormat> color_attachment_formats;
+    color_attachment_formats.reserve(create_info.color_attachment_count);
+    for (auto i = 0; i < create_info.color_attachment_count; ++i)
+    {
+        color_attachment_formats.push_back(vulkan_cast<VkFormat>(create_info.color_attachment_formats[i]));
+    }
+    VkPipelineRenderingCreateInfo pipeline_rendering_create_info = {
+        .sType = VK_STRUCTURE_TYPE_PIPELINE_RENDERING_CREATE_INFO,
+        .pNext = nullptr,
+        .viewMask = 0,
+        .colorAttachmentCount = create_info.color_attachment_count,
+        .pColorAttachmentFormats = color_attachment_formats.data(),
+        .depthAttachmentFormat = vulkan_cast<VkFormat>(create_info.depth_stencil_format),
+        .stencilAttachmentFormat = VK_FORMAT_UNDEFINED // TODO: stencil format
+    };
+    VkPipelineCreateFlags2CreateInfoKHR pipeline_flags_create_info = {
+        .sType = VK_STRUCTURE_TYPE_PIPELINE_CREATE_FLAGS_2_CREATE_INFO,
+        .pNext = &pipeline_rendering_create_info,
+        .flags = VK_PIPELINE_CREATE_2_DESCRIPTOR_HEAP_BIT_EXT
+    };
     VkGraphicsPipelineCreateInfo pipeline_create_info = {
         .sType = VK_STRUCTURE_TYPE_GRAPHICS_PIPELINE_CREATE_INFO,
-        .pNext = nullptr,
+        .pNext = &pipeline_flags_create_info,
         .flags = 0,
         .stageCount = static_cast<uint32_t>(shader_stage_create_infos.size()),
         .pStages = shader_stage_create_infos.data(),
@@ -1219,16 +1085,69 @@ std::expected<Pipeline*, Result> Vulkan_Graphics_Device::create_pipeline(const C
     pipeline->type = Pipeline_Type::Compute;
     pipeline->compute_shading_info = create_info;
 
+    VkPipelineCreateFlags2CreateInfoKHR pipeline_flags_create_info = {
+        .sType = VK_STRUCTURE_TYPE_PIPELINE_CREATE_FLAGS_2_CREATE_INFO,
+        .pNext = nullptr,
+        .flags = VK_PIPELINE_CREATE_2_DESCRIPTOR_HEAP_BIT_EXT
+    };
+    auto mappings = std::to_array<VkDescriptorSetAndBindingMappingEXT>({
+        {
+            .sType = VK_STRUCTURE_TYPE_DESCRIPTOR_SET_AND_BINDING_MAPPING_EXT,
+            .pNext = nullptr,
+            .descriptorSet = 0,
+            .firstBinding = 0,
+            .bindingCount = 1,
+            .resourceMask = VK_SPIRV_RESOURCE_TYPE_SAMPLED_IMAGE_BIT_EXT
+                | VK_SPIRV_RESOURCE_TYPE_READ_ONLY_IMAGE_BIT_EXT
+                | VK_SPIRV_RESOURCE_TYPE_READ_WRITE_IMAGE_BIT_EXT
+                | VK_SPIRV_RESOURCE_TYPE_READ_ONLY_STORAGE_BUFFER_BIT_EXT
+                | VK_SPIRV_RESOURCE_TYPE_READ_WRITE_STORAGE_BUFFER_BIT_EXT
+                | VK_SPIRV_RESOURCE_TYPE_ACCELERATION_STRUCTURE_BIT_EXT,
+            .source = VK_DESCRIPTOR_MAPPING_SOURCE_HEAP_WITH_CONSTANT_OFFSET_EXT,
+            .sourceData = {
+                .constantOffset = {
+                    .heapOffset = 0,
+                    .heapArrayStride = static_cast<uint32_t>(m_resource_descriptor_heap.descriptor_size),
+                    .pEmbeddedSampler = nullptr,
+                    .samplerHeapOffset = 0,
+                    .samplerHeapArrayStride = 0
+                }
+            }
+        },
+        {
+            .sType = VK_STRUCTURE_TYPE_DESCRIPTOR_SET_AND_BINDING_MAPPING_EXT,
+            .pNext = nullptr,
+            .descriptorSet = 0,
+            .firstBinding = 1,
+            .bindingCount = 1,
+            .resourceMask = VK_SPIRV_RESOURCE_TYPE_SAMPLER_BIT_EXT,
+            .source = VK_DESCRIPTOR_MAPPING_SOURCE_HEAP_WITH_CONSTANT_OFFSET_EXT,
+            .sourceData = {
+                .constantOffset = {
+                    .heapOffset = 0,
+                    .heapArrayStride = 0,
+                    .pEmbeddedSampler = nullptr,
+                    .samplerHeapOffset = 0,
+                    .samplerHeapArrayStride = static_cast<uint32_t>(m_sampler_descriptor_heap.descriptor_size)
+                }
+            }
+        } });
+    VkShaderDescriptorSetAndBindingMappingInfoEXT descriptor_set_and_binding_mapping_info = {
+        .sType = VK_STRUCTURE_TYPE_SHADER_DESCRIPTOR_SET_AND_BINDING_MAPPING_INFO_EXT,
+        .pNext = nullptr,
+        .mappingCount = static_cast<uint32_t>(mappings.size()),
+        .pMappings = mappings.data()
+    };
     VkShaderModuleCreateInfo stage_create_info = {
         .sType = VK_STRUCTURE_TYPE_SHADER_MODULE_CREATE_INFO,
-        .pNext = nullptr,
+        .pNext = &descriptor_set_and_binding_mapping_info,
         .flags = 0,
         .codeSize = static_cast<uint32_t>(create_info.cs->data.size()),
         .pCode = reinterpret_cast<uint32_t*>(create_info.cs->data.data())
     };
     VkComputePipelineCreateInfo pipeline_create_info = {
         .sType = VK_STRUCTURE_TYPE_COMPUTE_PIPELINE_CREATE_INFO,
-        .pNext = nullptr,
+        .pNext = &pipeline_flags_create_info,
         .flags = 0,
         .stage = {
             .sType = VK_STRUCTURE_TYPE_PIPELINE_SHADER_STAGE_CREATE_INFO,
@@ -1271,6 +1190,152 @@ void Vulkan_Graphics_Device::destroy_pipeline(Pipeline* pipeline) noexcept
     m_pipelines.erase(m_pipelines.get_iterator(vulkan_pipeline));
 }
 
+Acceleration_Structure_Build_Sizes Vulkan_Graphics_Device::get_acceleration_structure_build_sizes(
+    const Acceleration_Structure_Build_Geometry_Info& build_info) noexcept
+{
+    std::vector<VkAccelerationStructureBuildRangeInfoKHR> build_ranges;
+    std::vector<VkAccelerationStructureGeometryKHR> geometries;
+
+    if (build_info.type == Acceleration_Structure_Type::Bottom_Level)
+    {
+        geometries.reserve(build_info.geometry_or_instance_count);
+        build_ranges.reserve(build_info.geometry_or_instance_count);
+
+        for (auto i = 0; i < build_info.geometry_or_instance_count; ++i)
+        {
+            auto& geometry = build_info.geometry[i];
+            auto& vulkan_geometry = geometries.emplace_back();
+            auto& build_range = build_ranges.emplace_back();
+
+            vulkan_geometry = {
+                .sType = VK_STRUCTURE_TYPE_ACCELERATION_STRUCTURE_GEOMETRY_KHR,
+                .pNext = nullptr,
+                .flags = std::bit_cast<VkGeometryFlagsKHR>(geometry.flags)
+            };
+
+            if (geometry.type == Acceleration_Structure_Geometry_Type::Triangles)
+            {
+                const auto& triangles = geometry.geometry.triangles;
+
+                vulkan_geometry.geometryType = VK_GEOMETRY_TYPE_TRIANGLES_KHR;
+                vulkan_geometry.geometry = {
+                    .triangles = {
+                        .sType = VK_STRUCTURE_TYPE_ACCELERATION_STRUCTURE_GEOMETRY_TRIANGLES_DATA_KHR,
+                        .pNext = nullptr,
+                        .vertexFormat = vulkan_cast<VkFormat>(triangles.vertex_format),
+                        .vertexData = triangles.vertex_gpu_address,
+                        .vertexStride = triangles.vertex_stride,
+                        .maxVertex = triangles.vertex_count - 1, // TODO: spec mentions amount of vertices in vertexData - 1
+                        .indexType = triangles.index_type == Index_Type::U16 ? VK_INDEX_TYPE_UINT16 : VK_INDEX_TYPE_UINT32,
+                        .indexData = triangles.index_gpu_address,
+                        .transformData = triangles.transform_gpu_address
+                    }
+                };
+                build_range = {
+                    .primitiveCount = triangles.vertex_count / 3,
+                    .primitiveOffset = 0,
+                    .firstVertex = 0,
+                    .transformOffset = 0
+                };
+            }
+            else
+            {
+                const auto& aabbs = geometry.geometry.aabbs;
+
+                vulkan_geometry.geometryType = VK_GEOMETRY_TYPE_AABBS_KHR;
+                vulkan_geometry.geometry = {
+                    .aabbs = {
+                        .sType = VK_STRUCTURE_TYPE_ACCELERATION_STRUCTURE_GEOMETRY_AABBS_DATA_KHR,
+                        .pNext = nullptr,
+                        .data = aabbs.aabb_gpu_address,
+                        .stride = aabbs.aabb_stride
+                    }
+                };
+                build_range = {
+                    .primitiveCount = static_cast<uint32_t>(aabbs.aabb_count),
+                    .primitiveOffset = 0,
+                    .firstVertex = 0,
+                    .transformOffset = 0
+                };
+            }
+        }
+    }
+    else // TLAS
+    {
+        auto& vulkan_geometry = geometries.emplace_back();
+        auto& build_range = build_ranges.emplace_back();
+
+        vulkan_geometry = {
+            .sType = VK_STRUCTURE_TYPE_ACCELERATION_STRUCTURE_GEOMETRY_KHR,
+            .pNext = nullptr,
+            .geometryType = VK_GEOMETRY_TYPE_INSTANCES_KHR,
+            .geometry = {
+                .instances = {
+                    .sType = VK_STRUCTURE_TYPE_ACCELERATION_STRUCTURE_GEOMETRY_INSTANCES_DATA_KHR,
+                    .pNext = nullptr,
+                    .arrayOfPointers = build_info.instances.array_of_pointers,
+                    .data = build_info.instances.instance_gpu_address
+                }
+            },
+            .flags = 0
+        };
+
+        build_range = {
+            .primitiveCount = build_info.geometry_or_instance_count,
+            .primitiveOffset = 0,
+            .firstVertex = 0,
+            .transformOffset = 0
+        };
+    }
+
+    VkBuildAccelerationStructureFlagsKHR flags = 0;
+    if (static_cast<uint32_t>(build_info.flags & Acceleration_Structure_Flags::Allow_Update) > 0u)
+        flags |= VK_BUILD_ACCELERATION_STRUCTURE_ALLOW_UPDATE_BIT_KHR;
+    if (static_cast<uint32_t>(build_info.flags & Acceleration_Structure_Flags::Allow_Compaction) > 0u)
+        flags |= VK_BUILD_ACCELERATION_STRUCTURE_ALLOW_COMPACTION_BIT_KHR;
+    if (static_cast<uint32_t>(build_info.flags & Acceleration_Structure_Flags::Fast_Trace) > 0u)
+        flags |= VK_BUILD_ACCELERATION_STRUCTURE_PREFER_FAST_TRACE_BIT_KHR;
+    if (static_cast<uint32_t>(build_info.flags & Acceleration_Structure_Flags::Fast_Build) > 0u)
+        flags |= VK_BUILD_ACCELERATION_STRUCTURE_PREFER_FAST_BUILD_BIT_KHR;
+
+    VkAccelerationStructureBuildGeometryInfoKHR build_geometry_info = {
+        .sType = VK_STRUCTURE_TYPE_ACCELERATION_STRUCTURE_BUILD_GEOMETRY_INFO_KHR,
+        .pNext = nullptr,
+        .type = vulkan_cast<VkAccelerationStructureTypeKHR>(build_info.type),
+        .flags = flags,
+        .mode = build_info.src != nullptr
+            ? VK_BUILD_ACCELERATION_STRUCTURE_MODE_UPDATE_KHR
+            : VK_BUILD_ACCELERATION_STRUCTURE_MODE_BUILD_KHR,
+        .srcAccelerationStructure = build_info.src != nullptr
+            ? static_cast<Vulkan_Acceleration_Structure*>(build_info.src)->acceleration_structure
+            : VK_NULL_HANDLE,
+        .dstAccelerationStructure = build_info.dst != nullptr
+            ? static_cast<Vulkan_Acceleration_Structure*>(build_info.dst)->acceleration_structure
+            : VK_NULL_HANDLE,
+        .geometryCount = build_info.type == Acceleration_Structure_Type::Bottom_Level
+            ? build_info.geometry_or_instance_count
+            : 1,
+        .pGeometries = geometries.data(),
+        .ppGeometries = nullptr,
+        .scratchData = 0ull
+    };
+
+    VkAccelerationStructureBuildSizesInfoKHR build_sizes_info = {
+        .sType = VK_STRUCTURE_TYPE_ACCELERATION_STRUCTURE_BUILD_SIZES_INFO_KHR,
+        .pNext = nullptr,
+    };
+
+    vkGetAccelerationStructureBuildSizesKHR(m_device, VK_ACCELERATION_STRUCTURE_BUILD_TYPE_DEVICE_KHR,
+        &build_geometry_info, nullptr, &build_sizes_info);
+
+    Acceleration_Structure_Build_Sizes result = {
+        .acceleration_structure_size = build_sizes_info.accelerationStructureSize,
+        .acceleration_structure_scratch_build_size = build_sizes_info.buildScratchSize,
+        .acceleration_structure_scratch_update_size = build_sizes_info.updateScratchSize
+    };
+    return result;
+}
+
 Result Vulkan_Graphics_Device::submit(const Submit_Info& submit_info) noexcept
 {
     std::mutex* queue_mutex = nullptr;
@@ -1278,15 +1343,15 @@ Result Vulkan_Graphics_Device::submit(const Submit_Info& submit_info) noexcept
     switch (submit_info.queue_type)
     {
     case Queue_Type::Graphics:
-        queue = m_device.get_queue(vkb::QueueType::graphics).value();
+        queue = m_graphics_queue;
         queue_mutex = &m_direct_queue_mutex;
         break;
     case Queue_Type::Compute:
-        queue = m_device.get_queue(vkb::QueueType::compute).value();
+        queue = m_compute_queue;
         queue_mutex = &m_compute_queue_mutex;
         break;
     case Queue_Type::Copy:
-        queue = m_device.get_queue(vkb::QueueType::transfer).value();
+        queue = m_copy_queue;
         queue_mutex = &m_copy_queue_mutex;
         break;
     case Queue_Type::Video_Decode:
@@ -1387,7 +1452,7 @@ void Vulkan_Graphics_Device::name_resource(Buffer* buffer, const char* name) noe
         .objectHandle = std::bit_cast<uint64_t>(static_cast<Vulkan_Buffer*>(buffer)->buffer),
         .pObjectName = name
     };
-    vkSetDebugUtilsObjectNameEXT(m_device.device, &name_info);
+    vkSetDebugUtilsObjectNameEXT(m_device, &name_info);
 }
 
 void Vulkan_Graphics_Device::name_resource(Image* image, const char* name) noexcept
@@ -1399,7 +1464,45 @@ void Vulkan_Graphics_Device::name_resource(Image* image, const char* name) noexc
         .objectHandle = std::bit_cast<uint64_t>(static_cast<Vulkan_Image*>(image)->image),
         .pObjectName = name
     };
-    vkSetDebugUtilsObjectNameEXT(m_device.device, &name_info);
+    vkSetDebugUtilsObjectNameEXT(m_device, &name_info);
+}
+
+uint32_t Vulkan_Graphics_Device::get_queue_family_index(VkQueueFlagBits queue_type) const noexcept
+{
+    switch (queue_type)
+    {
+    case VK_QUEUE_GRAPHICS_BIT:
+        return m_graphics_queue.index;
+    case VK_QUEUE_COMPUTE_BIT:
+        return m_compute_queue.index;
+    case VK_QUEUE_TRANSFER_BIT:
+        return m_copy_queue.index;
+    case VK_QUEUE_VIDEO_DECODE_BIT_KHR:
+        std::unreachable();
+    case VK_QUEUE_VIDEO_ENCODE_BIT_KHR:
+        std::unreachable();
+    default:
+        std::unreachable();
+    }
+}
+
+const VkQueue Vulkan_Graphics_Device::get_queue(Queue_Type queue_type) const noexcept
+{
+    switch (queue_type)
+    {
+    case Queue_Type::Graphics:
+        return m_graphics_queue.queue;
+    case Queue_Type::Compute:
+        return m_compute_queue.queue;
+    case Queue_Type::Copy:
+        return m_copy_queue.queue;
+    case Queue_Type::Video_Decode:
+        std::unreachable();
+    case Queue_Type::Video_Encode:
+        std::unreachable();
+    default:
+        std::unreachable();
+    }
 }
 
 void Vulkan_Graphics_Device::create_acceleration_structure_descriptor(Vulkan_Acceleration_Structure* acceleration_structure)
@@ -1504,7 +1607,7 @@ void Vulkan_Graphics_Device::create_image_view_descriptors(
         .pNext = nullptr,
         .flags = 0,
         .image = static_cast<Vulkan_Image*>(image_view->image)->image,
-        .viewType = vulkan_cast<VkImageViewType>(image_view->descriptor_type),
+        .viewType = vulkan_cast<VkImageViewType>(create_info.view_type),
         .format = vulkan_cast<VkFormat>(image_view->image->format),
         .components = vulkan_cast<VkComponentMapping>(create_info.component_mapping),
         .subresourceRange = {

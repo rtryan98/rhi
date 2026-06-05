@@ -17,7 +17,7 @@ rhi_deploy_files(
     .
 )
 rhi_download_and_extract_zip(
-    https://github.com/microsoft/DirectXShaderCompiler/releases/download/v1.8.2505.1/dxc_2025_07_14.zip
+    https://github.com/microsoft/DirectXShaderCompiler/releases/download/v1.9.2602/dxc_2026_02_20.zip
     ${CMAKE_CURRENT_LIST_DIR}/thirdparty
     directx_shader_compiler
 )
@@ -94,13 +94,16 @@ if(${RHI_BUILD_VULKAN})
     target_compile_definitions(
         rhi PUBLIC
         RHI_GRAPHICS_API_VULKAN
+        VMA_STATIC_VULKAN_FUNCTIONS=0
+        VMA_DYNAMIC_VULKAN_FUNCTIONS=0
+        VK_NO_PROTOTYPES
+        VK_USE_PLATFORM_WIN32_KHR
     )
     find_package(Vulkan REQUIRED)
     target_link_libraries(
         rhi PUBLIC
-        Vulkan::Vulkan
-        vk-bootstrap::vk-bootstrap
         GPUOpen::VulkanMemoryAllocator
+        volk
     )
     target_include_directories(
         rhi PUBLIC

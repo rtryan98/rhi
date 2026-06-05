@@ -1,14 +1,10 @@
 #pragma once
 
-#ifndef VK_NO_PROTOTYPES
-#define VK_NO_PROTOTYPES
-#endif
-#include <VkBootstrap.h>
-
 #include "rhi/graphics_device.hpp"
 #include "rhi/common/resource_pool.hpp"
 #include "rhi/vulkan/vulkan_resource.hpp"
 
+#include <volk.h>
 #include <mutex>
 #include <plf_colony.h>
 #include <vk_mem_alloc.h>
@@ -103,24 +99,24 @@ public:
         const Mesh_Shading_Pipeline_Create_Info& create_info) noexcept override;
     virtual void destroy_pipeline(Pipeline* pipeline) noexcept override;
 
+    virtual [[nodiscard]] Acceleration_Structure_Build_Sizes get_acceleration_structure_build_sizes(
+        const Acceleration_Structure_Build_Geometry_Info& build_info) noexcept override;
+
     virtual Result submit(const Submit_Info& submit_info) noexcept override;
 
     virtual void name_resource(Buffer* buffer, const char* name) noexcept override;
     virtual void name_resource(Image* image, const char* name) noexcept override;
 
-    [[nodiscard]] VkInstance get_instance() const noexcept { return m_instance.instance; }
-    [[nodiscard]] VkPhysicalDevice get_physical_device() const noexcept { return m_physical_device.physical_device; }
-    [[nodiscard]] const vkb::Device& get_device() const noexcept { return m_device; }
-    [[nodiscard]] VkQueue get_graphics_queue() const noexcept { return m_device.get_queue(vkb::QueueType::graphics).value(); }
-    [[nodiscard]] uint32_t get_graphics_queue_family() const noexcept { return m_device.get_queue_index(vkb::QueueType::graphics).value(); }
-
-    [[nodiscard]] uint32_t get_queue_family_index( vkb::QueueType queue_type ) const noexcept
-    {
-        return m_device.get_queue_index(queue_type).value();
-    }
+    [[nodiscard]] uint32_t get_queue_family_index(VkQueueFlagBits queue_type) const noexcept;
 
     [[nodiscard]] const Descriptor_Heap& get_resource_descriptor_heap() const noexcept { return m_resource_descriptor_heap; }
     [[nodiscard]] const Descriptor_Heap& get_sampler_descriptor_heap() const noexcept { return m_sampler_descriptor_heap; }
+
+    [[nodiscard]] operator VkInstance() const noexcept { return m_instance; }
+    [[nodiscard]] operator VkPhysicalDevice() const noexcept { return m_physical_device; }
+    [[nodiscard]] operator VkDevice() const noexcept { return m_device; }
+
+    [[nodiscard]] const VkQueue get_queue(Queue_Type queue_type) const noexcept;
 
 private:
     void create_acceleration_structure_descriptor(Vulkan_Acceleration_Structure* acceleration_structure);
@@ -131,9 +127,22 @@ private:
     VkHostAddressRangeEXT descriptor_index_to_address(uint32_t index, uint32_t offset, bool is_sampler);
 
 private:
-    vkb::Instance m_instance;
-    vkb::PhysicalDevice m_physical_device;
-    vkb::Device m_device;
+    VkInstance m_instance;
+    VkPhysicalDevice m_physical_device;
+    VkDevice m_device;
+
+    struct Queue
+    {
+        VkQueue queue;
+        uint32_t index;
+
+        operator VkQueue() const { return queue; }
+        operator uint32_t() const { return index; }
+    };
+    Queue m_graphics_queue;
+    Queue m_compute_queue;
+    Queue m_copy_queue;
+
     VmaAllocator m_allocator = VK_NULL_HANDLE;
 
     bool m_use_mutex;

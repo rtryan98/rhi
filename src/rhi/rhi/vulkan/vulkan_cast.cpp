@@ -1,5 +1,6 @@
 #include "rhi/vulkan/vulkan_cast.hpp"
 
+#include "rhi/queue_type.hpp"
 #include "rhi/vulkan/vulkan_format.hpp"
 #include "rhi/resource.hpp"
 
@@ -8,6 +9,26 @@
 
 namespace rhi::vulkan
 {
+template<>
+VkQueueFlagBits vulkan_cast<VkQueueFlagBits, Queue_Type>(const Queue_Type queue_type)
+{
+    switch (queue_type)
+    {
+    case Queue_Type::Graphics:
+        return VK_QUEUE_GRAPHICS_BIT;
+    case Queue_Type::Compute:
+        return VK_QUEUE_COMPUTE_BIT;
+    case Queue_Type::Copy:
+        return VK_QUEUE_TRANSFER_BIT;
+    case Queue_Type::Video_Decode:
+        return VK_QUEUE_VIDEO_DECODE_BIT_KHR;
+    case Queue_Type::Video_Encode:
+        return VK_QUEUE_VIDEO_ENCODE_BIT_KHR;
+    default:
+        std::unreachable();
+    }
+}
+
 template<>
 VkFormat vulkan_cast<VkFormat, Image_Format>(const Image_Format image_format)
 {

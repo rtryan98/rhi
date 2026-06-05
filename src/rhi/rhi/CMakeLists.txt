@@ -6,6 +6,7 @@ target_sources(
     graphics_device.hpp
     image_format.cpp
     image_format.hpp
+    queue_type.hpp
     resource.cpp
     resource.hpp
     result.hpp

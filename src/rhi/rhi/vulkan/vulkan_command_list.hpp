@@ -5,10 +5,8 @@
 #include <array>
 #include <memory>
 
-#ifndef VK_NO_PROTOTYPES
-#define VK_NO_PROTOTYPES
-#endif
-#include <volk.h>
+// #include <volk.h>
+#include <vulkan/vulkan.h>
 
 namespace rhi::vulkan
 {

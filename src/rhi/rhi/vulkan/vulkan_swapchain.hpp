@@ -2,10 +2,7 @@
 
 #include "rhi/swapchain.hpp"
 
-#ifndef VK_NO_PROTOTYPES
-#define VK_NO_PROTOTYPES
-#endif
-#include <VkBootstrap.h>
+#include <volk.h>
 
 namespace rhi::vulkan
 {
@@ -45,8 +42,11 @@ private:
 private:
     Vulkan_Graphics_Device* m_device;
     VkSurfaceKHR m_surface;
-    vkb::Swapchain m_swapchain;
-    void* m_hwnd;
+    VkSwapchainKHR m_swapchain;
+    HWND m_hwnd;
+    uint32_t m_image_count;
+    VkExtent2D m_extent;
+    VkFormat m_format;
     std::array<Vulkan_Image*, MAX_SWAPCHAIN_IMAGES> m_images;
     std::vector<VkImageView> m_image_views;
     uint32_t m_current_image_index;

@@ -9,7 +9,7 @@ namespace rhi::d3d12
 D3D12_Swapchain::D3D12_Swapchain(D3D12_Graphics_Device* graphics_device, const Swapchain_Win32_Create_Info& create_info) noexcept
     : Swapchain()
     , m_device(graphics_device)
-    , m_hwnd(reinterpret_cast<HWND>(create_info.hwnd))
+    , m_hwnd(create_info.hwnd)
     , m_dxgi_swapchain_buffers()
     , m_images()
     , m_dxgi_swapchain(nullptr)
@@ -31,7 +31,7 @@ D3D12_Swapchain::D3D12_Swapchain(D3D12_Graphics_Device* graphics_device, const S
     auto context = graphics_device->get_context();
     context->factory->CreateSwapChainForHwnd(
         context->direct_queue,
-        reinterpret_cast<HWND>(create_info.hwnd),
+        create_info.hwnd,
         &desc,
         nullptr,
         nullptr,

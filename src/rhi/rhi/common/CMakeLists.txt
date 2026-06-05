@@ -4,4 +4,5 @@ target_sources(
     index_free_list.cpp
     index_free_list.hpp
     resource_pool.hpp
+    win32_forward.hpp
 )

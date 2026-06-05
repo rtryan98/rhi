@@ -3,8 +3,6 @@
 
 #ifdef __spirv__
 #define DECLARE_PUSH_CONSTANTS(TYPE, VARIABLE) [[vk::push_constant]] TYPE VARIABLE
-// TODO: (HIGH PRIORITY) don't forget lack of mutable descriptors for AS in Vulkan.
-[[vk::binding(0,1)]] RaytracingAccelerationStructure internal_spirv_acceleration_structure_descriptors[128];
 #else
 #define DECLARE_PUSH_CONSTANTS(TYPE, VARIABLE) ConstantBuffer< TYPE > VARIABLE : register(b0, space0)
 #endif
@@ -13,23 +11,15 @@ namespace rhi
 {
 uint id_uav(uint id)
 {
-#ifdef __spirv__
-    return id;
-#else
     return id + 1;
-#endif
 }
 
 // RAY TRACING METHODS (always uniform)
 
 RaytracingAccelerationStructure get_rtas(uint id)
 {
-#ifdef __spirv__
-    return internal_spirv_acceleration_structure_descriptors[id];
-#else
     RaytracingAccelerationStructure as = ResourceDescriptorHeap[id];
     return as;
-#endif
 }
 
 // BUFFER LOAD METHODS

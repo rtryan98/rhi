@@ -1,5 +1,6 @@
 #pragma once
 
+#include "rhi/common/win32_forward.hpp"
 #include "rhi/resource.hpp"
 
 namespace rhi
@@ -14,7 +15,7 @@ enum class Present_Mode
 
 struct Swapchain_Win32_Create_Info
 {
-    void* hwnd; // unsafe!
+    HWND hwnd;
     Image_Format preferred_format;
     uint32_t image_count;
     Present_Mode present_mode;

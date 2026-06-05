@@ -250,17 +250,6 @@ void Vulkan_Command_List::barrier(const Barrier_Info& barrier_info) noexcept
     image_memory_barriers.reserve(barrier_info.image_barriers.size());
     for (const auto& image_memory_barrier : barrier_info.image_barriers)
     {
-        auto translate_queue = [](Queue_Type queue_type)
-            {
-                switch (queue_type)
-                {
-                case Queue_Type::Graphics: return vkb::QueueType::graphics;
-                case Queue_Type::Compute: return vkb::QueueType::compute;
-                case Queue_Type::Copy: return vkb::QueueType::transfer;
-                default: std::unreachable();
-                }
-            };
-
         auto queue_type_before = m_queue_type;
         auto queue_type_after = m_queue_type;
 
@@ -285,8 +274,8 @@ void Vulkan_Command_List::barrier(const Barrier_Info& barrier_info) noexcept
             .dstAccessMask = translate_barrier_access_flags(image_memory_barrier.access_after),
             .oldLayout = translate_barrier_Image_layout(image_memory_barrier.layout_before),
             .newLayout = translate_barrier_Image_layout(image_memory_barrier.layout_after),
-            .srcQueueFamilyIndex = m_device->get_queue_family_index(translate_queue(queue_type_before)),
-            .dstQueueFamilyIndex = m_device->get_queue_family_index(translate_queue(queue_type_after)),
+            .srcQueueFamilyIndex = m_device->get_queue_family_index(vulkan_cast<VkQueueFlagBits>(queue_type_before)),
+            .dstQueueFamilyIndex = m_device->get_queue_family_index(vulkan_cast<VkQueueFlagBits>(queue_type_after)),
             .image = static_cast<Vulkan_Image*>(image_memory_barrier.image)->image,
             .subresourceRange = {
                 .aspectMask = get_aspect_mask(image_memory_barrier.image),
@@ -893,11 +882,11 @@ Vulkan_Command_Pool::~Vulkan_Command_Pool() noexcept
     reset();
     for (auto cmd_alloc : m_unused)
     {
-        vkDestroyCommandPool(m_device->get_device(), cmd_alloc.pool, nullptr);
+        vkDestroyCommandPool(*m_device, cmd_alloc.pool, nullptr);
     }
     for (auto cmd_alloc : m_used)
     {
-        vkDestroyCommandPool(m_device->get_device(), cmd_alloc.pool, nullptr);
+        vkDestroyCommandPool(*m_device, cmd_alloc.pool, nullptr);
     }
     m_command_lists.clear();
 }
@@ -914,12 +903,14 @@ Command_List* Vulkan_Command_Pool::acquire_command_list() noexcept
     auto cmd_alloc = Vulkan_Command_List_Allocator{};
     if (m_unused.empty())
     {
-        auto queue_type = vkb::QueueType::graphics;
+        auto queue_type = VK_QUEUE_GRAPHICS_BIT;
         switch (m_queue_type)
         {
-        case Queue_Type::Graphics: queue_type = vkb::QueueType::graphics; break;
-        case Queue_Type::Compute: queue_type = vkb::QueueType::compute; break;
-        case Queue_Type::Copy: queue_type = vkb::QueueType::transfer; break;
+        case Queue_Type::Graphics: queue_type = VK_QUEUE_GRAPHICS_BIT; break;
+        case Queue_Type::Compute: queue_type = VK_QUEUE_COMPUTE_BIT; break;
+        case Queue_Type::Copy: queue_type = VK_QUEUE_TRANSFER_BIT; break;
+        case Queue_Type::Video_Decode: queue_type = VK_QUEUE_VIDEO_DECODE_BIT_KHR; break;
+        case Queue_Type::Video_Encode: queue_type = VK_QUEUE_VIDEO_ENCODE_BIT_KHR; break;
         default: std::unreachable();
         }
 
@@ -929,7 +920,7 @@ Command_List* Vulkan_Command_Pool::acquire_command_list() noexcept
             .flags = VK_COMMAND_POOL_CREATE_TRANSIENT_BIT,
             .queueFamilyIndex = m_device->get_queue_family_index(queue_type)
         };
-        vkCreateCommandPool(m_device->get_device(), &command_pool_create_info, nullptr, &cmd_alloc.pool);
+        vkCreateCommandPool(*m_device, &command_pool_create_info, nullptr, &cmd_alloc.pool);
 
         VkCommandBufferAllocateInfo command_buffer_allocate_info = {
             .sType = VK_STRUCTURE_TYPE_COMMAND_BUFFER_ALLOCATE_INFO,
@@ -938,7 +929,7 @@ Command_List* Vulkan_Command_Pool::acquire_command_list() noexcept
             .level = VK_COMMAND_BUFFER_LEVEL_PRIMARY,
             .commandBufferCount = 1
         };
-        vkAllocateCommandBuffers(m_device->get_device(), &command_buffer_allocate_info, &cmd_alloc.cmd);
+        vkAllocateCommandBuffers(*m_device, &command_buffer_allocate_info, &cmd_alloc.cmd);
     }
     else
     {
@@ -947,7 +938,7 @@ Command_List* Vulkan_Command_Pool::acquire_command_list() noexcept
     }
     m_used.push_back(cmd_alloc);
 
-    vkResetCommandPool(m_device->get_device(), cmd_alloc.pool, 0);
+    vkResetCommandPool(*m_device, cmd_alloc.pool, 0);
 
     VkCommandBufferBeginInfo command_buffer_begin_info = {
         .sType = VK_STRUCTURE_TYPE_COMMAND_BUFFER_BEGIN_INFO,

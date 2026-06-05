@@ -4,7 +4,7 @@
     #include "rhi/d3d12/d3d12_graphics_device.hpp"
 #endif
 #if defined(RHI_GRAPHICS_API_VULKAN)
-    // TODO: implement
+    #include "rhi/vulkan/vulkan_graphics_device.hpp"
 #endif
 
 namespace rhi
@@ -19,7 +19,7 @@ std::unique_ptr<Graphics_Device> Graphics_Device::create(const Graphics_Device_C
 #endif
 #ifdef RHI_GRAPHICS_API_VULKAN
     case Graphics_API::Vulkan:
-        [[fallthrough]]; // TODO: implement
+        return std::make_unique<vulkan::Vulkan_Graphics_Device>(create_info);
 #endif
     default:
         return nullptr;

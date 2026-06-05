@@ -6,4 +6,3 @@ endif()
 
 add_subdirectory(volk)
 add_subdirectory(VulkanMemoryAllocator)
-add_subdirectory(vk-bootstrap)

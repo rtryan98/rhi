@@ -1,9 +1,5 @@
 #pragma once
 
-#ifndef VK_NO_PROTOTYPES
-#define VK_NO_PROTOTYPES
-#endif
-
 #include "rhi/image_format.hpp"
 #include <vulkan/vulkan.h>
 
