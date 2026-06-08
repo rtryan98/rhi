@@ -192,7 +192,7 @@ inline VkFlags get_aspect_mask(Image* image)
     auto image_format_info = get_image_format_info(image->format);
     VkFlags aspect_mask = VK_IMAGE_ASPECT_NONE;
 
-    if (!(image_format_info.is_depth && image_format_info.is_stencil))
+    if (!(image_format_info.is_depth || image_format_info.is_stencil))
     {
         aspect_mask = VK_IMAGE_ASPECT_COLOR_BIT;
     }
@@ -218,7 +218,7 @@ void Vulkan_Command_List::barrier(const Barrier_Info& barrier_info) noexcept
     for (const auto& memory_barrier : barrier_info.memory_barriers)
     {
         memory_barriers.push_back({
-            .sType = VK_STRUCTURE_TYPE_MEMORY_BARRIER,
+            .sType = VK_STRUCTURE_TYPE_MEMORY_BARRIER_2,
             .pNext = nullptr,
             .srcStageMask = translate_barrier_pipeline_stage_flags(memory_barrier.stage_before),
             .srcAccessMask = translate_barrier_access_flags(memory_barrier.access_before),
@@ -232,7 +232,7 @@ void Vulkan_Command_List::barrier(const Barrier_Info& barrier_info) noexcept
     for (const auto& buffer_memory_barrier : barrier_info.buffer_barriers)
     {
         buffer_memory_barriers.push_back({
-            .sType = VK_STRUCTURE_TYPE_MEMORY_BARRIER,
+            .sType = VK_STRUCTURE_TYPE_BUFFER_MEMORY_BARRIER_2,
             .pNext = nullptr,
             .srcStageMask = translate_barrier_pipeline_stage_flags(buffer_memory_barrier.stage_before),
             .srcAccessMask = translate_barrier_access_flags(buffer_memory_barrier.access_before),
@@ -266,7 +266,7 @@ void Vulkan_Command_List::barrier(const Barrier_Info& barrier_info) noexcept
         }
 
         image_memory_barriers.push_back({
-            .sType = VK_STRUCTURE_TYPE_MEMORY_BARRIER,
+            .sType = VK_STRUCTURE_TYPE_IMAGE_MEMORY_BARRIER_2,
             .pNext = nullptr,
             .srcStageMask = translate_barrier_pipeline_stage_flags(image_memory_barrier.stage_before),
             .srcAccessMask = translate_barrier_access_flags(image_memory_barrier.access_before),
@@ -280,9 +280,13 @@ void Vulkan_Command_List::barrier(const Barrier_Info& barrier_info) noexcept
             .subresourceRange = {
                 .aspectMask = get_aspect_mask(image_memory_barrier.image),
                 .baseMipLevel = image_memory_barrier.subresource_range.first_mip_level,
-                .levelCount = image_memory_barrier.subresource_range.mip_count,
+                .levelCount = image_memory_barrier.subresource_range.mip_count > 0
+                    ? image_memory_barrier.subresource_range.mip_count
+                    : VK_REMAINING_MIP_LEVELS,
                 .baseArrayLayer = image_memory_barrier.subresource_range.first_array_index,
-                .layerCount = image_memory_barrier.subresource_range.array_size
+                .layerCount = image_memory_barrier.subresource_range.array_size > 0
+                    ? image_memory_barrier.subresource_range.array_size
+                    : VK_REMAINING_ARRAY_LAYERS
             }
             });
     }
@@ -622,15 +626,22 @@ void Vulkan_Command_List::begin_render_pass(const Render_Pass_Begin_Info& begin_
         attachments.push_back({
             .sType = VK_STRUCTURE_TYPE_RENDERING_ATTACHMENT_INFO,
             .pNext = nullptr,
-            .imageView = VK_NULL_HANDLE,
-            .imageLayout = VK_IMAGE_LAYOUT_UNDEFINED,
+            .imageView = static_cast<Vulkan_Image_View*>(attachment.attachment)->image_view,
+            .imageLayout = VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL,
             .resolveMode = VK_RESOLVE_MODE_NONE,
             .resolveImageView = VK_NULL_HANDLE,
             .resolveImageLayout = VK_IMAGE_LAYOUT_UNDEFINED,
-            .loadOp = VK_ATTACHMENT_LOAD_OP_LOAD,
-            .storeOp = VK_ATTACHMENT_STORE_OP_STORE,
+            .loadOp = vulkan_cast<VkAttachmentLoadOp>(attachment.load_op),
+            .storeOp = vulkan_cast<VkAttachmentStoreOp>(attachment.store_op),
             .clearValue = {
-
+                .color = {
+                    .float32 = { 
+                        attachment.clear_value.color.r,
+                        attachment.clear_value.color.g,
+                        attachment.clear_value.color.b,
+                        attachment.clear_value.color.a
+                    }
+                }
             }
         });
 
@@ -640,29 +651,59 @@ void Vulkan_Command_List::begin_render_pass(const Render_Pass_Begin_Info& begin_
     VkRenderingAttachmentInfo depth_attachment = {
         .sType = VK_STRUCTURE_TYPE_RENDERING_ATTACHMENT_INFO,
         .pNext = nullptr,
-        .imageView = VK_NULL_HANDLE,
-        .imageLayout = VK_IMAGE_LAYOUT_UNDEFINED,
+        .imageView = begin_info.depth_stencil_attachment.attachment != nullptr
+            ? static_cast<Vulkan_Image_View*>(begin_info.depth_stencil_attachment.attachment)->image_view
+            : VK_NULL_HANDLE,
+        .imageLayout = VK_IMAGE_LAYOUT_DEPTH_STENCIL_ATTACHMENT_OPTIMAL,
         .resolveMode = VK_RESOLVE_MODE_NONE,
         .resolveImageView = VK_NULL_HANDLE,
         .resolveImageLayout = VK_IMAGE_LAYOUT_UNDEFINED,
-        .loadOp = VK_ATTACHMENT_LOAD_OP_LOAD,
-        .storeOp = VK_ATTACHMENT_STORE_OP_STORE,
+        .loadOp = vulkan_cast<VkAttachmentLoadOp>(begin_info.depth_stencil_attachment.depth_load_op),
+        .storeOp = vulkan_cast<VkAttachmentStoreOp>(begin_info.depth_stencil_attachment.depth_store_op),
         .clearValue = {
-
+            .depthStencil = {
+                .depth = begin_info.depth_stencil_attachment.clear_value.depth_stencil.depth,
+                .stencil = begin_info.depth_stencil_attachment.clear_value.depth_stencil.stencil
+            }
         }
     };
+
+    VkRect2D render_area = {};
+    if (begin_info.color_attachments.size())
+    {
+        render_area = {
+            .offset = {},
+            .extent = {
+                begin_info.color_attachments[0].attachment->image->width,
+                begin_info.color_attachments[0].attachment->image->height
+            }
+        };
+    }
+    else if (begin_info.depth_stencil_attachment.attachment != nullptr)
+    {
+        render_area = {
+            .offset = {},
+            .extent = {
+                begin_info.depth_stencil_attachment.attachment->image->width,
+                begin_info.depth_stencil_attachment.attachment->image->height
+            }
+        };
+    }
+
+    auto depth_stencil_format_info = get_image_format_info(begin_info.depth_stencil_attachment.attachment
+        ? begin_info.depth_stencil_attachment.attachment->image->format
+        : Image_Format::Undefined);
     VkRenderingInfo rendering_info = {
         .sType = VK_STRUCTURE_TYPE_RENDERING_INFO,
         .pNext = nullptr,
         .flags = 0,
-        .renderArea = {
-        },
+        .renderArea = render_area,
         .layerCount = 1,
         .viewMask = 0,
         .colorAttachmentCount = static_cast<uint32_t>(attachments.size()),
         .pColorAttachments = attachments.data(),
-        .pDepthAttachment = begin_info.depth_stencil_attachment.attachment != nullptr ? &depth_attachment : nullptr,
-        .pStencilAttachment = begin_info.depth_stencil_attachment.attachment != nullptr ? &depth_attachment : nullptr
+        .pDepthAttachment = depth_stencil_format_info.is_depth ? &depth_attachment : nullptr,
+        .pStencilAttachment = depth_stencil_format_info.is_stencil ? &depth_attachment : nullptr
     };
     vkCmdBeginRendering(m_cmd, &rendering_info);
 }
@@ -675,7 +716,19 @@ void Vulkan_Command_List::end_render_pass() noexcept
 
 void Vulkan_Command_List::set_pipeline(Pipeline* pipeline) noexcept
 {
-    vkCmdBindPipeline(m_cmd, VK_PIPELINE_BIND_POINT_GRAPHICS, static_cast<Vulkan_Pipeline*>(pipeline)->pipeline);
+    auto bind_point = VK_PIPELINE_BIND_POINT_GRAPHICS;
+    switch (pipeline->type)
+    {
+    case Pipeline_Type::Compute:
+        bind_point = VK_PIPELINE_BIND_POINT_COMPUTE;
+        break;
+    case Pipeline_Type::Ray_Tracing:
+        bind_point = VK_PIPELINE_BIND_POINT_RAY_TRACING_KHR;
+        break;
+    default:
+        break;
+    }
+    vkCmdBindPipeline(m_cmd, bind_point, static_cast<Vulkan_Pipeline*>(pipeline)->pipeline);
 }
 
 void Vulkan_Command_List::set_depth_bounds(float min, float max) noexcept
@@ -697,7 +750,7 @@ void Vulkan_Command_List::set_index_buffer(Buffer* buffer, Index_Type index_type
 
 void Vulkan_Command_List::set_push_constants(const void* data, uint32_t size, Pipeline_Bind_Point bind_point) noexcept
 {
-    vkCmdPushConstants(m_cmd, VK_NULL_HANDLE, VK_SHADER_STAGE_ALL, 0, size, data);
+    vkCmdPushConstants(m_cmd, m_device->get_pipeline_layout(), VK_SHADER_STAGE_ALL, 0, size, data);
 }
 
 void Vulkan_Command_List::set_scissor(int32_t x, int32_t y, uint32_t width, uint32_t height) noexcept
@@ -770,7 +823,7 @@ void Vulkan_Command_List::build_acceleration_structure(
                     }
                 };
                 build_range = {
-                    .primitiveCount = triangles.vertex_count / 3,
+                    .primitiveCount = triangles.index_count / 3,
                     .primitiveOffset = 0,
                     .firstVertex = 0,
                     .transformOffset = 0
@@ -950,25 +1003,10 @@ Command_List* Vulkan_Command_Pool::acquire_command_list() noexcept
 
     if (m_queue_type == Queue_Type::Graphics || m_queue_type == Queue_Type::Compute)
     {
-        const auto& resource_descriptor_heap = m_device->get_resource_descriptor_heap();
-        VkBindHeapInfoEXT bind_resource_heap_info = {
-            .sType = VK_STRUCTURE_TYPE_BIND_HEAP_INFO_EXT,
-            .pNext = nullptr,
-            .heapRange = resource_descriptor_heap.heap_range,
-            .reservedRangeOffset = resource_descriptor_heap.reserved_offset,
-            .reservedRangeSize = resource_descriptor_heap.reserved_size
-        };
-        vkCmdBindResourceHeapEXT(cmd_alloc.cmd, &bind_resource_heap_info);
-
-        const auto& sampler_descriptor_heap = m_device->get_sampler_descriptor_heap();
-        VkBindHeapInfoEXT bind_sampler_heap_info = {
-            .sType = VK_STRUCTURE_TYPE_BIND_HEAP_INFO_EXT,
-            .pNext = nullptr,
-            .heapRange = sampler_descriptor_heap.heap_range,
-            .reservedRangeOffset = sampler_descriptor_heap.reserved_offset,
-            .reservedRangeSize = sampler_descriptor_heap.reserved_size
-        };
-        vkCmdBindSamplerHeapEXT(cmd_alloc.cmd, &bind_sampler_heap_info);
+        VkPipelineLayout pipeline_layout = m_device->get_pipeline_layout();
+        VkDescriptorSet descriptor_set = m_device->get_descriptor_set();
+        vkCmdBindDescriptorSets(cmd_alloc.cmd, VK_PIPELINE_BIND_POINT_GRAPHICS, pipeline_layout, 0, 1, &descriptor_set, 0, nullptr);
+        vkCmdBindDescriptorSets(cmd_alloc.cmd, VK_PIPELINE_BIND_POINT_COMPUTE, pipeline_layout, 0, 1, &descriptor_set, 0, nullptr);
     }
     return m_command_lists.emplace_back(std::make_unique<Vulkan_Command_List>(cmd_alloc.cmd, m_device)).get();
 }

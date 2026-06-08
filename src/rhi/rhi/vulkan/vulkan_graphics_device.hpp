@@ -28,19 +28,6 @@ using Vulkan_Resource_Pool = Resource_Pool<
     Vulkan_Sampler,
     Vulkan_Acceleration_Structure>;
 
-// Descriptor heap management
-struct Descriptor_Heap
-{
-    VkBuffer buffer;
-    VmaAllocation allocation;
-    void* data;
-    VkDeviceSize descriptor_size;
-    VkDeviceSize stride;
-    VkDeviceAddressRangeEXT heap_range;
-    VkDeviceSize reserved_offset;
-    VkDeviceSize reserved_size;
-};
-
 class Vulkan_Graphics_Device final : public Graphics_Device
 {
 public:
@@ -109,14 +96,14 @@ public:
 
     [[nodiscard]] uint32_t get_queue_family_index(VkQueueFlagBits queue_type) const noexcept;
 
-    [[nodiscard]] const Descriptor_Heap& get_resource_descriptor_heap() const noexcept { return m_resource_descriptor_heap; }
-    [[nodiscard]] const Descriptor_Heap& get_sampler_descriptor_heap() const noexcept { return m_sampler_descriptor_heap; }
-
     [[nodiscard]] operator VkInstance() const noexcept { return m_instance; }
     [[nodiscard]] operator VkPhysicalDevice() const noexcept { return m_physical_device; }
     [[nodiscard]] operator VkDevice() const noexcept { return m_device; }
 
     [[nodiscard]] const VkQueue get_queue(Queue_Type queue_type) const noexcept;
+
+    [[nodiscard]] const VkDescriptorSet get_descriptor_set() const noexcept { return m_descriptor_set; }
+    [[nodiscard]] const VkPipelineLayout get_pipeline_layout() const noexcept { return m_pipeline_layout; }
 
 private:
     void create_acceleration_structure_descriptor(Vulkan_Acceleration_Structure* acceleration_structure);
@@ -124,7 +111,6 @@ private:
     void create_image_descriptors(Vulkan_Image* image, bool create_storage_image_descriptor);
     void create_image_view_descriptors(
         Vulkan_Image_View* image_view, const Image_View_Create_Info& create_info, bool create_storage_image_descriptor);
-    VkHostAddressRangeEXT descriptor_index_to_address(uint32_t index, uint32_t offset, bool is_sampler);
 
 private:
     VkInstance m_instance;
@@ -145,6 +131,11 @@ private:
 
     VmaAllocator m_allocator = VK_NULL_HANDLE;
 
+    VkDescriptorSetLayout m_descriptor_set_layout;
+    VkDescriptorPool m_descriptor_pool;
+    VkDescriptorSet m_descriptor_set;
+    VkPipelineLayout m_pipeline_layout;
+
     bool m_use_mutex;
     std::mutex m_resource_mutex;
     std::mutex m_direct_queue_mutex;
@@ -156,8 +147,5 @@ private:
     plf::colony<Vulkan_Fence> m_fences;
     plf::colony<Shader_Blob> m_shader_blobs;
     plf::colony<Vulkan_Pipeline> m_pipelines;
-
-    Descriptor_Heap m_resource_descriptor_heap;
-    Descriptor_Heap m_sampler_descriptor_heap;
 };
 }

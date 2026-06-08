@@ -23,14 +23,15 @@ constexpr std::vector<const wchar_t*> get_spirv_args()
     result.push_back(L"-fspv-target-env=vulkan1.3");
     result.push_back(L"-fvk-use-dx-position-w");
     result.push_back(L"-fvk-use-dx-layout");
-    result.push_back(L"-fspv-use-legacy-buffer-matrix-order");
-    // result.push_back(L"-fvk-bind-resource-heap");
-    // result.push_back(L"0"); // binding 0
-    // result.push_back(L"0"); // set 0
-    // result.push_back(L"-fvk-bind-sampler-heap");
-    // result.push_back(L"0"); // binding 0
-    // result.push_back(L"1"); // set 1
+    result.push_back(L"-fvk-bind-resource-heap");
+    result.push_back(L"0"); // binding 0
+    result.push_back(L"0"); // set 0
+    result.push_back(L"-fvk-bind-sampler-heap");
+    result.push_back(L"2"); // binding 2
+    result.push_back(L"0"); // set 0
     result.push_back(L"-fspv-extension=SPV_EXT_descriptor_indexing");
+    result.push_back(L"-fvk-support-nonzero-base-instance");
+    result.push_back(L"-fvk-support-nonzero-base-vertex");
     // result.push_back(L"-fspv-extension=SPV_EXT_descriptor_heap");
     // result.push_back(L"-fspv-use-descriptor-heap");
     // result.push_back(L"-fspv-extension=SPV_KHR_untyped_pointers");

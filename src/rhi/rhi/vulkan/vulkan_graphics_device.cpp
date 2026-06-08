@@ -49,6 +49,13 @@ Vulkan_Graphics_Device::Vulkan_Graphics_Device(const Graphics_Device_Create_Info
                     image_view->image_view = VK_NULL_HANDLE;
                 }
             },
+            .sampler_delete_function = [this](Vulkan_Sampler* sampler) {
+                if (sampler && sampler->sampler != VK_NULL_HANDLE)
+                {
+                    vkDestroySampler(m_device, sampler->sampler, nullptr);
+                    sampler->sampler = VK_NULL_HANDLE;
+                }
+            },
             .acceleration_structure_delete_function = [this](Vulkan_Acceleration_Structure* acceleration_structure) {
                 if (acceleration_structure && acceleration_structure->acceleration_structure != VK_NULL_HANDLE)
                 {
@@ -90,97 +97,15 @@ Vulkan_Graphics_Device::Vulkan_Graphics_Device(const Graphics_Device_Create_Info
         assert(false && "Failed to create Vulkan memory allocator.");
     }
 
-    auto create_descriptor_heap = [&, this](bool sampler_heap) -> Descriptor_Heap
-    {
-        static const auto sampler_descriptor_size = vkGetPhysicalDeviceDescriptorSizeEXT(
-            m_physical_device, VK_DESCRIPTOR_TYPE_SAMPLER);
-        static const auto resource_descriptor_size = std::max({
-            vkGetPhysicalDeviceDescriptorSizeEXT(
-                m_physical_device, VK_DESCRIPTOR_TYPE_SAMPLED_IMAGE),
-            vkGetPhysicalDeviceDescriptorSizeEXT(
-                m_physical_device, VK_DESCRIPTOR_TYPE_STORAGE_IMAGE),
-            vkGetPhysicalDeviceDescriptorSizeEXT(
-                m_physical_device, VK_DESCRIPTOR_TYPE_STORAGE_BUFFER),
-            vkGetPhysicalDeviceDescriptorSizeEXT(
-                m_physical_device, VK_DESCRIPTOR_TYPE_ACCELERATION_STRUCTURE_KHR)
-            });
-
-        Descriptor_Heap result = {
-            .descriptor_size = sampler_heap
-                ? sampler_descriptor_size
-                : resource_descriptor_size,
-            .stride = sampler_heap ? 1ull : 2ull, // Two descriptor slots per resource
-            .heap_range = {
-                .size = sampler_heap
-                    ? result.descriptor_size * MAX_SAMPLER_INDEX * result.stride
-                    : result.descriptor_size * MAX_RESOURCE_INDEX * result.stride
-            }
-        };
-
-        VkPhysicalDeviceDescriptorHeapPropertiesEXT descriptor_heap_properties = {
-            .sType = VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_DESCRIPTOR_HEAP_PROPERTIES_EXT,
-            .pNext = nullptr
-        };
-        VkPhysicalDeviceProperties2 physical_device_properties2 = {
-            .sType = VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_PROPERTIES_2,
-            .pNext = &descriptor_heap_properties
-        };
-        vkGetPhysicalDeviceProperties2(m_physical_device, &physical_device_properties2);
-
-        result.reserved_offset = result.descriptor_size;
-
-        if (sampler_heap)
-        {
-            result.reserved_size = descriptor_heap_properties.minSamplerHeapReservedRange;
-        }
-        else
-        {
-            result.reserved_size = descriptor_heap_properties.minResourceHeapReservedRange;
-        }
-
-        const auto queue_families = std::to_array<uint32_t>({
-            m_graphics_queue,
-            m_compute_queue,
-            m_copy_queue
-            });
-
-        VkBufferCreateInfo buffer_create_info = {
-            .sType = VK_STRUCTURE_TYPE_BUFFER_CREATE_INFO,
-            .pNext = nullptr,
-            .flags = 0,
-            .size = result.heap_range.size + result.reserved_size,
-            .usage = VK_BUFFER_USAGE_DESCRIPTOR_HEAP_BIT_EXT | VK_BUFFER_USAGE_SHADER_DEVICE_ADDRESS_BIT,
-            .sharingMode = VK_SHARING_MODE_CONCURRENT,
-            .queueFamilyIndexCount = static_cast<uint32_t>(queue_families.size()),
-            .pQueueFamilyIndices = queue_families.data()
-        };
-        VmaAllocationCreateInfo allocation_create_info = {
-            .flags = VMA_ALLOCATION_CREATE_MAPPED_BIT | VMA_ALLOCATION_CREATE_HOST_ACCESS_SEQUENTIAL_WRITE_BIT,
-            .usage = VMA_MEMORY_USAGE_AUTO
-        };
-        VmaAllocationInfo allocation_info = {};
-        vmaCreateBuffer(m_allocator, &buffer_create_info, &allocation_create_info, &result.buffer, &result.allocation, &allocation_info);
-        result.data = allocation_info.pMappedData;
-
-        VkBufferDeviceAddressInfo buffer_device_address_info = {
-            .sType = VK_STRUCTURE_TYPE_BUFFER_DEVICE_ADDRESS_INFO,
-            .pNext = nullptr,
-            .buffer = result.buffer
-        };
-
-        result.heap_range.address = vkGetBufferDeviceAddress(m_device, &buffer_device_address_info);
-
-        return result;
-    };
-    m_resource_descriptor_heap = create_descriptor_heap(false);
-    m_sampler_descriptor_heap = create_descriptor_heap(true);
+    m_descriptor_set_layout = create_descriptor_set_layout(m_device);
+    m_descriptor_pool = create_descriptor_pool(m_device);
+    m_descriptor_set = create_descriptor_set(m_device, m_descriptor_set_layout, m_descriptor_pool);
+    m_pipeline_layout = create_pipeline_layout(m_device, m_descriptor_set_layout, PUSH_CONSTANT_MAX_SIZE);
 }
 
 Vulkan_Graphics_Device::~Vulkan_Graphics_Device() noexcept
 {
     wait_idle();
-    vmaDestroyBuffer(m_allocator, m_resource_descriptor_heap.buffer, m_resource_descriptor_heap.allocation);
-    vmaDestroyBuffer(m_allocator, m_sampler_descriptor_heap.buffer, m_sampler_descriptor_heap.allocation);
     vmaDestroyAllocator(m_allocator);
     vkDestroyDevice(m_device, nullptr);
     vkDestroyInstance(m_instance, nullptr);
@@ -261,6 +186,7 @@ std::expected<Fence*, Result> Vulkan_Graphics_Device::create_fence(uint64_t init
 
     Vulkan_Fence* fence = &*m_fences.emplace();
     fence->semaphore = vulkan_semaphore;
+    fence->device = m_device;
     return fence;
 }
 
@@ -319,9 +245,13 @@ std::expected<Buffer*, Result> Vulkan_Graphics_Device::create_buffer(
         .pNext = nullptr,
         .flags = 0,
         .size = create_info.size,
-        .usage = create_info.acceleration_structure_memory
-            ? VK_BUFFER_USAGE_ACCELERATION_STRUCTURE_STORAGE_BIT_KHR
-            : static_cast<VkBufferUsageFlags>(VK_BUFFER_USAGE_STORAGE_BUFFER_BIT | VK_BUFFER_USAGE_INDEX_BUFFER_BIT),
+        .usage = VK_BUFFER_USAGE_SHADER_DEVICE_ADDRESS_BIT
+            | (create_info.acceleration_structure_memory
+                ? VK_BUFFER_USAGE_ACCELERATION_STRUCTURE_STORAGE_BIT_KHR
+                : static_cast<VkBufferUsageFlags>(VK_BUFFER_USAGE_INDEX_BUFFER_BIT))
+            | VK_BUFFER_USAGE_TRANSFER_SRC_BIT
+            | VK_BUFFER_USAGE_TRANSFER_DST_BIT
+            | VK_BUFFER_USAGE_STORAGE_BUFFER_BIT,
         .sharingMode = VK_SHARING_MODE_EXCLUSIVE,
         .queueFamilyIndexCount = static_cast<uint32_t>(queue_families.size()),
         .pQueueFamilyIndices = queue_families.data()
@@ -338,6 +268,15 @@ std::expected<Buffer*, Result> Vulkan_Graphics_Device::create_buffer(
     buffer->buffer = vulkan_buffer;
     buffer->allocation = allocation;
     buffer->data = allocation_info.pMappedData;
+
+    VkBufferDeviceAddressInfo buffer_device_address_info = {
+        .sType = VK_STRUCTURE_TYPE_BUFFER_DEVICE_ADDRESS_INFO,
+        .pNext = nullptr,
+        .buffer = buffer->buffer
+    };
+    buffer->gpu_address = vkGetBufferDeviceAddress(m_device, &buffer_device_address_info);
+
+    create_buffer_descriptors(buffer, !create_info.acceleration_structure_memory);
 
     return buffer;
 }
@@ -383,6 +322,14 @@ std::expected<Buffer_View*, Result> Vulkan_Graphics_Device::create_buffer_view(
 
 void Vulkan_Graphics_Device::destroy_buffer(Buffer* buffer) noexcept
 {
+    if (!buffer) return;
+
+    std::unique_lock<std::mutex> lock_guard(m_resource_mutex, std::defer_lock);
+    if (m_use_mutex)
+    {
+        lock_guard.lock();
+    }
+
     m_resource_pool.release_buffer(buffer);
 }
 
@@ -403,6 +350,7 @@ Result Vulkan_Fence::wait_for_value(uint64_t value) noexcept
         .sType = VK_STRUCTURE_TYPE_SEMAPHORE_WAIT_INFO,
         .pNext = nullptr,
         .flags = 0,
+        .semaphoreCount = 1,
         .pSemaphores = &semaphore,
         .pValues = &value
     };
@@ -411,6 +359,8 @@ Result Vulkan_Fence::wait_for_value(uint64_t value) noexcept
 
 void Vulkan_Graphics_Device::map_buffer(Buffer* buffer, std::size_t offset, std::size_t size) noexcept
 {
+    return; // persistently mapped
+
     auto* vulkan_buffer = static_cast<Vulkan_Buffer*>(buffer);
 
     VmaAllocationInfo allocation_info = {};
@@ -428,6 +378,8 @@ void Vulkan_Graphics_Device::map_buffer(Buffer* buffer, std::size_t offset, std:
 
 void Vulkan_Graphics_Device::unmap_buffer(Buffer* buffer) noexcept
 {
+    return; // persistently mapped
+
     auto* vulkan_buffer = static_cast<Vulkan_Buffer*>(buffer);
 
     VmaAllocationInfo allocation_info = {};
@@ -447,7 +399,7 @@ inline VkFlags get_aspect_mask(Image* image)
     auto image_format_info = get_image_format_info(image->format);
     VkFlags aspect_mask = VK_IMAGE_ASPECT_NONE;
 
-    if (!(image_format_info.is_depth && image_format_info.is_stencil))
+    if (!(image_format_info.is_depth || image_format_info.is_stencil))
     {
         aspect_mask = VK_IMAGE_ASPECT_COLOR_BIT;
     }
@@ -474,10 +426,17 @@ std::expected<Image*, Result> Vulkan_Graphics_Device::create_image(const Image_C
         lock_guard.lock();
     }
 
+    VkImageCreateFlags image_create_flags = 0;
+    if (create_info.primary_view_type == Image_View_Type::Texture_3D)
+        image_create_flags |= VK_IMAGE_CREATE_2D_ARRAY_COMPATIBLE_BIT;
+    if (create_info.primary_view_type == Image_View_Type::Texture_Cube
+        || create_info.primary_view_type == Image_View_Type::Texture_Cube_Array)
+        image_create_flags |= VK_IMAGE_CREATE_CUBE_COMPATIBLE_BIT;
+
     VkImageCreateInfo image_create_info = {
         .sType = VK_STRUCTURE_TYPE_IMAGE_CREATE_INFO,
         .pNext = nullptr,
-        .flags = 0,
+        .flags = image_create_flags,
         .imageType = vulkan_cast<VkImageType>(create_info.primary_view_type),
         .format = vulkan_cast<VkFormat>(create_info.format),
         .extent = {
@@ -489,7 +448,9 @@ std::expected<Image*, Result> Vulkan_Graphics_Device::create_image(const Image_C
         .arrayLayers = create_info.array_size,
         .samples = VK_SAMPLE_COUNT_1_BIT,
         .tiling = VK_IMAGE_TILING_OPTIMAL,
-        .usage = vulkan_cast<VkImageUsageFlags>(create_info.usage),
+        .usage = vulkan_cast<VkImageUsageFlags>(create_info.usage)
+            | VK_IMAGE_USAGE_TRANSFER_SRC_BIT
+            | VK_IMAGE_USAGE_TRANSFER_DST_BIT,
         .sharingMode = VK_SHARING_MODE_EXCLUSIVE,
         .queueFamilyIndexCount = 0,
         .pQueueFamilyIndices = nullptr,
@@ -540,7 +501,7 @@ std::expected<Image*, Result> Vulkan_Graphics_Device::create_image(const Image_C
 
     create_image_descriptors(image, static_cast<uint32_t>(create_info.usage & Image_Usage::Unordered_Access) > 0u);
 
-    return std::unexpected(Result::Error_Unknown);
+    return image;
 }
 
 std::expected<Image_View*, Result> Vulkan_Graphics_Device::create_image_view(
@@ -568,9 +529,9 @@ std::expected<Image_View*, Result> Vulkan_Graphics_Device::create_image_view(
         .subresourceRange = {
             .aspectMask = get_aspect_mask(image),
             .baseMipLevel = create_info.first_mip_level,
-            .levelCount = create_info.array_levels,
+            .levelCount = create_info.mip_levels,
             .baseArrayLayer = create_info.first_array_level,
-            .layerCount = create_info.mip_levels
+            .layerCount = create_info.array_levels
         }
     };
     vkCreateImageView(m_device, &image_view_create_info, nullptr, &image_view->image_view);
@@ -582,6 +543,8 @@ std::expected<Image_View*, Result> Vulkan_Graphics_Device::create_image_view(
 
 void Vulkan_Graphics_Device::destroy_image(Image* image) noexcept
 {
+    if (!image) return;
+
     std::unique_lock<std::mutex> lock_guard(m_resource_mutex, std::defer_lock);
     if (m_use_mutex)
     {
@@ -643,15 +606,32 @@ std::expected<Sampler*, Result> Vulkan_Graphics_Device::create_sampler(const Sam
         .borderColor = VK_BORDER_COLOR_FLOAT_OPAQUE_WHITE, // TODO: border color not yet implemented
         .unnormalizedCoordinates = VK_FALSE
     };
+    vkCreateSampler(m_device, &sampler_create_info, nullptr, &sampler->sampler);
 
-    auto descriptor_range = descriptor_index_to_address(sampler->bindless_index, 0u, true);
-    vkWriteSamplerDescriptorsEXT(m_device, 1, &sampler_create_info, &descriptor_range);
+    VkDescriptorImageInfo image_info = {
+        .sampler = sampler->sampler,
+        .imageView = nullptr,
+        .imageLayout = VK_IMAGE_LAYOUT_UNDEFINED
+    };
+    VkWriteDescriptorSet write_descriptor_set = {
+        .sType = VK_STRUCTURE_TYPE_WRITE_DESCRIPTOR_SET,
+        .pNext = nullptr,
+        .dstSet = m_descriptor_set,
+        .dstBinding = 2,
+        .dstArrayElement = sampler->bindless_index,
+        .descriptorCount = 1,
+        .descriptorType = VK_DESCRIPTOR_TYPE_SAMPLER,
+        .pImageInfo = &image_info
+    };
+    vkUpdateDescriptorSets(m_device, 1, &write_descriptor_set, 0, nullptr);
 
     return sampler;
 }
 
 void Vulkan_Graphics_Device::destroy_sampler(Sampler* sampler) noexcept
 {
+    if (!sampler) return;
+
     std::unique_lock<std::mutex> lock_guard(m_resource_mutex, std::defer_lock);
     if (m_use_mutex)
     {
@@ -680,11 +660,21 @@ std::expected<Acceleration_Structure*, Result> Vulkan_Graphics_Device::create_ac
         .offset = create_info.offset,
         .size = create_info.size,
         .type = vulkan_cast<VkAccelerationStructureTypeKHR>(create_info.type),
-        .deviceAddress = create_info.buffer->gpu_address
+        .deviceAddress = 0
     };
     vkCreateAccelerationStructureKHR(m_device, &acceleration_structure_create_info, nullptr, &acceleration_structure->acceleration_structure);
 
-    create_acceleration_structure_descriptor(acceleration_structure);
+    VkAccelerationStructureDeviceAddressInfoKHR acceleration_structure_address_info = {
+        .sType = VK_STRUCTURE_TYPE_ACCELERATION_STRUCTURE_DEVICE_ADDRESS_INFO_KHR,
+        .pNext = nullptr,
+        .accelerationStructure = acceleration_structure->acceleration_structure
+    };
+    acceleration_structure->address = vkGetAccelerationStructureDeviceAddressKHR(m_device, &acceleration_structure_address_info);
+
+    if (create_info.type != Acceleration_Structure_Type::Bottom_Level)
+    {
+        create_acceleration_structure_descriptor(acceleration_structure);
+    }
 
     return acceleration_structure;
 }
@@ -796,55 +786,6 @@ std::expected<Pipeline*, Result> Vulkan_Graphics_Device::create_pipeline(const G
     std::vector<VkPipelineShaderStageCreateInfo> shader_stage_create_infos;
     shader_stage_create_infos.reserve(5);
 
-    auto mappings = std::to_array<VkDescriptorSetAndBindingMappingEXT>({
-        {
-            .sType = VK_STRUCTURE_TYPE_DESCRIPTOR_SET_AND_BINDING_MAPPING_EXT,
-            .pNext = nullptr,
-            .descriptorSet = 0,
-            .firstBinding = 0,
-            .bindingCount = 1,
-            .resourceMask = VK_SPIRV_RESOURCE_TYPE_SAMPLED_IMAGE_BIT_EXT
-                | VK_SPIRV_RESOURCE_TYPE_READ_ONLY_IMAGE_BIT_EXT
-                | VK_SPIRV_RESOURCE_TYPE_READ_WRITE_IMAGE_BIT_EXT
-                | VK_SPIRV_RESOURCE_TYPE_READ_ONLY_STORAGE_BUFFER_BIT_EXT
-                | VK_SPIRV_RESOURCE_TYPE_READ_WRITE_STORAGE_BUFFER_BIT_EXT
-                | VK_SPIRV_RESOURCE_TYPE_ACCELERATION_STRUCTURE_BIT_EXT,
-            .source = VK_DESCRIPTOR_MAPPING_SOURCE_HEAP_WITH_CONSTANT_OFFSET_EXT,
-            .sourceData = {
-                .constantOffset = {
-                    .heapOffset = 0,
-                    .heapArrayStride = static_cast<uint32_t>(m_resource_descriptor_heap.descriptor_size),
-                    .pEmbeddedSampler = nullptr,
-                    .samplerHeapOffset = 0,
-                    .samplerHeapArrayStride = 0
-                }
-            }
-        },
-        {
-            .sType = VK_STRUCTURE_TYPE_DESCRIPTOR_SET_AND_BINDING_MAPPING_EXT,
-            .pNext = nullptr,
-            .descriptorSet = 0,
-            .firstBinding = 1,
-            .bindingCount = 1,
-            .resourceMask = VK_SPIRV_RESOURCE_TYPE_SAMPLER_BIT_EXT,
-            .source = VK_DESCRIPTOR_MAPPING_SOURCE_HEAP_WITH_CONSTANT_OFFSET_EXT,
-            .sourceData = {
-                .constantOffset = {
-                    .heapOffset = 0,
-                    .heapArrayStride = 0,
-                    .pEmbeddedSampler = nullptr,
-                    .samplerHeapOffset = 0,
-                    .samplerHeapArrayStride = static_cast<uint32_t>(m_sampler_descriptor_heap.descriptor_size)
-                }
-            }
-        }});
-    VkShaderDescriptorSetAndBindingMappingInfoEXT descriptor_set_and_binding_mapping_info = {
-        .sType = VK_STRUCTURE_TYPE_SHADER_DESCRIPTOR_SET_AND_BINDING_MAPPING_INFO_EXT,
-        .pNext = nullptr,
-        .mappingCount = static_cast<uint32_t>(mappings.size()),
-        .pMappings = mappings.data()
-    };
-
     auto create_stage = [&](Shader_Blob* blob, VkShaderStageFlagBits vulkan_stage) {
         if (!blob)
             return;
@@ -852,7 +793,7 @@ std::expected<Pipeline*, Result> Vulkan_Graphics_Device::create_pipeline(const G
         auto& module = shader_module_create_infos.emplace_back();
         module = {
             .sType = VK_STRUCTURE_TYPE_SHADER_MODULE_CREATE_INFO,
-            .pNext = &descriptor_set_and_binding_mapping_info,
+            .pNext = nullptr,
             .flags = 0,
             .codeSize = static_cast<uint32_t>(blob->data.size()),
             .pCode = reinterpret_cast<uint32_t*>(blob->data.data())
@@ -1042,14 +983,9 @@ std::expected<Pipeline*, Result> Vulkan_Graphics_Device::create_pipeline(const G
         .depthAttachmentFormat = vulkan_cast<VkFormat>(create_info.depth_stencil_format),
         .stencilAttachmentFormat = VK_FORMAT_UNDEFINED // TODO: stencil format
     };
-    VkPipelineCreateFlags2CreateInfoKHR pipeline_flags_create_info = {
-        .sType = VK_STRUCTURE_TYPE_PIPELINE_CREATE_FLAGS_2_CREATE_INFO,
-        .pNext = &pipeline_rendering_create_info,
-        .flags = VK_PIPELINE_CREATE_2_DESCRIPTOR_HEAP_BIT_EXT
-    };
     VkGraphicsPipelineCreateInfo pipeline_create_info = {
         .sType = VK_STRUCTURE_TYPE_GRAPHICS_PIPELINE_CREATE_INFO,
-        .pNext = &pipeline_flags_create_info,
+        .pNext = &pipeline_rendering_create_info,
         .flags = 0,
         .stageCount = static_cast<uint32_t>(shader_stage_create_infos.size()),
         .pStages = shader_stage_create_infos.data(),
@@ -1062,7 +998,7 @@ std::expected<Pipeline*, Result> Vulkan_Graphics_Device::create_pipeline(const G
         .pDepthStencilState = &depth_stencil_state_create_info,
         .pColorBlendState = &color_blend_state_create_info,
         .pDynamicState = &dynamic_state_create_info,
-        .layout = VK_NULL_HANDLE,
+        .layout = m_pipeline_layout,
         .renderPass = VK_NULL_HANDLE,
         .subpass = 0,
         .basePipelineHandle = VK_NULL_HANDLE,
@@ -1085,69 +1021,16 @@ std::expected<Pipeline*, Result> Vulkan_Graphics_Device::create_pipeline(const C
     pipeline->type = Pipeline_Type::Compute;
     pipeline->compute_shading_info = create_info;
 
-    VkPipelineCreateFlags2CreateInfoKHR pipeline_flags_create_info = {
-        .sType = VK_STRUCTURE_TYPE_PIPELINE_CREATE_FLAGS_2_CREATE_INFO,
-        .pNext = nullptr,
-        .flags = VK_PIPELINE_CREATE_2_DESCRIPTOR_HEAP_BIT_EXT
-    };
-    auto mappings = std::to_array<VkDescriptorSetAndBindingMappingEXT>({
-        {
-            .sType = VK_STRUCTURE_TYPE_DESCRIPTOR_SET_AND_BINDING_MAPPING_EXT,
-            .pNext = nullptr,
-            .descriptorSet = 0,
-            .firstBinding = 0,
-            .bindingCount = 1,
-            .resourceMask = VK_SPIRV_RESOURCE_TYPE_SAMPLED_IMAGE_BIT_EXT
-                | VK_SPIRV_RESOURCE_TYPE_READ_ONLY_IMAGE_BIT_EXT
-                | VK_SPIRV_RESOURCE_TYPE_READ_WRITE_IMAGE_BIT_EXT
-                | VK_SPIRV_RESOURCE_TYPE_READ_ONLY_STORAGE_BUFFER_BIT_EXT
-                | VK_SPIRV_RESOURCE_TYPE_READ_WRITE_STORAGE_BUFFER_BIT_EXT
-                | VK_SPIRV_RESOURCE_TYPE_ACCELERATION_STRUCTURE_BIT_EXT,
-            .source = VK_DESCRIPTOR_MAPPING_SOURCE_HEAP_WITH_CONSTANT_OFFSET_EXT,
-            .sourceData = {
-                .constantOffset = {
-                    .heapOffset = 0,
-                    .heapArrayStride = static_cast<uint32_t>(m_resource_descriptor_heap.descriptor_size),
-                    .pEmbeddedSampler = nullptr,
-                    .samplerHeapOffset = 0,
-                    .samplerHeapArrayStride = 0
-                }
-            }
-        },
-        {
-            .sType = VK_STRUCTURE_TYPE_DESCRIPTOR_SET_AND_BINDING_MAPPING_EXT,
-            .pNext = nullptr,
-            .descriptorSet = 0,
-            .firstBinding = 1,
-            .bindingCount = 1,
-            .resourceMask = VK_SPIRV_RESOURCE_TYPE_SAMPLER_BIT_EXT,
-            .source = VK_DESCRIPTOR_MAPPING_SOURCE_HEAP_WITH_CONSTANT_OFFSET_EXT,
-            .sourceData = {
-                .constantOffset = {
-                    .heapOffset = 0,
-                    .heapArrayStride = 0,
-                    .pEmbeddedSampler = nullptr,
-                    .samplerHeapOffset = 0,
-                    .samplerHeapArrayStride = static_cast<uint32_t>(m_sampler_descriptor_heap.descriptor_size)
-                }
-            }
-        } });
-    VkShaderDescriptorSetAndBindingMappingInfoEXT descriptor_set_and_binding_mapping_info = {
-        .sType = VK_STRUCTURE_TYPE_SHADER_DESCRIPTOR_SET_AND_BINDING_MAPPING_INFO_EXT,
-        .pNext = nullptr,
-        .mappingCount = static_cast<uint32_t>(mappings.size()),
-        .pMappings = mappings.data()
-    };
     VkShaderModuleCreateInfo stage_create_info = {
         .sType = VK_STRUCTURE_TYPE_SHADER_MODULE_CREATE_INFO,
-        .pNext = &descriptor_set_and_binding_mapping_info,
+        .pNext = nullptr,
         .flags = 0,
         .codeSize = static_cast<uint32_t>(create_info.cs->data.size()),
         .pCode = reinterpret_cast<uint32_t*>(create_info.cs->data.data())
     };
     VkComputePipelineCreateInfo pipeline_create_info = {
         .sType = VK_STRUCTURE_TYPE_COMPUTE_PIPELINE_CREATE_INFO,
-        .pNext = &pipeline_flags_create_info,
+        .pNext = nullptr,
         .flags = 0,
         .stage = {
             .sType = VK_STRUCTURE_TYPE_PIPELINE_SHADER_STAGE_CREATE_INFO,
@@ -1158,7 +1041,7 @@ std::expected<Pipeline*, Result> Vulkan_Graphics_Device::create_pipeline(const C
             .pName = "main",
             .pSpecializationInfo = nullptr
         },
-        .layout = VK_NULL_HANDLE,
+        .layout = m_pipeline_layout,
         .basePipelineHandle = VK_NULL_HANDLE,
         .basePipelineIndex = 0
     };
@@ -1195,6 +1078,7 @@ Acceleration_Structure_Build_Sizes Vulkan_Graphics_Device::get_acceleration_stru
 {
     std::vector<VkAccelerationStructureBuildRangeInfoKHR> build_ranges;
     std::vector<VkAccelerationStructureGeometryKHR> geometries;
+    std::vector<uint32_t> max_primitives;
 
     if (build_info.type == Acceleration_Structure_Type::Bottom_Level)
     {
@@ -1232,11 +1116,13 @@ Acceleration_Structure_Build_Sizes Vulkan_Graphics_Device::get_acceleration_stru
                     }
                 };
                 build_range = {
-                    .primitiveCount = triangles.vertex_count / 3,
+                    .primitiveCount = triangles.index_count / 3,
                     .primitiveOffset = 0,
                     .firstVertex = 0,
                     .transformOffset = 0
                 };
+
+                max_primitives.push_back(build_range.primitiveCount);
             }
             else
             {
@@ -1257,6 +1143,8 @@ Acceleration_Structure_Build_Sizes Vulkan_Graphics_Device::get_acceleration_stru
                     .firstVertex = 0,
                     .transformOffset = 0
                 };
+
+                max_primitives.push_back(build_range.primitiveCount);
             }
         }
     }
@@ -1286,6 +1174,8 @@ Acceleration_Structure_Build_Sizes Vulkan_Graphics_Device::get_acceleration_stru
             .firstVertex = 0,
             .transformOffset = 0
         };
+
+        max_primitives.push_back(build_info.geometry_or_instance_count);
     }
 
     VkBuildAccelerationStructureFlagsKHR flags = 0;
@@ -1326,7 +1216,7 @@ Acceleration_Structure_Build_Sizes Vulkan_Graphics_Device::get_acceleration_stru
     };
 
     vkGetAccelerationStructureBuildSizesKHR(m_device, VK_ACCELERATION_STRUCTURE_BUILD_TYPE_DEVICE_KHR,
-        &build_geometry_info, nullptr, &build_sizes_info);
+        &build_geometry_info, max_primitives.data(), &build_sizes_info);
 
     Acceleration_Structure_Build_Sizes result = {
         .acceleration_structure_size = build_sizes_info.accelerationStructureSize,
@@ -1396,6 +1286,8 @@ Result Vulkan_Graphics_Device::submit(const Submit_Info& submit_info) noexcept
     command_buffer_submit_infos.reserve(submit_info.command_lists.size());
     for (const auto* command_list : submit_info.command_lists)
     {
+        vkEndCommandBuffer(static_cast<const Vulkan_Command_List*>(command_list)->get_internal_command_list());
+
         command_buffer_submit_infos.push_back({
             .sType = VK_STRUCTURE_TYPE_COMMAND_BUFFER_SUBMIT_INFO,
             .pNext = nullptr,
@@ -1507,151 +1399,111 @@ const VkQueue Vulkan_Graphics_Device::get_queue(Queue_Type queue_type) const noe
 
 void Vulkan_Graphics_Device::create_acceleration_structure_descriptor(Vulkan_Acceleration_Structure* acceleration_structure)
 {
-    // The Vulkan specification states:
-    // For acceleration structures, the size of the range is not used by the descriptor, and can be set to 0.
-    VkDeviceAddressRangeEXT descriptor_address_range = {
-        .address = acceleration_structure->address,
-        .size = 0
-    };
-    VkResourceDescriptorInfoEXT descriptor_info = {
-        .sType = VK_STRUCTURE_TYPE_RESOURCE_DESCRIPTOR_INFO_EXT,
+    VkWriteDescriptorSetAccelerationStructureKHR write_acceleration_structure = {
+        .sType = VK_STRUCTURE_TYPE_WRITE_DESCRIPTOR_SET_ACCELERATION_STRUCTURE_KHR,
         .pNext = nullptr,
-        .type = VK_DESCRIPTOR_TYPE_ACCELERATION_STRUCTURE_KHR,
-        .data = {
-            .pAddressRange = &descriptor_address_range
-        }
+        .accelerationStructureCount = 1,
+        .pAccelerationStructures = &acceleration_structure->acceleration_structure
     };
-    auto descriptor_range = descriptor_index_to_address(acceleration_structure->bindless_index, 0u, false);
-    vkWriteResourceDescriptorsEXT(m_device, 1, &descriptor_info, &descriptor_range);
+    VkWriteDescriptorSet write_descriptor_set = {
+        .sType = VK_STRUCTURE_TYPE_WRITE_DESCRIPTOR_SET,
+        .pNext = &write_acceleration_structure,
+        .dstSet = m_descriptor_set,
+        .dstBinding = 1,
+        .dstArrayElement = acceleration_structure->bindless_index,
+        .descriptorCount = 1,
+        .descriptorType = VK_DESCRIPTOR_TYPE_ACCELERATION_STRUCTURE_KHR
+    };
+    vkUpdateDescriptorSets(m_device, 1, &write_descriptor_set, 0, nullptr);
 }
 
 void Vulkan_Graphics_Device::create_buffer_descriptors(Vulkan_Buffer* buffer, bool create_storage_buffer_descriptor)
 {
-    // The Vulkan specification states:
-    // If a non-zero size is provided though, it must be a valid range.
-    VkDeviceAddressRangeEXT descriptor_address_range = {
-        .address = buffer->gpu_address,
-        .size = buffer->size
+    VkDescriptorBufferInfo buffer_info = {
+        .buffer = static_cast<Vulkan_Buffer*>(buffer)->buffer,
+        .offset = 0,
+        .range = VK_WHOLE_SIZE
     };
-    VkResourceDescriptorInfoEXT descriptor_info = {
-        .sType = VK_STRUCTURE_TYPE_RESOURCE_DESCRIPTOR_INFO_EXT,
+    VkWriteDescriptorSet write_descriptor_set = {
+        .sType = VK_STRUCTURE_TYPE_WRITE_DESCRIPTOR_SET,
         .pNext = nullptr,
-        .type = VK_DESCRIPTOR_TYPE_STORAGE_BUFFER,
-        .data = {
-            .pAddressRange = &descriptor_address_range
-        }
+        .dstSet = m_descriptor_set,
+        .dstBinding = 0,
+        .dstArrayElement = buffer->buffer_view->bindless_index,
+        .descriptorCount = 1,
+        .descriptorType = VK_DESCRIPTOR_TYPE_STORAGE_BUFFER, // TODO: use two descriptors?
+        .pBufferInfo = &buffer_info
     };
-    auto descriptor_range = descriptor_index_to_address(buffer->buffer_view->bindless_index, 0u, false);
-    vkWriteResourceDescriptorsEXT(m_device, 1, &descriptor_info, &descriptor_range);
+    vkUpdateDescriptorSets(m_device, 1, &write_descriptor_set, 0, nullptr);
 
-    // Unlike D3D12, in Vulkan there is no buffer SRV equivalent.
-    // Two descriptors are created instead for it.
     if (!create_storage_buffer_descriptor)
     {
         return;
     }
 
-    descriptor_range = descriptor_index_to_address(buffer->buffer_view->bindless_index, 1u, false);
-    vkWriteResourceDescriptorsEXT(m_device, 1, &descriptor_info, &descriptor_range);
+    write_descriptor_set.descriptorType = VK_DESCRIPTOR_TYPE_STORAGE_BUFFER;
+    write_descriptor_set.dstArrayElement += 1;
+    vkUpdateDescriptorSets(m_device, 1, &write_descriptor_set, 0, nullptr);
 }
 
 void Vulkan_Graphics_Device::create_image_descriptors(Vulkan_Image* image, bool create_storage_image_descriptor)
 {
-    VkImageViewCreateInfo image_view_create_info = {
-        .sType = VK_STRUCTURE_TYPE_IMAGE_VIEW_CREATE_INFO,
-        .pNext = nullptr,
-        .flags = 0,
-        .image = image->image,
-        .viewType = vulkan_cast<VkImageViewType>(image->primary_view_type),
-        .format = vulkan_cast<VkFormat>(image->format),
-        .components = {}, // identity
-        .subresourceRange = {
-            .aspectMask = get_aspect_mask(image),
-            .baseMipLevel = 0,
-            .levelCount = VK_REMAINING_MIP_LEVELS,
-            .baseArrayLayer = 0,
-            .layerCount = VK_REMAINING_ARRAY_LAYERS
-        }
+    VkDescriptorImageInfo image_info = {
+        .sampler = VK_NULL_HANDLE,
+        .imageView = static_cast<Vulkan_Image_View*>(image->image_view)->image_view,
+        .imageLayout = VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL
     };
-    VkImageDescriptorInfoEXT image_descriptor_info = {
-        .sType = VK_STRUCTURE_TYPE_IMAGE_DESCRIPTOR_INFO_EXT,
+    VkWriteDescriptorSet write_descriptor_set = {
+        .sType = VK_STRUCTURE_TYPE_WRITE_DESCRIPTOR_SET,
         .pNext = nullptr,
-        .pView = &image_view_create_info
+        .dstSet = m_descriptor_set,
+        .dstBinding = 0,
+        .dstArrayElement = image->image_view->bindless_index,
+        .descriptorCount = 1,
+        .descriptorType = VK_DESCRIPTOR_TYPE_SAMPLED_IMAGE,
+        .pImageInfo = &image_info
     };
-    VkResourceDescriptorInfoEXT descriptor_info = {
-        .sType = VK_STRUCTURE_TYPE_RESOURCE_DESCRIPTOR_INFO_EXT,
-        .pNext = nullptr,
-        .type = VK_DESCRIPTOR_TYPE_SAMPLED_IMAGE,
-        .data = {
-            .pImage = &image_descriptor_info
-        }
-    };
-    auto descriptor_range = descriptor_index_to_address(image->image_view->bindless_index, 0u, false);
-    vkWriteResourceDescriptorsEXT(m_device, 1, &descriptor_info, &descriptor_range);
+    vkUpdateDescriptorSets(m_device, 1, &write_descriptor_set, 0, nullptr);
 
     if (!create_storage_image_descriptor)
     {
         return;
     }
 
-    descriptor_info.type = VK_DESCRIPTOR_TYPE_STORAGE_IMAGE;
-    descriptor_range = descriptor_index_to_address(image->image_view->bindless_index, 1u, false);
-    vkWriteResourceDescriptorsEXT(m_device, 1, &descriptor_info, &descriptor_range);
+    image_info.imageLayout = VK_IMAGE_LAYOUT_GENERAL;
+    write_descriptor_set.descriptorType = VK_DESCRIPTOR_TYPE_STORAGE_IMAGE;
+    write_descriptor_set.dstArrayElement += 1;
+    vkUpdateDescriptorSets(m_device, 1, &write_descriptor_set, 0, nullptr);
 }
 
 void Vulkan_Graphics_Device::create_image_view_descriptors(
     Vulkan_Image_View* image_view, const Image_View_Create_Info& create_info, bool create_storage_image_descriptor)
 {
-    VkImageViewCreateInfo image_view_create_info = {
-        .sType = VK_STRUCTURE_TYPE_IMAGE_VIEW_CREATE_INFO,
-        .pNext = nullptr,
-        .flags = 0,
-        .image = static_cast<Vulkan_Image*>(image_view->image)->image,
-        .viewType = vulkan_cast<VkImageViewType>(create_info.view_type),
-        .format = vulkan_cast<VkFormat>(image_view->image->format),
-        .components = vulkan_cast<VkComponentMapping>(create_info.component_mapping),
-        .subresourceRange = {
-            .aspectMask = get_aspect_mask(image_view->image),
-            .baseMipLevel = create_info.first_mip_level,
-            .levelCount = create_info.array_levels,
-            .baseArrayLayer = create_info.first_array_level,
-            .layerCount = create_info.mip_levels
-        }
+    VkDescriptorImageInfo image_info = {
+        .sampler = VK_NULL_HANDLE,
+        .imageView = static_cast<Vulkan_Image_View*>(image_view)->image_view,
+        .imageLayout = VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL
     };
-    VkImageDescriptorInfoEXT image_descriptor_info = {
-        .sType = VK_STRUCTURE_TYPE_IMAGE_DESCRIPTOR_INFO_EXT,
+    VkWriteDescriptorSet write_descriptor_set = {
+        .sType = VK_STRUCTURE_TYPE_WRITE_DESCRIPTOR_SET,
         .pNext = nullptr,
-        .pView = &image_view_create_info
+        .dstSet = m_descriptor_set,
+        .dstBinding = 0,
+        .dstArrayElement = image_view->bindless_index,
+        .descriptorCount = 1,
+        .descriptorType = VK_DESCRIPTOR_TYPE_SAMPLED_IMAGE,
+        .pImageInfo = &image_info
     };
-    VkResourceDescriptorInfoEXT descriptor_info = {
-        .sType = VK_STRUCTURE_TYPE_RESOURCE_DESCRIPTOR_INFO_EXT,
-        .pNext = nullptr,
-        .type = VK_DESCRIPTOR_TYPE_SAMPLED_IMAGE,
-        .data = {
-            .pImage = &image_descriptor_info
-        }
-    };
-    auto descriptor_range = descriptor_index_to_address(image_view->bindless_index, 0u, false);
-    vkWriteResourceDescriptorsEXT(m_device, 1, &descriptor_info, &descriptor_range);
+    vkUpdateDescriptorSets(m_device, 1, &write_descriptor_set, 0, nullptr);
 
     if (!create_storage_image_descriptor)
     {
         return;
     }
 
-    descriptor_info.type = VK_DESCRIPTOR_TYPE_STORAGE_IMAGE;
-    descriptor_range = descriptor_index_to_address(image_view->bindless_index, 1u, false);
-    vkWriteResourceDescriptorsEXT(m_device, 1, &descriptor_info, &descriptor_range);
-}
-
-VkHostAddressRangeEXT Vulkan_Graphics_Device::descriptor_index_to_address(uint32_t index, uint32_t offset, bool is_sampler)
-{
-    Descriptor_Heap descriptor_heap = is_sampler ? m_sampler_descriptor_heap : m_resource_descriptor_heap;
-    auto descriptor_index = index * descriptor_heap.stride + offset;
-    auto descriptor_address = descriptor_index * descriptor_heap.descriptor_size;
-    return {
-        .address = static_cast<void*>(&static_cast<char*>(descriptor_heap.data)[descriptor_address]),
-        .size = descriptor_heap.descriptor_size // TODO: always use max size?
-    };
+    image_info.imageLayout = VK_IMAGE_LAYOUT_GENERAL;
+    write_descriptor_set.descriptorType = VK_DESCRIPTOR_TYPE_STORAGE_IMAGE;
+    write_descriptor_set.dstArrayElement += 1;
+    vkUpdateDescriptorSets(m_device, 1, &write_descriptor_set, 0, nullptr);
 }
 }

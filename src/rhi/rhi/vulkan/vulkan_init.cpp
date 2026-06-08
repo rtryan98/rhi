@@ -1,5 +1,7 @@
 #include "rhi/vulkan/vulkan_init.hpp"
 
+#include "rhi/resource.hpp"
+
 #include <array>
 #include <vector>
 #include <ranges>
@@ -21,6 +23,7 @@ VkInstance create_instance(bool enable_validation_layers, bool enable_gpu_valida
     enabled_extensions.push_back(VK_KHR_SURFACE_MAINTENANCE_1_EXTENSION_NAME);
     enabled_extensions.push_back(VK_EXT_SWAPCHAIN_COLOR_SPACE_EXTENSION_NAME);
     enabled_extensions.push_back(VK_EXT_DEBUG_UTILS_EXTENSION_NAME);
+    enabled_extensions.push_back(VK_EXT_DEBUG_REPORT_EXTENSION_NAME);
 
     VkApplicationInfo application_info = {
         .sType = VK_STRUCTURE_TYPE_APPLICATION_INFO,
@@ -355,20 +358,14 @@ VkDevice create_device(VkPhysicalDevice physical_device)
         .maintenance5 = VK_TRUE,
         .maintenance6 = VK_TRUE
     };
-    VkPhysicalDeviceDescriptorHeapFeaturesEXT REQUIRED_DESCRIPTOR_HEAP_FEATURES = {
-        .sType = VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_DESCRIPTOR_HEAP_FEATURES_EXT,
+    VkPhysicalDeviceMutableDescriptorTypeFeaturesEXT REQUIRED_MUTABLE_DESCRIPTOR_TYPE_FEATURES = {
+        .sType = VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_MUTABLE_DESCRIPTOR_TYPE_FEATURES_EXT,
         .pNext = &REQUIRED_VK14_FEATURES,
-        .descriptorHeap = VK_TRUE,
-        .descriptorHeapCaptureReplay = VK_FALSE
-    };
-    VkPhysicalDeviceShaderUntypedPointersFeaturesKHR REQUIRED_SHADER_UNTYPED_POINTERS_FEATURES = {
-        .sType = VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_SHADER_UNTYPED_POINTERS_FEATURES_KHR,
-        .pNext = &REQUIRED_DESCRIPTOR_HEAP_FEATURES,
-        .shaderUntypedPointers = VK_TRUE
+        .mutableDescriptorType = VK_TRUE
     };
     VkPhysicalDeviceSwapchainMaintenance1FeaturesKHR REQUIRED_SWAPCHAIN_MAINTENANCE1_FEATURES = {
         .sType = VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_SWAPCHAIN_MAINTENANCE_1_FEATURES_EXT,
-        .pNext = &REQUIRED_SHADER_UNTYPED_POINTERS_FEATURES,
+        .pNext = &REQUIRED_MUTABLE_DESCRIPTOR_TYPE_FEATURES,
         .swapchainMaintenance1 = VK_TRUE
     };
 
@@ -380,7 +377,7 @@ VkDevice create_device(VkPhysicalDevice physical_device)
         .accelerationStructureCaptureReplay = VK_FALSE,
         .accelerationStructureIndirectBuild = VK_FALSE,
         .accelerationStructureHostCommands = VK_FALSE,
-        .descriptorBindingAccelerationStructureUpdateAfterBind = VK_FALSE
+        .descriptorBindingAccelerationStructureUpdateAfterBind = VK_TRUE
     };
     VkPhysicalDeviceRayTracingPipelineFeaturesKHR REQUIRED_RAY_TRACING_PIPELINE_FEATURES = {
         .sType = VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_RAY_TRACING_PIPELINE_FEATURES_KHR,
@@ -424,8 +421,8 @@ VkDevice create_device(VkPhysicalDevice physical_device)
     const auto extensions = std::to_array<const char*>({
         VK_KHR_SWAPCHAIN_EXTENSION_NAME,
         VK_KHR_SWAPCHAIN_MAINTENANCE_1_EXTENSION_NAME,
-        VK_EXT_DESCRIPTOR_HEAP_EXTENSION_NAME,
-        VK_KHR_SHADER_UNTYPED_POINTERS_EXTENSION_NAME,
+        VK_EXT_DEBUG_MARKER_EXTENSION_NAME,
+        VK_EXT_MUTABLE_DESCRIPTOR_TYPE_EXTENSION_NAME,
         VK_KHR_DEFERRED_HOST_OPERATIONS_EXTENSION_NAME,
         VK_KHR_ACCELERATION_STRUCTURE_EXTENSION_NAME,
         VK_KHR_RAY_TRACING_PIPELINE_EXTENSION_NAME,
@@ -500,5 +497,148 @@ VkDevice create_device(VkPhysicalDevice physical_device)
     vkCreateDevice(physical_device, &device_create_info, nullptr, &device);
     volkLoadDevice(device);
     return device;
+}
+
+VkDescriptorSetLayout create_descriptor_set_layout(VkDevice device)
+{
+    const auto bindless_flags = VK_DESCRIPTOR_BINDING_UPDATE_AFTER_BIND_BIT
+        | VK_DESCRIPTOR_BINDING_UPDATE_UNUSED_WHILE_PENDING_BIT
+        | VK_DESCRIPTOR_BINDING_PARTIALLY_BOUND_BIT;
+    auto binding_flags = std::to_array<VkDescriptorBindingFlags>({ bindless_flags, bindless_flags, bindless_flags });
+    VkDescriptorSetLayoutBindingFlagsCreateInfo binding_flags_create_info = {
+        .sType = VK_STRUCTURE_TYPE_DESCRIPTOR_SET_LAYOUT_BINDING_FLAGS_CREATE_INFO,
+        .pNext = nullptr,
+        .bindingCount = static_cast<uint32_t>(binding_flags.size()),
+        .pBindingFlags = binding_flags.data()
+    };
+
+    auto mutable_descriptors = std::to_array<VkDescriptorType>({
+        VK_DESCRIPTOR_TYPE_SAMPLED_IMAGE,
+        VK_DESCRIPTOR_TYPE_STORAGE_IMAGE,
+        VK_DESCRIPTOR_TYPE_STORAGE_BUFFER
+        });
+    VkMutableDescriptorTypeListEXT mutable_descriptor_list = {
+        .descriptorTypeCount = static_cast<uint32_t>(mutable_descriptors.size()),
+        .pDescriptorTypes = mutable_descriptors.data()
+    };
+    VkMutableDescriptorTypeCreateInfoEXT mutable_descriptor_type_create_info = {
+        .sType = VK_STRUCTURE_TYPE_MUTABLE_DESCRIPTOR_TYPE_CREATE_INFO_EXT,
+        .pNext = &binding_flags_create_info,
+        .mutableDescriptorTypeListCount = 1,
+        .pMutableDescriptorTypeLists = &mutable_descriptor_list
+    };
+
+    auto bindings = std::to_array<VkDescriptorSetLayoutBinding>({{
+        .binding = 0,
+        .descriptorType = VK_DESCRIPTOR_TYPE_MUTABLE_EXT,
+        .descriptorCount = 2 * MAX_RESOURCE_INDEX,
+        .stageFlags = VK_SHADER_STAGE_ALL,
+        .pImmutableSamplers = nullptr
+        }, {
+        .binding = 1,
+        .descriptorType = VK_DESCRIPTOR_TYPE_ACCELERATION_STRUCTURE_KHR,
+        .descriptorCount = 2 * MAX_RESOURCE_INDEX,
+        .stageFlags = VK_SHADER_STAGE_ALL,
+        .pImmutableSamplers = nullptr
+        }, {
+        .binding = 2,
+        .descriptorType = VK_DESCRIPTOR_TYPE_SAMPLER,
+        .descriptorCount = MAX_SAMPLER_INDEX,
+        .stageFlags = VK_SHADER_STAGE_ALL,
+        .pImmutableSamplers = nullptr
+        }});
+    VkDescriptorSetLayoutCreateInfo descriptor_set_layout_create_info = {
+        .sType = VK_STRUCTURE_TYPE_DESCRIPTOR_SET_LAYOUT_CREATE_INFO,
+        .pNext = &mutable_descriptor_type_create_info,
+        .flags = VK_DESCRIPTOR_SET_LAYOUT_CREATE_UPDATE_AFTER_BIND_POOL_BIT,
+        .bindingCount = static_cast<uint32_t>(bindings.size()),
+        .pBindings = bindings.data()
+    };
+
+    VkDescriptorSetLayout result = VK_NULL_HANDLE;
+    vkCreateDescriptorSetLayout(device, &descriptor_set_layout_create_info, nullptr, &result);
+    return result;
+}
+
+VkPipelineLayout create_pipeline_layout(VkDevice device, VkDescriptorSetLayout descriptor_set_layout, uint32_t push_constant_size)
+{
+    VkPushConstantRange push_constant_range = {
+        .stageFlags = VK_SHADER_STAGE_ALL,
+        .offset = 0,
+        .size = push_constant_size
+    };
+    VkPipelineLayoutCreateInfo pipeline_layout_create_info = {
+        .sType = VK_STRUCTURE_TYPE_PIPELINE_LAYOUT_CREATE_INFO,
+        .pNext = nullptr,
+        .flags = 0,
+        .setLayoutCount = 1,
+        .pSetLayouts = &descriptor_set_layout,
+        .pushConstantRangeCount = 1,
+        .pPushConstantRanges = &push_constant_range
+    };
+
+    VkPipelineLayout result = VK_NULL_HANDLE;
+    vkCreatePipelineLayout(device, &pipeline_layout_create_info, nullptr, &result);
+    return result;
+}
+
+VkDescriptorPool create_descriptor_pool(VkDevice device)
+{
+    auto mutable_descriptors = std::to_array<VkDescriptorType>({
+        VK_DESCRIPTOR_TYPE_SAMPLED_IMAGE,
+        VK_DESCRIPTOR_TYPE_STORAGE_IMAGE,
+        VK_DESCRIPTOR_TYPE_STORAGE_BUFFER
+        });
+    VkMutableDescriptorTypeListEXT mutable_descriptor_list = {
+        .descriptorTypeCount = static_cast<uint32_t>(mutable_descriptors.size()),
+        .pDescriptorTypes = mutable_descriptors.data()
+    };
+    VkMutableDescriptorTypeCreateInfoEXT mutable_descriptor_type_create_info = {
+        .sType = VK_STRUCTURE_TYPE_MUTABLE_DESCRIPTOR_TYPE_CREATE_INFO_EXT,
+        .pNext = nullptr,
+        .mutableDescriptorTypeListCount = 1,
+        .pMutableDescriptorTypeLists = &mutable_descriptor_list
+    };
+
+    auto pool_sizes = std::to_array<VkDescriptorPoolSize>({
+        {
+            .type = VK_DESCRIPTOR_TYPE_MUTABLE_EXT,
+            .descriptorCount = MAX_RESOURCE_INDEX * 2
+        },
+        {
+            .type = VK_DESCRIPTOR_TYPE_ACCELERATION_STRUCTURE_KHR,
+            .descriptorCount = MAX_RESOURCE_INDEX * 2
+        },
+        {
+            .type = VK_DESCRIPTOR_TYPE_SAMPLER,
+            .descriptorCount = MAX_SAMPLER_INDEX
+        },
+        });
+    VkDescriptorPoolCreateInfo descriptor_pool_create_info = {
+        .sType = VK_STRUCTURE_TYPE_DESCRIPTOR_POOL_CREATE_INFO,
+        .pNext = &mutable_descriptor_type_create_info,
+        .flags = VK_DESCRIPTOR_POOL_CREATE_UPDATE_AFTER_BIND_BIT,
+        .maxSets = 1,
+        .poolSizeCount = static_cast<uint32_t>(pool_sizes.size()),
+        .pPoolSizes = pool_sizes.data()
+    };
+    VkDescriptorPool result = VK_NULL_HANDLE;
+    vkCreateDescriptorPool(device, &descriptor_pool_create_info, nullptr, &result);
+    return result;
+}
+
+VkDescriptorSet create_descriptor_set(VkDevice device, VkDescriptorSetLayout descriptor_set_layout, VkDescriptorPool descriptor_pool)
+{
+    VkDescriptorSetAllocateInfo allocate_info = {
+        .sType = VK_STRUCTURE_TYPE_DESCRIPTOR_SET_ALLOCATE_INFO,
+        .pNext = nullptr,
+        .descriptorPool = descriptor_pool,
+        .descriptorSetCount = 1,
+        .pSetLayouts = &descriptor_set_layout
+    };
+
+    VkDescriptorSet result = VK_NULL_HANDLE;
+    vkAllocateDescriptorSets(device, &allocate_info, &result);
+    return result;
 }
 }

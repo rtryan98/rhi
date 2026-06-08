@@ -43,7 +43,7 @@ public:
         std::function<void(Buffer_View_Type*)> buffer_view_delete_function;
         std::function<void(Image_Type*)> image_delete_function;
         std::function<void(Image_View_Type*)> image_view_delete_function;
-        // Samplers do not require a delete function, neither D3D12 nor Vulkan use sampler objects
+        std::function<void(Sampler_Type*)> sampler_delete_function;
         std::function<void(Acceleration_Structure_Type*)> acceleration_structure_delete_function;
     };
 
@@ -54,6 +54,7 @@ public:
         uint32_t resource_index_stride,
         Deleters&& deleters)
         : m_deleters(std::move(deleters))
+        , m_resource_stride(resource_index_stride)
         , m_resource_indices(max_resource_index, resource_index_stride)
         , m_sampler_indices(max_sampler_index)
     {}
@@ -75,6 +76,10 @@ public:
         for (auto& image : m_images)
         {
             m_deleters.image_delete_function(&image);
+        }
+        for (auto& sampler : m_samplers)
+        {
+            m_deleters.sampler_delete_function(&sampler);
         }
         for (auto& acceleration_structure : m_acceleration_structures)
         {
@@ -261,7 +266,7 @@ private:
         uint32_t bindless_resource_index)
     {
         return (bindless_resource_index != NO_RESOURCE_INDEX)
-            ? (bindless_resource_index * m_resource_stride)
+            ? (bindless_resource_index)
             : m_sampler_indices.acquire_index();
     }
 

@@ -3,6 +3,7 @@
 #include "rhi/queue_type.hpp"
 #include "rhi/vulkan/vulkan_format.hpp"
 #include "rhi/resource.hpp"
+#include "rhi/command_list.hpp"
 
 #include <bit>
 #include <vulkan/vulkan.h>
@@ -342,5 +343,39 @@ VkFrontFace vulkan_cast<VkFrontFace>(const Winding_Order winding_order)
     if (winding_order == Winding_Order::Front_Face_CCW)
         return VK_FRONT_FACE_COUNTER_CLOCKWISE;
     return VK_FRONT_FACE_CLOCKWISE;
+}
+
+template<>
+VkAttachmentLoadOp vulkan_cast<VkAttachmentLoadOp>(const Render_Pass_Attachment_Load_Op load_op)
+{
+    switch (load_op)
+    {
+    case Render_Pass_Attachment_Load_Op::Discard:
+        return VK_ATTACHMENT_LOAD_OP_DONT_CARE;
+    case Render_Pass_Attachment_Load_Op::Load:
+        return VK_ATTACHMENT_LOAD_OP_LOAD;
+    case Render_Pass_Attachment_Load_Op::Clear:
+        return VK_ATTACHMENT_LOAD_OP_CLEAR;
+    case Render_Pass_Attachment_Load_Op::No_Access:
+        return VK_ATTACHMENT_LOAD_OP_DONT_CARE;
+    default:
+        return VK_ATTACHMENT_LOAD_OP_NONE;
+    }
+}
+
+template<>
+VkAttachmentStoreOp vulkan_cast<VkAttachmentStoreOp>(const Render_Pass_Attachment_Store_Op store_op)
+{
+    switch (store_op)
+    {
+    case Render_Pass_Attachment_Store_Op::Discard:
+        return VK_ATTACHMENT_STORE_OP_DONT_CARE;
+    case Render_Pass_Attachment_Store_Op::Store:
+        return VK_ATTACHMENT_STORE_OP_STORE;
+    case Render_Pass_Attachment_Store_Op::No_Access:
+        return VK_ATTACHMENT_STORE_OP_DONT_CARE;
+    default:
+        return VK_ATTACHMENT_STORE_OP_NONE;
+    }
 }
 }

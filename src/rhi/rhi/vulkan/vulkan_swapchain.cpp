@@ -98,7 +98,8 @@ Vulkan_Swapchain::Vulkan_Swapchain(Vulkan_Graphics_Device* graphics_device, cons
     , m_images()
     , m_image_views()
     , m_current_image_index(0u)
-    , m_current_acquire_semaphore(0ull)
+    , m_current_acquire_semaphore_index(0ull)
+    , m_current_acquire_semaphore(VK_NULL_HANDLE)
     , m_acquire_semaphores(create_semaphores())
     , m_present_semaphores(create_semaphores())
 {
@@ -117,6 +118,10 @@ Vulkan_Swapchain::Vulkan_Swapchain(Vulkan_Graphics_Device* graphics_device, cons
     bool client_rect_result = GetClientRect(reinterpret_cast<HWND>(m_hwnd), &rect);
     uint32_t client_width = rect.right - rect.left;
     uint32_t client_height = rect.bottom - rect.top;
+    m_extent = {
+        .width = client_width,
+        .height = client_height
+    };
 
     m_swapchain = create_swapchain(
         *m_device,
@@ -152,12 +157,12 @@ Vulkan_Swapchain::~Vulkan_Swapchain() noexcept
 
 void Vulkan_Swapchain::acquire_next_image() noexcept
 {
-    auto acquire_semaphore = m_acquire_semaphores[(m_current_acquire_semaphore++) % m_acquire_semaphores.size()];
+    m_current_acquire_semaphore = m_acquire_semaphores[(m_current_acquire_semaphore_index++) % m_acquire_semaphores.size()];
     vkAcquireNextImageKHR(
         *m_device,
         m_swapchain,
         0ull,
-        acquire_semaphore,
+        m_current_acquire_semaphore,
         VK_NULL_HANDLE,
         &m_current_image_index);
 }
@@ -210,7 +215,7 @@ uint32_t Vulkan_Swapchain::get_height() const noexcept
 
 VkSemaphore Vulkan_Swapchain::get_current_acquire_semaphore() const noexcept
 {
-    return m_acquire_semaphores.at(m_current_acquire_semaphore);
+    return m_current_acquire_semaphore;
 }
 
 VkSemaphore Vulkan_Swapchain::get_current_present_semaphore() const noexcept
@@ -312,6 +317,11 @@ Swapchain_Resize_Info Vulkan_Swapchain::query_resize_internal(Image_Format forma
         {
             // set swapchain format
         }
+
+        m_extent = {
+            .width = client_width,
+            .height = client_height
+        };
 
         recreate_resources();
     }

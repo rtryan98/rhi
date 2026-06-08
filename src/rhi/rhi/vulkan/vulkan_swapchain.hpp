@@ -48,10 +48,11 @@ private:
     VkExtent2D m_extent;
     VkFormat m_format;
     std::array<Vulkan_Image*, MAX_SWAPCHAIN_IMAGES> m_images;
-    std::vector<VkImageView> m_image_views;
+    std::array<VkImageView, MAX_SWAPCHAIN_IMAGES> m_image_views;
     uint32_t m_current_image_index;
 
-    uint64_t m_current_acquire_semaphore;
+    uint64_t m_current_acquire_semaphore_index;
+    VkSemaphore m_current_acquire_semaphore;
     std::array<VkSemaphore, MAX_SWAPCHAIN_IMAGES> m_acquire_semaphores;
     std::array<VkSemaphore, MAX_SWAPCHAIN_IMAGES> m_present_semaphores;
 };

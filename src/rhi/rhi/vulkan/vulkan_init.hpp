@@ -17,4 +17,8 @@ VkInstance create_instance(bool enable_validation_layers, bool enable_gpu_valida
 VkPhysicalDevice select_physical_device(VkInstance instance);
 Queue_Infos get_queue_infos(VkPhysicalDevice physical_device);
 VkDevice create_device(VkPhysicalDevice physical_device);
+VkDescriptorSetLayout create_descriptor_set_layout(VkDevice device);
+VkPipelineLayout create_pipeline_layout(VkDevice device, VkDescriptorSetLayout descriptor_set_layout, uint32_t push_constant_size);
+VkDescriptorPool create_descriptor_pool(VkDevice device);
+VkDescriptorSet create_descriptor_set(VkDevice device, VkDescriptorSetLayout descriptor_set_layout, VkDescriptorPool descriptor_pool);
 }

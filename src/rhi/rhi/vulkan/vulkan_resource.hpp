@@ -30,8 +30,10 @@ struct Vulkan_Image_View : public Image_View
     Vulkan_Image_View* image_view_linked_list_head;
 };
 
-// No extra members required with VK_EXT_descriptor_heap
-using Vulkan_Sampler = Sampler;
+struct Vulkan_Sampler : public Sampler
+{
+    VkSampler sampler;
+};
 
 struct Vulkan_Pipeline : public Pipeline
 {
