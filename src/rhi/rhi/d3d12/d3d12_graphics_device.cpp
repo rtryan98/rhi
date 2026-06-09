@@ -840,7 +840,7 @@ std::expected<Image*, Result> D3D12_Graphics_Device::create_image(const Image_Cr
         ? Descriptor_Type::Color_Attachment
         : is_dsv
             ? Descriptor_Type::Depth_Stencil_Attachment
-            : Descriptor_Type::Color_Attachment;
+            : Descriptor_Type::Resource;
     image->image_view->next_image_view = nullptr;
     image->resource = resource;
     image->allocation = allocation;
@@ -991,27 +991,15 @@ void D3D12_Graphics_Device::destroy_image(Image* image) noexcept
     d3d12_image->allocation->Release();
     d3d12_image->allocation = nullptr;
 
-    release_descriptor_index(d3d12_image->image_view->bindless_index, D3D12_DESCRIPTOR_HEAP_TYPE_CBV_SRV_UAV);
-    if (bool(image->usage & Image_Usage::Color_Attachment))
-    {
-        release_descriptor_index(static_cast<D3D12_Image_View*>(d3d12_image->image_view)->rtv_dsv_index,
-            D3D12_DESCRIPTOR_HEAP_TYPE_RTV);
-    }
-    else if (bool(image->usage & Image_Usage::Depth_Stencil_Attachment))
-    {
-        release_descriptor_index(static_cast<D3D12_Image_View*>(d3d12_image->image_view)->rtv_dsv_index,
-            D3D12_DESCRIPTOR_HEAP_TYPE_DSV);
-    }
-
     auto next_image_view = d3d12_image->image_view_linked_list_head;
     while (next_image_view != nullptr)
     {
         auto current_image_view = static_cast<D3D12_Image_View*>(next_image_view);
         switch (current_image_view->descriptor_type)
         {
-        case Descriptor_Type::Resource:
-            release_descriptor_index(current_image_view->bindless_index, D3D12_DESCRIPTOR_HEAP_TYPE_CBV_SRV_UAV);
-            break;
+        // case Descriptor_Type::Resource:
+        //     release_descriptor_index(current_image_view->bindless_index, D3D12_DESCRIPTOR_HEAP_TYPE_CBV_SRV_UAV);
+        //     break;
         case Descriptor_Type::Color_Attachment:
             release_descriptor_index(current_image_view->rtv_dsv_index, D3D12_DESCRIPTOR_HEAP_TYPE_RTV);
             break;
@@ -1024,9 +1012,11 @@ void D3D12_Graphics_Device::destroy_image(Image* image) noexcept
 
         release_descriptor_index(current_image_view->bindless_index, D3D12_DESCRIPTOR_HEAP_TYPE_CBV_SRV_UAV);
         next_image_view = current_image_view->next_image_view;
+        *current_image_view = {};
         m_image_views.erase(m_image_views.get_iterator(current_image_view));
     }
 
+    *d3d12_image = {};
     m_images.erase(m_images.get_iterator(d3d12_image));
 }
 

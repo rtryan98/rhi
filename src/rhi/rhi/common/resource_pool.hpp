@@ -188,7 +188,6 @@ public:
 
     void release_image(Image* base_image)
     {
-        m_resource_indices.release_index(base_image->image_view->bindless_index);
         auto next_image_view = static_cast<Image_View_Type*>(base_image->image_view_linked_list_head);
         while (next_image_view != nullptr)
         {
