@@ -310,18 +310,30 @@ Swapchain_Resize_Info Vulkan_Swapchain::query_resize_internal(Image_Format forma
             vkDestroyImageView(*m_device, image_view, nullptr);
         }
 
-        auto surface = find_swapchain_format(format);
+        VkSurfaceFormatKHR surface_format = find_swapchain_format(translate_vkformat_to_image_format(m_format));
+
         // Check if format changed
         if (format != Image_Format::Undefined &&
             vulkan_cast<VkFormat>(format) != m_format)
         {
-            // set swapchain format
+            surface_format = find_swapchain_format(format);
+            m_format = surface_format.format;
         }
 
         m_extent = {
             .width = client_width,
             .height = client_height
         };
+
+        auto new_swapchain = create_swapchain(
+            *m_device,
+            m_surface,
+            m_image_count,
+            surface_format,
+            m_extent,
+            m_swapchain);
+        vkDestroySwapchainKHR(*m_device, m_swapchain, nullptr);
+        m_swapchain = new_swapchain;
 
         recreate_resources();
     }
