@@ -72,11 +72,8 @@ void D3D12_Swapchain::present() noexcept
 {
     DXGI_SWAP_CHAIN_DESC1 desc = {};
     m_dxgi_swapchain->GetDesc1(&desc);
-    m_dxgi_swapchain->Present(
-        0,
-        bool(desc.Flags & DXGI_SWAP_CHAIN_FLAG_ALLOW_TEARING)
-        ? DXGI_PRESENT_ALLOW_TEARING
-        : 0);
+    const auto immediate_present = (desc.Flags & DXGI_SWAP_CHAIN_FLAG_ALLOW_TEARING) > 0;
+    m_dxgi_swapchain->Present(static_cast<int32_t>(immediate_present), immediate_present ? DXGI_PRESENT_ALLOW_TEARING : 0);
 }
 
 void D3D12_Swapchain::change_format(const Image_Format format) noexcept
