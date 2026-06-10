@@ -1171,7 +1171,7 @@ Result D3D12_Graphics_Device::recreate_shader_blob(Shader_Blob* shader_blob, con
     if (!shader_blob) return Result::Error_Invalid_Parameters;
 
     shader_blob->data.clear();
-    shader_blob->data.reserve(create_info.data_size);
+    shader_blob->data.resize(create_info.data_size);
     shader_blob->groups_x = create_info.groups_x;
     shader_blob->groups_y = create_info.groups_y;
     shader_blob->groups_z = create_info.groups_z;
@@ -1198,7 +1198,7 @@ Result D3D12_Graphics_Device::recreate_shader_blob_deserialize_memory(Shader_Blo
     blob_ptr += sizeof(uint32_t);
 
     shader_blob->data.clear();
-    shader_blob->data.reserve(dxil_blob_size);
+    shader_blob->data.resize(dxil_blob_size);
     memcpy(shader_blob->data.data(), blob_ptr, dxil_blob_size);
 
     return Result::Success;
