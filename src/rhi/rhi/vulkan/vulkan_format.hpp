@@ -62,7 +62,7 @@ inline VkFormat translate_format(Image_Format image_format)
     case Image_Format::D32_SFLOAT: return VK_FORMAT_D32_SFLOAT;
     case Image_Format::D24_UNORM_S8_UINT: return VK_FORMAT_D24_UNORM_S8_UINT;
     case Image_Format::D32_SFLOAT_S8_UINT: return VK_FORMAT_D32_SFLOAT_S8_UINT;
-    case Image_Format::BC1_RGB_UNORM_BLOCK: return VK_FORMAT_BC1_RGBA_SRGB_BLOCK;
+    case Image_Format::BC1_RGB_UNORM_BLOCK: return VK_FORMAT_BC1_RGB_UNORM_BLOCK;
     case Image_Format::BC1_RGB_SRGB_BLOCK: return VK_FORMAT_BC1_RGB_SRGB_BLOCK;
     case Image_Format::BC1_RGBA_UNORM_BLOCK: return VK_FORMAT_BC1_RGBA_UNORM_BLOCK;
     case Image_Format::BC1_RGBA_SRGB_BLOCK: return VK_FORMAT_BC1_RGBA_SRGB_BLOCK;
