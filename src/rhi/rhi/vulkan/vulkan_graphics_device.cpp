@@ -337,7 +337,7 @@ Result Vulkan_Fence::get_status(uint64_t value) noexcept
 {
     auto current_value = ~0ull;
     auto result = vkGetSemaphoreCounterValue(device, semaphore, &current_value);
-    if (value >= current_value)
+    if (result == VK_SUCCESS && current_value >= value)
     {
         return Result::Success;
     }
