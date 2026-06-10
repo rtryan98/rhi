@@ -631,7 +631,7 @@ void D3D12_Command_List::clear_depth_stencil_attachment(Image_View* image, float
     m_cmd->ClearDepthStencilView(
         m_device->get_cpu_descriptor_handle(
             static_cast<D3D12_Image_View*>(image)->rtv_dsv_index,
-            D3D12_DESCRIPTOR_HEAP_TYPE_RTV),
+            D3D12_DESCRIPTOR_HEAP_TYPE_DSV),
         D3D12_CLEAR_FLAG_DEPTH | D3D12_CLEAR_FLAG_STENCIL,
         d, s, 0, nullptr);
 }
