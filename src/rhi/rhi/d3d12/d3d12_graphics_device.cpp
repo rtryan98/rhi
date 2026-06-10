@@ -1706,7 +1706,7 @@ void D3D12_Graphics_Device::release_descriptor_index(uint32_t index, D3D12_DESCR
     switch (type)
     {
     case D3D12_DESCRIPTOR_HEAP_TYPE_CBV_SRV_UAV:
-        if (index < m_max_dynamic_resource_index)
+        if (index < m_max_dynamic_resource_index * 2)
         {
             m_resource_descriptor_indices.push_back(index);
         }
