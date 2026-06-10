@@ -28,7 +28,7 @@ inline VkFormat translate_format(Image_Format image_format)
     case Image_Format::B8G8R8A8_UINT:  return VK_FORMAT_B8G8R8A8_UINT;
     case Image_Format::B8G8R8A8_SINT:  return VK_FORMAT_B8G8R8A8_SINT;
     case Image_Format::B8G8R8A8_SRGB:  return VK_FORMAT_B8G8R8A8_SRGB;
-    case Image_Format::A2R10G10B10_UNORM_PACK32: return VK_FORMAT_A2B10G10R10_UNORM_PACK32;
+    case Image_Format::A2R10G10B10_UNORM_PACK32: return VK_FORMAT_A2B10G10R10_UNORM_PACK32; // Vulkan spec format support isn't for ARGB but for ABGR
     case Image_Format::R16_UNORM:  return VK_FORMAT_R16_UNORM;
     case Image_Format::R16_SNORM:  return VK_FORMAT_R16_SNORM;
     case Image_Format::R16_UINT:   return VK_FORMAT_R16_UINT;
