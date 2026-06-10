@@ -432,15 +432,23 @@ VkDevice create_device(VkPhysicalDevice physical_device)
         VK_EXT_DEPTH_CLIP_ENABLE_EXTENSION_NAME });
 
     std::vector<VkDeviceQueueCreateInfo> queue_create_infos;
+    std::vector<VkQueueFamilyOwnershipTransferPropertiesKHR> queue_family_ownership_transfer_properties_list;
     std::vector<VkQueueFamilyProperties2> queue_family_properties_list;
     {
         uint32_t queue_family_property_count = 0u;
         vkGetPhysicalDeviceQueueFamilyProperties2(physical_device, &queue_family_property_count, nullptr);
         queue_family_properties_list.resize(queue_family_property_count);
-        for (auto& queue_family_properties : queue_family_properties_list)
+        queue_family_ownership_transfer_properties_list.resize(queue_family_property_count);
+        for (auto i = 0; i < queue_family_property_count; ++i)
         {
+            auto& queue_family_ownership_transfer_properties = queue_family_ownership_transfer_properties_list[i];
+            queue_family_ownership_transfer_properties.sType = VK_STRUCTURE_TYPE_QUEUE_FAMILY_OWNERSHIP_TRANSFER_PROPERTIES_KHR;
+
+            auto& queue_family_properties = queue_family_properties_list[i];
             queue_family_properties.sType = VK_STRUCTURE_TYPE_QUEUE_FAMILY_PROPERTIES_2;
+            queue_family_properties.pNext = &queue_family_ownership_transfer_properties;
         }
+
         vkGetPhysicalDeviceQueueFamilyProperties2(physical_device, &queue_family_property_count, queue_family_properties_list.data());
 
         for (const auto& [index, queue_family_properties] : queue_family_properties_list | std::views::enumerate)
