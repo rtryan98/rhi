@@ -1092,17 +1092,17 @@ void D3D12_Command_List::build_acceleration_structure(
                     }
                 };
             }
-
-            inputs.pGeometryDescs = geometry_descs.data();
-
-            D3D12_BUILD_RAYTRACING_ACCELERATION_STRUCTURE_DESC build_desc = {
-                .DestAccelerationStructureData = build_info.dst->address,
-                .Inputs = inputs,
-                .SourceAccelerationStructureData = build_info.src != nullptr? build_info.src->address : 0,
-                .ScratchAccelerationStructureData = scratch_memory_address
-            };
-            m_cmd->BuildRaytracingAccelerationStructure(&build_desc, 0, nullptr);
         }
+
+        inputs.pGeometryDescs = geometry_descs.data();
+
+        D3D12_BUILD_RAYTRACING_ACCELERATION_STRUCTURE_DESC build_desc = {
+            .DestAccelerationStructureData = build_info.dst->address,
+            .Inputs = inputs,
+            .SourceAccelerationStructureData = build_info.src != nullptr ? build_info.src->address : 0,
+            .ScratchAccelerationStructureData = scratch_memory_address
+        };
+        m_cmd->BuildRaytracingAccelerationStructure(&build_desc, 0, nullptr);
     }
     else // TLAS
     {
