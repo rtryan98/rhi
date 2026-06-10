@@ -1052,7 +1052,218 @@ std::expected<Pipeline*, Result> Vulkan_Graphics_Device::create_pipeline(const C
 
 std::expected<Pipeline*, Result> Vulkan_Graphics_Device::create_pipeline(const Mesh_Shading_Pipeline_Create_Info& create_info) noexcept
 {
-    return std::expected<Pipeline*, Result>();
+    std::unique_lock<std::mutex> lock_guard(m_resource_mutex, std::defer_lock);
+    if (m_use_mutex)
+    {
+        lock_guard.lock();
+    }
+
+    auto pipeline = &*m_pipelines.emplace();
+    pipeline->type = Pipeline_Type::Mesh_Shading;
+    pipeline->mesh_shading_info = create_info;
+
+    std::vector<VkShaderModuleCreateInfo> shader_module_create_infos;
+    shader_module_create_infos.reserve(5);
+    std::vector<VkPipelineShaderStageCreateInfo> shader_stage_create_infos;
+    shader_stage_create_infos.reserve(5);
+
+    auto create_stage = [&](Shader_Blob* blob, VkShaderStageFlagBits vulkan_stage) {
+        if (!blob)
+            return;
+
+        auto& module = shader_module_create_infos.emplace_back();
+        module = {
+            .sType = VK_STRUCTURE_TYPE_SHADER_MODULE_CREATE_INFO,
+            .pNext = nullptr,
+            .flags = 0,
+            .codeSize = static_cast<uint32_t>(blob->data.size()),
+            .pCode = reinterpret_cast<uint32_t*>(blob->data.data())
+        };
+        auto& stage = shader_stage_create_infos.emplace_back();
+        stage = {
+            .sType = VK_STRUCTURE_TYPE_PIPELINE_SHADER_STAGE_CREATE_INFO,
+            .pNext = &module,
+            .flags = 0,
+            .stage = vulkan_stage,
+            .module = VK_NULL_HANDLE,
+            .pName = "main",
+            .pSpecializationInfo = nullptr
+        };
+        };
+
+    create_stage(create_info.ts, VK_SHADER_STAGE_TASK_BIT_EXT);
+    create_stage(create_info.ms, VK_SHADER_STAGE_MESH_BIT_EXT);
+    create_stage(create_info.ps, VK_SHADER_STAGE_FRAGMENT_BIT);
+
+    VkViewport dummy_viewport = {};
+    VkRect2D dummy_scissor = {};
+    VkPipelineViewportStateCreateInfo viewport_state_create_info = {
+        .sType = VK_STRUCTURE_TYPE_PIPELINE_VIEWPORT_STATE_CREATE_INFO,
+        .pNext = nullptr,
+        .viewportCount = 1,
+        .pViewports = &dummy_viewport,
+        .scissorCount = 1,
+        .pScissors = &dummy_scissor
+    };
+    VkPipelineRasterizationDepthClipStateCreateInfoEXT depth_clip_state_create_info = {
+        .sType = VK_STRUCTURE_TYPE_PIPELINE_RASTERIZATION_DEPTH_CLIP_STATE_CREATE_INFO_EXT,
+        .pNext = nullptr,
+        .flags = 0,
+        .depthClipEnable = create_info.rasterizer_state_info.depth_clip_enable
+    };
+    VkPipelineRasterizationStateCreateInfo rasterization_state_create_info = {
+        .sType = VK_STRUCTURE_TYPE_PIPELINE_RASTERIZATION_STATE_CREATE_INFO,
+        .pNext = &depth_clip_state_create_info,
+        .flags = 0,
+        .depthClampEnable = VK_FALSE,
+        .rasterizerDiscardEnable = VK_FALSE,
+        .polygonMode = vulkan_cast<VkPolygonMode>(create_info.rasterizer_state_info.fill_mode),
+        .cullMode = vulkan_cast<VkCullModeFlags>(create_info.rasterizer_state_info.cull_mode),
+        .frontFace = vulkan_cast<VkFrontFace>(create_info.rasterizer_state_info.winding_order),
+        .depthBiasEnable = create_info.rasterizer_state_info.depth_bias != 0.f,
+        .depthBiasConstantFactor = create_info.rasterizer_state_info.depth_bias,
+        .depthBiasClamp = create_info.rasterizer_state_info.depth_bias_clamp,
+        .depthBiasSlopeFactor = create_info.rasterizer_state_info.depth_bias_slope_scale,
+        .lineWidth = 1.f
+    };
+    VkPipelineMultisampleStateCreateInfo multisample_state_create_info = {
+        .sType = VK_STRUCTURE_TYPE_PIPELINE_MULTISAMPLE_STATE_CREATE_INFO,
+        .pNext = nullptr,
+        .flags = 0,
+        .rasterizationSamples = VK_SAMPLE_COUNT_1_BIT,
+        .sampleShadingEnable = VK_FALSE,
+        .minSampleShading = 0.f,
+        .pSampleMask = nullptr,
+        .alphaToCoverageEnable = VK_FALSE,
+        .alphaToOneEnable = VK_FALSE
+    };
+    VkPipelineDepthStencilStateCreateInfo depth_stencil_state_create_info = {
+        .sType = VK_STRUCTURE_TYPE_PIPELINE_DEPTH_STENCIL_STATE_CREATE_INFO,
+        .pNext = nullptr,
+        .flags = 0,
+        .depthTestEnable = create_info.depth_stencil_info.depth_enable,
+        .depthWriteEnable = create_info.depth_stencil_info.depth_write_enable,
+        .depthCompareOp = vulkan_cast<VkCompareOp>(create_info.depth_stencil_info.comparison_func),
+        .depthBoundsTestEnable = create_info.depth_stencil_info.depth_bounds_test_mode != Depth_Bounds_Test_Mode::Disabled,
+        .stencilTestEnable = create_info.depth_stencil_info.stencil_enable,
+        .front = {
+            .failOp = vulkan_cast<VkStencilOp>(create_info.depth_stencil_info.stencil_front_face.fail),
+            .passOp = vulkan_cast<VkStencilOp>(create_info.depth_stencil_info.stencil_front_face.pass),
+            .depthFailOp = vulkan_cast<VkStencilOp>(create_info.depth_stencil_info.stencil_front_face.depth_fail),
+            .compareOp = vulkan_cast<VkCompareOp>(create_info.depth_stencil_info.stencil_front_face.comparison_func),
+            .compareMask = ~0u,
+            .writeMask = create_info.depth_stencil_info.stencil_front_face.stencil_write_mask,
+            .reference = create_info.depth_stencil_info.stencil_front_face.stencil_read_mask
+        },
+        .back = {
+            .failOp = vulkan_cast<VkStencilOp>(create_info.depth_stencil_info.stencil_back_face.fail),
+            .passOp = vulkan_cast<VkStencilOp>(create_info.depth_stencil_info.stencil_back_face.pass),
+            .depthFailOp = vulkan_cast<VkStencilOp>(create_info.depth_stencil_info.stencil_back_face.depth_fail),
+            .compareOp = vulkan_cast<VkCompareOp>(create_info.depth_stencil_info.stencil_back_face.comparison_func),
+            .compareMask = ~0u,
+            .writeMask = create_info.depth_stencil_info.stencil_back_face.stencil_write_mask,
+            .reference = create_info.depth_stencil_info.stencil_back_face.stencil_read_mask
+        },
+        .minDepthBounds = create_info.depth_stencil_info.depth_bounds_min,
+        .maxDepthBounds = create_info.depth_stencil_info.depth_bounds_max
+    };
+
+    std::vector<VkPipelineColorBlendAttachmentState> color_blend_attachment_states;
+    color_blend_attachment_states.reserve(create_info.color_attachment_count);
+    for (auto i = 0; i < create_info.color_attachment_count; ++i)
+    {
+        const auto& attachment_create_info = create_info.blend_state_info.color_attachments[i];
+        auto& color_blend_attachment_state = color_blend_attachment_states.emplace_back();
+        color_blend_attachment_state = {
+            .blendEnable = attachment_create_info.blend_enable,
+            .srcColorBlendFactor = vulkan_cast<VkBlendFactor>(attachment_create_info.color_src_blend),
+            .dstColorBlendFactor = vulkan_cast<VkBlendFactor>(attachment_create_info.color_dst_blend),
+            .colorBlendOp = vulkan_cast<VkBlendOp>(attachment_create_info.color_blend_op),
+            .srcAlphaBlendFactor = vulkan_cast<VkBlendFactor>(attachment_create_info.alpha_src_blend),
+            .dstAlphaBlendFactor = vulkan_cast<VkBlendFactor>(attachment_create_info.alpha_dst_blend),
+            .alphaBlendOp = vulkan_cast<VkBlendOp>(attachment_create_info.alpha_blend_op),
+            .colorWriteMask = vulkan_cast<VkColorComponentFlags>(attachment_create_info.color_write_mask)
+        };
+    }
+    VkPipelineColorBlendStateCreateInfo color_blend_state_create_info = {
+        .sType = VK_STRUCTURE_TYPE_PIPELINE_COLOR_BLEND_STATE_CREATE_INFO,
+        .pNext = nullptr,
+        .flags = 0,
+        .logicOpEnable = VK_FALSE,
+        .logicOp = VK_LOGIC_OP_CLEAR,
+        .attachmentCount = static_cast<uint32_t>(color_blend_attachment_states.size()),
+        .pAttachments = color_blend_attachment_states.data(),
+        .blendConstants = {
+            1.f, 1.f, 1.f, 1.f
+        }
+    };
+    for (auto i = 0; i < create_info.color_attachment_count; ++i)
+    {
+        // TODO: this doesn't match nicely to D3D12. Find a better way for logic ops.
+        const auto& attachment_create_info = create_info.blend_state_info.color_attachments[i];
+        if (attachment_create_info.logic_op_enable)
+        {
+            color_blend_state_create_info.logicOpEnable = VK_TRUE;
+            color_blend_state_create_info.logicOp = vulkan_cast<VkLogicOp>(attachment_create_info.logic_op);
+            break;
+        }
+    }
+
+    auto dynamic_states = std::vector<VkDynamicState>({
+        VK_DYNAMIC_STATE_VIEWPORT,
+        VK_DYNAMIC_STATE_SCISSOR
+        });
+    if (create_info.depth_stencil_info.depth_bounds_test_mode == Depth_Bounds_Test_Mode::Dynamic)
+    {
+        dynamic_states.push_back(VK_DYNAMIC_STATE_DEPTH_BOUNDS);
+    }
+    VkPipelineDynamicStateCreateInfo dynamic_state_create_info = {
+        .sType = VK_STRUCTURE_TYPE_PIPELINE_DYNAMIC_STATE_CREATE_INFO,
+        .pNext = nullptr,
+        .flags = 0,
+        .dynamicStateCount = static_cast<uint32_t>(dynamic_states.size()),
+        .pDynamicStates = dynamic_states.data()
+    };
+
+    std::vector<VkFormat> color_attachment_formats;
+    color_attachment_formats.reserve(create_info.color_attachment_count);
+    for (auto i = 0; i < create_info.color_attachment_count; ++i)
+    {
+        color_attachment_formats.push_back(vulkan_cast<VkFormat>(create_info.color_attachment_formats[i]));
+    }
+    VkPipelineRenderingCreateInfo pipeline_rendering_create_info = {
+        .sType = VK_STRUCTURE_TYPE_PIPELINE_RENDERING_CREATE_INFO,
+        .pNext = nullptr,
+        .viewMask = 0,
+        .colorAttachmentCount = create_info.color_attachment_count,
+        .pColorAttachmentFormats = color_attachment_formats.data(),
+        .depthAttachmentFormat = vulkan_cast<VkFormat>(create_info.depth_stencil_format),
+        .stencilAttachmentFormat = VK_FORMAT_UNDEFINED // TODO: stencil format
+    };
+    VkGraphicsPipelineCreateInfo pipeline_create_info = {
+        .sType = VK_STRUCTURE_TYPE_GRAPHICS_PIPELINE_CREATE_INFO,
+        .pNext = &pipeline_rendering_create_info,
+        .flags = 0,
+        .stageCount = static_cast<uint32_t>(shader_stage_create_infos.size()),
+        .pStages = shader_stage_create_infos.data(),
+        .pVertexInputState = nullptr,
+        .pInputAssemblyState = nullptr,
+        .pTessellationState = nullptr,
+        .pViewportState = &viewport_state_create_info,
+        .pRasterizationState = &rasterization_state_create_info,
+        .pMultisampleState = &multisample_state_create_info,
+        .pDepthStencilState = &depth_stencil_state_create_info,
+        .pColorBlendState = &color_blend_state_create_info,
+        .pDynamicState = &dynamic_state_create_info,
+        .layout = m_pipeline_layout,
+        .renderPass = VK_NULL_HANDLE,
+        .subpass = 0,
+        .basePipelineHandle = VK_NULL_HANDLE,
+        .basePipelineIndex = 0
+    };
+    vkCreateGraphicsPipelines(m_device, VK_NULL_HANDLE, 1, &pipeline_create_info, nullptr, &pipeline->pipeline);
+
+    return pipeline;
 }
 
 void Vulkan_Graphics_Device::destroy_pipeline(Pipeline* pipeline) noexcept
