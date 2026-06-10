@@ -21,7 +21,7 @@ struct Vulkan_Command_List_Allocator
 class Vulkan_Command_List final : public Command_List
 {
 public:
-    Vulkan_Command_List(VkCommandBuffer cmd, Vulkan_Graphics_Device* device) noexcept;
+    Vulkan_Command_List(VkCommandBuffer cmd, Vulkan_Graphics_Device* device, Queue_Type queue_type) noexcept;
 
     // Meta commands
     virtual [[nodiscard]] Graphics_API get_graphics_api() const noexcept override;

@@ -5,11 +5,13 @@
 
 namespace rhi::vulkan
 {
-Vulkan_Command_List::Vulkan_Command_List(VkCommandBuffer cmd, Vulkan_Graphics_Device* device) noexcept
+Vulkan_Command_List::Vulkan_Command_List(VkCommandBuffer cmd, Vulkan_Graphics_Device* device, Queue_Type queue_type) noexcept
     : m_cmd(cmd)
     , m_device(device)
     , m_bound_image_views()
-{}
+{
+    m_queue_type = queue_type;
+}
 
 Graphics_API Vulkan_Command_List::get_graphics_api() const noexcept
 {
@@ -1008,6 +1010,6 @@ Command_List* Vulkan_Command_Pool::acquire_command_list() noexcept
         vkCmdBindDescriptorSets(cmd_alloc.cmd, VK_PIPELINE_BIND_POINT_GRAPHICS, pipeline_layout, 0, 1, &descriptor_set, 0, nullptr);
         vkCmdBindDescriptorSets(cmd_alloc.cmd, VK_PIPELINE_BIND_POINT_COMPUTE, pipeline_layout, 0, 1, &descriptor_set, 0, nullptr);
     }
-    return m_command_lists.emplace_back(std::make_unique<Vulkan_Command_List>(cmd_alloc.cmd, m_device)).get();
+    return m_command_lists.emplace_back(std::make_unique<Vulkan_Command_List>(cmd_alloc.cmd, m_device, m_queue_type)).get();
 }
 }
