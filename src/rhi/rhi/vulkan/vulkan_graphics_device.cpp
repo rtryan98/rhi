@@ -125,7 +125,7 @@ Result Vulkan_Graphics_Device::queue_wait_idle(Queue_Type queue, [[maybe_unused]
     case rhi::Queue_Type::Compute:
         return(translate_result(vkQueueWaitIdle(m_compute_queue)));
     case rhi::Queue_Type::Copy:
-        return(translate_result(vkQueueWaitIdle(m_compute_queue)));
+        return(translate_result(vkQueueWaitIdle(m_copy_queue)));
     case rhi::Queue_Type::Video_Decode:
         assert(false && "Vulkan video decode queue is not implemented");
         return Result::Error_Invalid_Parameters;
