@@ -551,7 +551,7 @@ void D3D12_Command_List::copy_image_to_buffer(
                 .Width = src_extent.x,
                 .Height = src_extent.y,
                 .Depth = src_extent.z,
-                .RowPitch = src_extent.x
+                .RowPitch = src_extent.x * get_image_format_info(src->format).bytes
             }
         }
     };
