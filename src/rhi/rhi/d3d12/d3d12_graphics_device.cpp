@@ -896,12 +896,12 @@ std::expected<Image_View*, Result> D3D12_Graphics_Device::create_image_view(
     image_view->next_image_view = d3d12_image->image_view_linked_list_head;
     d3d12_image->image_view_linked_list_head = image_view;
     image_view->image = d3d12_image;
+    image_view->bindless_index = ~0u; // Default initialize to invalid descriptor
 
     switch (create_info.descriptor_type)
     {
     case Descriptor_Type::Resource:
     {
-
         image_view->bindless_index = (index != NO_RESOURCE_INDEX) ? (index * 2) : create_descriptor_index(D3D12_DESCRIPTOR_HEAP_TYPE_CBV_SRV_UAV);
         auto srv_desc = make_texture_srv(
             translate_format(d3d12_image->format),
@@ -997,9 +997,6 @@ void D3D12_Graphics_Device::destroy_image(Image* image) noexcept
         auto current_image_view = static_cast<D3D12_Image_View*>(next_image_view);
         switch (current_image_view->descriptor_type)
         {
-        // case Descriptor_Type::Resource:
-        //     release_descriptor_index(current_image_view->bindless_index, D3D12_DESCRIPTOR_HEAP_TYPE_CBV_SRV_UAV);
-        //     break;
         case Descriptor_Type::Color_Attachment:
             release_descriptor_index(current_image_view->rtv_dsv_index, D3D12_DESCRIPTOR_HEAP_TYPE_RTV);
             break;
