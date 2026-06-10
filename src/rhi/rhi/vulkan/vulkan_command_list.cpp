@@ -383,8 +383,8 @@ void Vulkan_Command_List::copy_image(
     VkImageCopy region = {
         .srcSubresource = {
             .aspectMask = get_aspect_mask(src),
-            .mipLevel = dst_mip_level,
-            .baseArrayLayer = dst_array_index,
+            .mipLevel = src_mip_level,
+            .baseArrayLayer = src_array_index,
             .layerCount = 1
         },
         .srcOffset = {
