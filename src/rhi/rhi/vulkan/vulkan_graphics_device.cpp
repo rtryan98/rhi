@@ -492,9 +492,9 @@ std::expected<Image*, Result> Vulkan_Graphics_Device::create_image(const Image_C
         .subresourceRange = {
             .aspectMask = get_aspect_mask(image),
             .baseMipLevel = 0,
-            .levelCount = VK_REMAINING_ARRAY_LAYERS,
+            .levelCount = VK_REMAINING_MIP_LEVELS,
             .baseArrayLayer = 0,
-            .layerCount = VK_REMAINING_MIP_LEVELS
+            .layerCount = VK_REMAINING_ARRAY_LAYERS
         }
     };
     vkCreateImageView(m_device, &image_view_create_info, nullptr, &static_cast<Vulkan_Image_View*>(image->image_view)->image_view);
