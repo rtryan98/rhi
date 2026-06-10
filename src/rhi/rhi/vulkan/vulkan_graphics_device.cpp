@@ -71,13 +71,25 @@ Vulkan_Graphics_Device::Vulkan_Graphics_Device(const Graphics_Device_Create_Info
     m_physical_device = select_physical_device(m_instance);
     m_device = create_device(m_physical_device);
 
-    auto queue_infos = get_queue_infos(m_physical_device);
-    vkGetDeviceQueue(m_device, queue_infos.graphics_queue_index, 0, &m_graphics_queue.queue);
-    m_graphics_queue.index = queue_infos.graphics_queue_index;
-    vkGetDeviceQueue(m_device, queue_infos.compute_queue_index, 0, &m_compute_queue.queue);
-    m_compute_queue.index = queue_infos.compute_queue_index;
-    vkGetDeviceQueue(m_device, queue_infos.copy_queue_index, 0, &m_copy_queue.queue);
-    m_copy_queue.index = queue_infos.copy_queue_index;
+    // Queue setup
+    {
+        auto queue_infos = get_queue_infos(m_physical_device);
+
+        vkGetDeviceQueue(m_device, queue_infos.graphics_queue_index, 0, &m_graphics_queue.queue);
+        m_graphics_queue.index = queue_infos.graphics_queue_index;
+
+        vkGetDeviceQueue(m_device, queue_infos.compute_queue_index, 0, &m_compute_queue.queue);
+        m_compute_queue.index = queue_infos.compute_queue_index;
+
+        vkGetDeviceQueue(m_device, queue_infos.copy_queue_index, 0, &m_copy_queue.queue);
+        m_copy_queue.index = queue_infos.copy_queue_index;
+
+        vkGetDeviceQueue(m_device, queue_infos.video_decode_queue_index, 0, &m_video_decode_queue.queue);
+        m_video_decode_queue.index = queue_infos.video_decode_queue_index;
+
+        vkGetDeviceQueue(m_device, queue_infos.video_encode_queue_index, 0, &m_video_encode_queue.queue);
+        m_video_encode_queue.index = queue_infos.video_encode_queue_index;
+    }
 
     VmaVulkanFunctions allocator_vulkan_functions = {};
     VmaAllocatorCreateInfo allocator_create_info = {
@@ -127,11 +139,9 @@ Result Vulkan_Graphics_Device::queue_wait_idle(Queue_Type queue, [[maybe_unused]
     case rhi::Queue_Type::Copy:
         return(translate_result(vkQueueWaitIdle(m_copy_queue)));
     case rhi::Queue_Type::Video_Decode:
-        assert(false && "Vulkan video decode queue is not implemented");
-        return Result::Error_Invalid_Parameters;
+        return(translate_result(vkQueueWaitIdle(m_video_decode_queue)));
     case rhi::Queue_Type::Video_Encode:
-        assert(false && "Vulkan video encode queue is not implemented");
-        return Result::Error_Invalid_Parameters;
+        return(translate_result(vkQueueWaitIdle(m_video_encode_queue)));
     default:
         return Result::Error_Invalid_Parameters;
     }
@@ -1456,9 +1466,13 @@ Result Vulkan_Graphics_Device::submit(const Submit_Info& submit_info) noexcept
         queue_mutex = &m_copy_queue_mutex;
         break;
     case Queue_Type::Video_Decode:
-        [[fallthrough]]; // TODO: implement video queues
+        queue = m_video_decode_queue;
+        queue_mutex = &m_video_decode_queue_mutex;
+        break;
     case Queue_Type::Video_Encode:
-        [[fallthrough]];
+        queue = m_video_encode_queue;
+        queue_mutex = &m_video_encode_queue_mutex;
+        break;
     default:
         return Result::Error_Invalid_Parameters;
     }
@@ -1581,9 +1595,9 @@ uint32_t Vulkan_Graphics_Device::get_queue_family_index(VkQueueFlagBits queue_ty
     case VK_QUEUE_TRANSFER_BIT:
         return m_copy_queue.index;
     case VK_QUEUE_VIDEO_DECODE_BIT_KHR:
-        std::unreachable();
+        return m_video_decode_queue.index;
     case VK_QUEUE_VIDEO_ENCODE_BIT_KHR:
-        std::unreachable();
+        return m_video_encode_queue.index;
     default:
         std::unreachable();
     }
@@ -1600,9 +1614,9 @@ const VkQueue Vulkan_Graphics_Device::get_queue(Queue_Type queue_type) const noe
     case Queue_Type::Copy:
         return m_copy_queue.queue;
     case Queue_Type::Video_Decode:
-        std::unreachable();
+        return m_video_decode_queue.queue;
     case Queue_Type::Video_Encode:
-        std::unreachable();
+        return m_video_encode_queue.queue;
     default:
         std::unreachable();
     }

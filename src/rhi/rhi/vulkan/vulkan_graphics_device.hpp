@@ -128,6 +128,8 @@ private:
     Queue m_graphics_queue;
     Queue m_compute_queue;
     Queue m_copy_queue;
+    Queue m_video_decode_queue;
+    Queue m_video_encode_queue;
 
     VmaAllocator m_allocator = VK_NULL_HANDLE;
 
@@ -141,6 +143,8 @@ private:
     std::mutex m_direct_queue_mutex;
     std::mutex m_compute_queue_mutex;
     std::mutex m_copy_queue_mutex;
+    std::mutex m_video_decode_queue_mutex;
+    std::mutex m_video_encode_queue_mutex;
 
     Vulkan_Resource_Pool m_resource_pool;
 
