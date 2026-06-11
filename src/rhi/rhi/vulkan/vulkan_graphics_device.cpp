@@ -914,18 +914,18 @@ std::expected<Pipeline*, Result> Vulkan_Graphics_Device::create_pipeline(const G
             .passOp = vulkan_cast<VkStencilOp>(create_info.depth_stencil_info.stencil_front_face.pass),
             .depthFailOp = vulkan_cast<VkStencilOp>(create_info.depth_stencil_info.stencil_front_face.depth_fail),
             .compareOp = vulkan_cast<VkCompareOp>(create_info.depth_stencil_info.stencil_front_face.comparison_func),
-            .compareMask = ~0u,
+            .compareMask = create_info.depth_stencil_info.stencil_front_face.stencil_read_mask,
             .writeMask = create_info.depth_stencil_info.stencil_front_face.stencil_write_mask,
-            .reference = create_info.depth_stencil_info.stencil_front_face.stencil_read_mask
+            .reference = 0
         },
         .back = {
             .failOp = vulkan_cast<VkStencilOp>(create_info.depth_stencil_info.stencil_back_face.fail),
             .passOp = vulkan_cast<VkStencilOp>(create_info.depth_stencil_info.stencil_back_face.pass),
             .depthFailOp = vulkan_cast<VkStencilOp>(create_info.depth_stencil_info.stencil_back_face.depth_fail),
             .compareOp = vulkan_cast<VkCompareOp>(create_info.depth_stencil_info.stencil_back_face.comparison_func),
-            .compareMask = ~0u,
+            .compareMask = create_info.depth_stencil_info.stencil_front_face.stencil_read_mask,
             .writeMask = create_info.depth_stencil_info.stencil_back_face.stencil_write_mask,
-            .reference = create_info.depth_stencil_info.stencil_back_face.stencil_read_mask
+            .reference = 0
         },
         .minDepthBounds = create_info.depth_stencil_info.depth_bounds_min,
         .maxDepthBounds = create_info.depth_stencil_info.depth_bounds_max
@@ -979,6 +979,10 @@ std::expected<Pipeline*, Result> Vulkan_Graphics_Device::create_pipeline(const G
     if (create_info.depth_stencil_info.depth_bounds_test_mode == Depth_Bounds_Test_Mode::Dynamic)
     {
         dynamic_states.push_back(VK_DYNAMIC_STATE_DEPTH_BOUNDS);
+    }
+    if (create_info.depth_stencil_info.stencil_enable)
+    {
+        dynamic_states.push_back(VK_DYNAMIC_STATE_STENCIL_REFERENCE);
     }
     VkPipelineDynamicStateCreateInfo dynamic_state_create_info = {
         .sType = VK_STRUCTURE_TYPE_PIPELINE_DYNAMIC_STATE_CREATE_INFO,
@@ -1174,18 +1178,18 @@ std::expected<Pipeline*, Result> Vulkan_Graphics_Device::create_pipeline(const M
             .passOp = vulkan_cast<VkStencilOp>(create_info.depth_stencil_info.stencil_front_face.pass),
             .depthFailOp = vulkan_cast<VkStencilOp>(create_info.depth_stencil_info.stencil_front_face.depth_fail),
             .compareOp = vulkan_cast<VkCompareOp>(create_info.depth_stencil_info.stencil_front_face.comparison_func),
-            .compareMask = ~0u,
+            .compareMask = create_info.depth_stencil_info.stencil_front_face.stencil_read_mask,
             .writeMask = create_info.depth_stencil_info.stencil_front_face.stencil_write_mask,
-            .reference = create_info.depth_stencil_info.stencil_front_face.stencil_read_mask
+            .reference = 0
         },
         .back = {
             .failOp = vulkan_cast<VkStencilOp>(create_info.depth_stencil_info.stencil_back_face.fail),
             .passOp = vulkan_cast<VkStencilOp>(create_info.depth_stencil_info.stencil_back_face.pass),
             .depthFailOp = vulkan_cast<VkStencilOp>(create_info.depth_stencil_info.stencil_back_face.depth_fail),
             .compareOp = vulkan_cast<VkCompareOp>(create_info.depth_stencil_info.stencil_back_face.comparison_func),
-            .compareMask = ~0u,
+            .compareMask = create_info.depth_stencil_info.stencil_front_face.stencil_read_mask,
             .writeMask = create_info.depth_stencil_info.stencil_back_face.stencil_write_mask,
-            .reference = create_info.depth_stencil_info.stencil_back_face.stencil_read_mask
+            .reference = 0
         },
         .minDepthBounds = create_info.depth_stencil_info.depth_bounds_min,
         .maxDepthBounds = create_info.depth_stencil_info.depth_bounds_max
@@ -1239,6 +1243,10 @@ std::expected<Pipeline*, Result> Vulkan_Graphics_Device::create_pipeline(const M
     if (create_info.depth_stencil_info.depth_bounds_test_mode == Depth_Bounds_Test_Mode::Dynamic)
     {
         dynamic_states.push_back(VK_DYNAMIC_STATE_DEPTH_BOUNDS);
+    }
+    if (create_info.depth_stencil_info.stencil_enable)
+    {
+        dynamic_states.push_back(VK_DYNAMIC_STATE_STENCIL_REFERENCE);
     }
     VkPipelineDynamicStateCreateInfo dynamic_state_create_info = {
         .sType = VK_STRUCTURE_TYPE_PIPELINE_DYNAMIC_STATE_CREATE_INFO,
