@@ -271,7 +271,7 @@ D3D12_DEPTH_STENCIL_DESC2 translate_depth_stencil_desc(const Pipeline_Depth_Sten
 {
     D3D12_DEPTH_STENCIL_DESC2 result = {
         .DepthEnable = ds_info.depth_enable,
-        .DepthWriteMask = ds_info.depth_enable ? D3D12_DEPTH_WRITE_MASK_ALL : D3D12_DEPTH_WRITE_MASK_ZERO,
+        .DepthWriteMask = ds_info.depth_write_enable ? D3D12_DEPTH_WRITE_MASK_ALL : D3D12_DEPTH_WRITE_MASK_ZERO,
         .DepthFunc = d3d12_cast<D3D12_COMPARISON_FUNC>(ds_info.comparison_func),
         .StencilEnable = ds_info.stencil_enable,
         .FrontFace = translate_depth_stencilop_desc(ds_info.stencil_front_face),
