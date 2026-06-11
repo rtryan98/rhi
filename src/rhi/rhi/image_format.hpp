@@ -25,7 +25,7 @@ enum class Image_Format
     B8G8R8A8_UINT = 48,
     B8G8R8A8_SINT = 49,
     B8G8R8A8_SRGB = 50,
-    A2R10G10B10_UNORM_PACK32 = 58,
+    A2R10G10B10_UNORM_PACK32 = 58, // Vulkan uses A2B10G10R10 instead due to format support
     R16_UNORM = 70,
     R16_SNORM = 71,
     R16_UINT = 74,
