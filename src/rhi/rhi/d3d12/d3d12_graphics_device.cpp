@@ -1058,7 +1058,9 @@ std::expected<Sampler*, Result> D3D12_Graphics_Device::create_sampler(const Samp
         .AddressW = d3d12_cast<D3D12_TEXTURE_ADDRESS_MODE>(create_info.address_mode_w),
         .MipLODBias = create_info.mip_lod_bias,
         .MaxAnisotropy = create_info.max_anisotropy,
-        .ComparisonFunc = d3d12_cast<D3D12_COMPARISON_FUNC>(create_info.comparison_func),
+        .ComparisonFunc = (create_info.reduction == Sampler_Reduction_Type::Comparison)
+            ? d3d12_cast<D3D12_COMPARISON_FUNC>(create_info.comparison_func)
+            : D3D12_COMPARISON_FUNC_NONE,
         .BorderColor = {
             create_info.border_color[0],
             create_info.border_color[1],
