@@ -552,6 +552,7 @@ void D3D12_Command_List::fill_buffer(Buffer_View* dst, uint32_t value) noexcept
 
     auto d3d12_dst = static_cast<D3D12_Buffer*>(dst->buffer);
     uint32_t values[4] = { value, value, value, value };
+    // No rect is required - descriptor is already limiting the range
     m_cmd->ClearUnorderedAccessViewUint(
         m_device->get_gpu_descriptor_handle(
             m_device->get_uav_from_bindless_index(dst->bindless_index),
