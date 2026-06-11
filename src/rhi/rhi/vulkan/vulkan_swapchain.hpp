@@ -44,6 +44,7 @@ private:
     VkSurfaceKHR m_surface;
     VkSwapchainKHR m_swapchain;
     HWND m_hwnd;
+    Present_Mode m_present_mode;
     uint32_t m_image_count;
     VkExtent2D m_extent;
     VkFormat m_format;

@@ -50,6 +50,7 @@ VkSurfaceFormatKHR find_swapchain_format(Image_Format image_format)
 VkSwapchainKHR create_swapchain(
     VkDevice device,
     VkSurfaceKHR surface,
+    Present_Mode present_mode,
     uint32_t image_count,
     const VkSurfaceFormatKHR& surface_format,
     const VkExtent2D& extent,
@@ -78,7 +79,9 @@ VkSwapchainKHR create_swapchain(
         .pQueueFamilyIndices = nullptr,
         .preTransform = VK_SURFACE_TRANSFORM_IDENTITY_BIT_KHR,
         .compositeAlpha = VK_COMPOSITE_ALPHA_OPAQUE_BIT_KHR,
-        .presentMode = VK_PRESENT_MODE_IMMEDIATE_KHR,
+        .presentMode = present_mode == Present_Mode::Immediate
+            ? VK_PRESENT_MODE_IMMEDIATE_KHR
+            : VK_PRESENT_MODE_MAILBOX_KHR,
         .clipped = VK_FALSE,
         .oldSwapchain = old_swapchain
     };
@@ -92,6 +95,7 @@ Vulkan_Swapchain::Vulkan_Swapchain(Vulkan_Graphics_Device* graphics_device, cons
     , m_surface(VK_NULL_HANDLE)
     , m_swapchain()
     , m_hwnd(create_info.hwnd)
+    , m_present_mode(create_info.present_mode)
     , m_image_count(create_info.image_count)
     , m_extent()
     , m_format(vulkan_cast<VkFormat>(create_info.preferred_format))
@@ -126,6 +130,7 @@ Vulkan_Swapchain::Vulkan_Swapchain(Vulkan_Graphics_Device* graphics_device, cons
     m_swapchain = create_swapchain(
         *m_device,
         m_surface,
+        m_present_mode,
         m_image_count,
         surface_format,
         { client_width, client_height },
@@ -328,6 +333,7 @@ Swapchain_Resize_Info Vulkan_Swapchain::query_resize_internal(Image_Format forma
         auto new_swapchain = create_swapchain(
             *m_device,
             m_surface,
+            m_present_mode,
             m_image_count,
             surface_format,
             m_extent,
