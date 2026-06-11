@@ -871,6 +871,9 @@ std::expected<Pipeline*, Result> Vulkan_Graphics_Device::create_pipeline(const G
         .flags = 0,
         .depthClipEnable = create_info.rasterizer_state_info.depth_clip_enable
     };
+    bool depth_bias_enable = false;
+    depth_bias_enable |= create_info.rasterizer_state_info.depth_bias != 0.f;
+    depth_bias_enable |= create_info.rasterizer_state_info.depth_bias_slope_scale != 0.f;
     VkPipelineRasterizationStateCreateInfo rasterization_state_create_info = {
         .sType = VK_STRUCTURE_TYPE_PIPELINE_RASTERIZATION_STATE_CREATE_INFO,
         .pNext = &depth_clip_state_create_info,
@@ -880,7 +883,7 @@ std::expected<Pipeline*, Result> Vulkan_Graphics_Device::create_pipeline(const G
         .polygonMode = vulkan_cast<VkPolygonMode>(create_info.rasterizer_state_info.fill_mode),
         .cullMode = vulkan_cast<VkCullModeFlags>(create_info.rasterizer_state_info.cull_mode),
         .frontFace = vulkan_cast<VkFrontFace>(create_info.rasterizer_state_info.winding_order),
-        .depthBiasEnable = create_info.rasterizer_state_info.depth_bias != 0.f,
+        .depthBiasEnable = depth_bias_enable,
         .depthBiasConstantFactor = create_info.rasterizer_state_info.depth_bias,
         .depthBiasClamp = create_info.rasterizer_state_info.depth_bias_clamp,
         .depthBiasSlopeFactor = create_info.rasterizer_state_info.depth_bias_slope_scale,
@@ -1128,6 +1131,9 @@ std::expected<Pipeline*, Result> Vulkan_Graphics_Device::create_pipeline(const M
         .flags = 0,
         .depthClipEnable = create_info.rasterizer_state_info.depth_clip_enable
     };
+    bool depth_bias_enable = false;
+    depth_bias_enable |= create_info.rasterizer_state_info.depth_bias != 0.f;
+    depth_bias_enable |= create_info.rasterizer_state_info.depth_bias_slope_scale != 0.f;
     VkPipelineRasterizationStateCreateInfo rasterization_state_create_info = {
         .sType = VK_STRUCTURE_TYPE_PIPELINE_RASTERIZATION_STATE_CREATE_INFO,
         .pNext = &depth_clip_state_create_info,
@@ -1137,7 +1143,7 @@ std::expected<Pipeline*, Result> Vulkan_Graphics_Device::create_pipeline(const M
         .polygonMode = vulkan_cast<VkPolygonMode>(create_info.rasterizer_state_info.fill_mode),
         .cullMode = vulkan_cast<VkCullModeFlags>(create_info.rasterizer_state_info.cull_mode),
         .frontFace = vulkan_cast<VkFrontFace>(create_info.rasterizer_state_info.winding_order),
-        .depthBiasEnable = create_info.rasterizer_state_info.depth_bias != 0.f,
+        .depthBiasEnable = depth_bias_enable,
         .depthBiasConstantFactor = create_info.rasterizer_state_info.depth_bias,
         .depthBiasClamp = create_info.rasterizer_state_info.depth_bias_clamp,
         .depthBiasSlopeFactor = create_info.rasterizer_state_info.depth_bias_slope_scale,
