@@ -746,8 +746,8 @@ void Vulkan_Command_List::set_index_buffer(Buffer* buffer, Index_Type index_type
 
 void Vulkan_Command_List::set_index_buffer(Buffer* buffer, Index_Type index_type, uint64_t offset, uint64_t size) noexcept
 {
-    vkCmdBindIndexBuffer2(m_cmd, static_cast<Vulkan_Buffer*>(buffer)->buffer, offset, size,
-        index_type == Index_Type::U16 ? VK_INDEX_TYPE_UINT16 : VK_INDEX_TYPE_UINT32);
+    auto vulkan_index_type = (index_type == Index_Type::U16) ? VK_INDEX_TYPE_UINT16 : VK_INDEX_TYPE_UINT32;
+    vkCmdBindIndexBuffer2(m_cmd, static_cast<Vulkan_Buffer*>(buffer)->buffer, offset, size, vulkan_index_type);
 }
 
 void Vulkan_Command_List::set_push_constants(const void* data, uint32_t size, Pipeline_Bind_Point bind_point) noexcept
