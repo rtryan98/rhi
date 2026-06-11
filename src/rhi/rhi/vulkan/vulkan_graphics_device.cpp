@@ -616,7 +616,7 @@ std::expected<Sampler*, Result> Vulkan_Graphics_Device::create_sampler(const Sam
         .mipLodBias = create_info.mip_lod_bias,
         .anisotropyEnable = create_info.anisotropy_enable,
         .maxAnisotropy = static_cast<float>(create_info.max_anisotropy),
-        .compareEnable = create_info.reduction != Sampler_Reduction_Type::Comparison,
+        .compareEnable = create_info.reduction == Sampler_Reduction_Type::Comparison,
         .compareOp = vulkan_cast<VkCompareOp>(create_info.comparison_func),
         .minLod = create_info.min_lod,
         .maxLod = create_info.max_lod,
