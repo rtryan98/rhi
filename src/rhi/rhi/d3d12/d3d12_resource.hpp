@@ -15,6 +15,7 @@ struct D3D12_Buffer : public Buffer
 {
     ID3D12Resource2* resource;
     D3D12MA::Allocation* allocation;
+    D3D12_RESOURCE_FLAGS flags;
 };
 
 // No extra members required in D3D12

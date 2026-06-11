@@ -547,6 +547,21 @@ void D3D12_Graphics_Device::destroy_fence(Fence* fence) noexcept
     m_fences.erase(m_fences.get_iterator(d3d12_fence));
 }
 
+bool should_create_buffer_srv(D3D12_Buffer* buffer) noexcept
+{
+    bool create_srv = true;
+    create_srv &= (buffer->flags & D3D12_RESOURCE_FLAG_RAYTRACING_ACCELERATION_STRUCTURE) == 0;
+    return create_srv;
+}
+
+bool should_create_buffer_uav(D3D12_Buffer* buffer) noexcept
+{
+    bool create_uav = true;
+    create_uav &= (buffer->flags & D3D12_RESOURCE_FLAG_RAYTRACING_ACCELERATION_STRUCTURE) == 0;
+    create_uav &= (buffer->flags & D3D12_RESOURCE_FLAG_ALLOW_UNORDERED_ACCESS) != 0;
+    return create_uav;
+}
+
 std::expected<Buffer*, Result> D3D12_Graphics_Device::create_buffer(const Buffer_Create_Info& create_info, uint32_t index) noexcept
 {
     std::unique_lock<std::mutex> lock_guard(m_resource_mutex, std::defer_lock);
@@ -620,13 +635,11 @@ std::expected<Buffer*, Result> D3D12_Graphics_Device::create_buffer(const Buffer
     buffer->gpu_address = resource->GetGPUVirtualAddress();
     buffer->resource = resource;
     buffer->allocation = allocation;
+    buffer->flags = flags;
     buffer->buffer_view_linked_list_head = buffer->buffer_view;
 
-    bool create_srv = true;
-    create_srv &= (flags & D3D12_RESOURCE_FLAG_RAYTRACING_ACCELERATION_STRUCTURE) == 0;
-    bool create_uav = true;
-    create_uav &= (flags & D3D12_RESOURCE_FLAG_RAYTRACING_ACCELERATION_STRUCTURE) == 0;
-    create_uav &= (flags & D3D12_RESOURCE_FLAG_ALLOW_UNORDERED_ACCESS) != 0;
+    bool create_srv = should_create_buffer_srv(buffer);
+    bool create_uav = should_create_buffer_uav(buffer);
 
     if (create_info.heap != Memory_Heap_Type::CPU_Readback)
         create_initial_buffer_descriptors(buffer, create_srv, create_uav);
@@ -657,6 +670,13 @@ std::expected<Buffer_View*, Result> D3D12_Graphics_Device::create_buffer_view(
     buffer_view->buffer = buffer;
     buffer_view->next_buffer_view = buffer->buffer_view_linked_list_head;
     buffer->buffer_view_linked_list_head = buffer_view;
+
+    auto d3d12_buffer = static_cast<D3D12_Buffer*>(buffer_view->buffer);
+    bool create_srv = should_create_buffer_srv(d3d12_buffer);
+    bool create_uav = should_create_buffer_uav(d3d12_buffer);
+
+    if (buffer->heap_type != Memory_Heap_Type::CPU_Readback)
+        create_buffer_view_descriptors(buffer_view, create_srv, create_uav);
 
     return buffer_view;
 }
@@ -1537,6 +1557,17 @@ void D3D12_Graphics_Device::create_initial_buffer_descriptors(D3D12_Buffer* buff
     create_srv_and_uav(
         buffer->resource,
         buffer->buffer_view->bindless_index,
+        create_srv ? &srv_desc : nullptr,
+        create_uav ? &uav_desc : nullptr);
+}
+
+void D3D12_Graphics_Device::create_buffer_view_descriptors(D3D12_Buffer_View* buffer_view, bool create_srv, bool create_uav) noexcept
+{
+    auto srv_desc = make_raw_buffer_srv(buffer_view->size, buffer_view->offset);
+    auto uav_desc = make_raw_buffer_uav(buffer_view->size, buffer_view->offset);
+    create_srv_and_uav(
+        static_cast<D3D12_Buffer*>(buffer_view->buffer)->resource,
+        buffer_view->bindless_index,
         create_srv ? &srv_desc : nullptr,
         create_uav ? &uav_desc : nullptr);
 }

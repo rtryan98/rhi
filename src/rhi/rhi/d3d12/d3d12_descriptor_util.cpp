@@ -4,12 +4,22 @@ namespace rhi::d3d12
 {
 D3D12_SHADER_RESOURCE_VIEW_DESC make_raw_buffer_srv(uint32_t size)
 {
+    return make_raw_buffer_srv(size, 0);
+}
+
+D3D12_UNORDERED_ACCESS_VIEW_DESC make_raw_buffer_uav(uint32_t size)
+{
+    return make_raw_buffer_uav(size, 0);
+}
+
+D3D12_SHADER_RESOURCE_VIEW_DESC make_raw_buffer_srv(uint32_t size, uint32_t offset)
+{
     return {
         .Format = DXGI_FORMAT_R32_TYPELESS,
         .ViewDimension = D3D12_SRV_DIMENSION_BUFFER,
         .Shader4ComponentMapping = D3D12_DEFAULT_SHADER_4_COMPONENT_MAPPING,
         .Buffer = {
-            .FirstElement = 0,
+            .FirstElement = offset >> 2,
             .NumElements = size >> 2, // Counting number of 4 byte elements
             .StructureByteStride = 0,
             .Flags = D3D12_BUFFER_SRV_FLAG_RAW
@@ -17,13 +27,13 @@ D3D12_SHADER_RESOURCE_VIEW_DESC make_raw_buffer_srv(uint32_t size)
     };
 }
 
-D3D12_UNORDERED_ACCESS_VIEW_DESC make_raw_buffer_uav(uint32_t size)
+D3D12_UNORDERED_ACCESS_VIEW_DESC make_raw_buffer_uav(uint32_t size, uint32_t offset)
 {
     return {
         .Format = DXGI_FORMAT_R32_TYPELESS,
         .ViewDimension = D3D12_UAV_DIMENSION_BUFFER,
         .Buffer = {
-            .FirstElement = 0,
+            .FirstElement = offset >> 2,
             .NumElements = size >> 2, // Counting number of 4 byte elements
             .StructureByteStride = 0,
             .CounterOffsetInBytes = 0,

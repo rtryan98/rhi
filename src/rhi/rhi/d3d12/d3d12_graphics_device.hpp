@@ -186,6 +186,7 @@ public:
 
 private:
     void create_initial_buffer_descriptors(D3D12_Buffer* buffer, bool create_srv, bool create_uav) noexcept;
+    void create_buffer_view_descriptors(D3D12_Buffer_View* buffer_view, bool create_srv, bool create_uav) noexcept;
     void create_initial_image_descriptors(D3D12_Image* image) noexcept;
 
     void create_srv_and_uav(

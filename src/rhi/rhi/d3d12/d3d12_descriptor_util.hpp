@@ -7,6 +7,8 @@ namespace rhi::d3d12
 {
 [[nodiscard]] D3D12_SHADER_RESOURCE_VIEW_DESC make_raw_buffer_srv(uint32_t size);
 [[nodiscard]] D3D12_UNORDERED_ACCESS_VIEW_DESC make_raw_buffer_uav(uint32_t size);
+[[nodiscard]] D3D12_SHADER_RESOURCE_VIEW_DESC make_raw_buffer_srv(uint32_t size, uint32_t offset);
+[[nodiscard]] D3D12_UNORDERED_ACCESS_VIEW_DESC make_raw_buffer_uav(uint32_t size, uint32_t offset);
 
 [[nodiscard]] D3D12_SHADER_RESOURCE_VIEW_DESC make_full_texture_srv(
     DXGI_FORMAT format,
