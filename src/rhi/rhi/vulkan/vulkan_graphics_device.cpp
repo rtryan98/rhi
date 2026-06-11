@@ -889,7 +889,7 @@ std::expected<Pipeline*, Result> Vulkan_Graphics_Device::create_pipeline(const G
             .passOp = vulkan_cast<VkStencilOp>(create_info.depth_stencil_info.stencil_back_face.pass),
             .depthFailOp = vulkan_cast<VkStencilOp>(create_info.depth_stencil_info.stencil_back_face.depth_fail),
             .compareOp = vulkan_cast<VkCompareOp>(create_info.depth_stencil_info.stencil_back_face.comparison_func),
-            .compareMask = create_info.depth_stencil_info.stencil_front_face.stencil_read_mask,
+            .compareMask = create_info.depth_stencil_info.stencil_back_face.stencil_read_mask,
             .writeMask = create_info.depth_stencil_info.stencil_back_face.stencil_write_mask,
             .reference = 0
         },
@@ -1153,7 +1153,7 @@ std::expected<Pipeline*, Result> Vulkan_Graphics_Device::create_pipeline(const M
             .passOp = vulkan_cast<VkStencilOp>(create_info.depth_stencil_info.stencil_back_face.pass),
             .depthFailOp = vulkan_cast<VkStencilOp>(create_info.depth_stencil_info.stencil_back_face.depth_fail),
             .compareOp = vulkan_cast<VkCompareOp>(create_info.depth_stencil_info.stencil_back_face.comparison_func),
-            .compareMask = create_info.depth_stencil_info.stencil_front_face.stencil_read_mask,
+            .compareMask = create_info.depth_stencil_info.stencil_back_face.stencil_read_mask,
             .writeMask = create_info.depth_stencil_info.stencil_back_face.stencil_write_mask,
             .reference = 0
         },
