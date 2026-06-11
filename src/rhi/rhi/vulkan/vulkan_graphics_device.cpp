@@ -583,7 +583,7 @@ std::expected<Sampler*, Result> Vulkan_Graphics_Device::create_sampler(const Sam
         .anisotropyEnable = create_info.anisotropy_enable,
         .maxAnisotropy = static_cast<float>(create_info.max_anisotropy),
         .compareEnable = create_info.reduction == Sampler_Reduction_Type::Comparison,
-        .compareOp = vulkan_cast<VkCompareOp>(create_info.comparison_func),
+        .compareOp = vulkan_cast<VkCompareOp>(create_info.comparison_func), // Ignored when compareEnable is false
         .minLod = create_info.min_lod,
         .maxLod = create_info.max_lod,
         .borderColor = VK_BORDER_COLOR_FLOAT_OPAQUE_WHITE, // TODO: border color not yet implemented
