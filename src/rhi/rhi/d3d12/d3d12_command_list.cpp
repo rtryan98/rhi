@@ -412,30 +412,6 @@ void D3D12_Command_List::dispatch_indirect(Buffer* buffer, uint64_t offset) noex
         1, d3d12_buffer->resource, offset, nullptr, 0);
 }
 
-void D3D12_Command_List::dispatch_indirect_d3d12(Buffer* buffer, uint64_t offset, uint32_t count) noexcept
-{
-    if (!buffer) return;
-
-    auto d3d12_buffer = static_cast<D3D12_Buffer*>(buffer);
-    m_cmd->ExecuteIndirect(m_device->get_indirect_signatures().dispatch_indirect,
-        count, d3d12_buffer->resource, offset, nullptr, 0);
-}
-
-void D3D12_Command_List::dispatch_indirect_count_d3d12(
-    Buffer* buffer,
-    uint64_t offset,
-    uint32_t max_dispatch_count,
-    Buffer* count_buffer,
-    uint64_t count_offset) noexcept
-{
-    if (!buffer || !count_buffer) return;
-
-    auto d3d12_buffer = static_cast<D3D12_Buffer*>(buffer);
-    auto d3d12_count_buffer = static_cast<D3D12_Buffer*>(count_buffer);
-    m_cmd->ExecuteIndirect(m_device->get_indirect_signatures().dispatch_indirect,
-        max_dispatch_count, d3d12_buffer->resource, offset, d3d12_count_buffer->resource, count_offset);
-}
-
 void D3D12_Command_List::copy_buffer(
     Buffer* src,
     uint64_t src_offset,

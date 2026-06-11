@@ -317,16 +317,6 @@ void Vulkan_Command_List::dispatch_indirect(Buffer* buffer, uint64_t offset) noe
     vkCmdDispatchIndirect(m_cmd, static_cast<Vulkan_Buffer*>(buffer)->buffer, offset);
 }
 
-void Vulkan_Command_List::dispatch_indirect_d3d12(Buffer* buffer, uint64_t offset, uint32_t count) noexcept
-{
-    assert(false);
-}
-
-void Vulkan_Command_List::dispatch_indirect_count_d3d12(Buffer* buffer, uint64_t offset, uint32_t max_draw_count, Buffer* count_buffer, uint64_t count_offset) noexcept
-{
-    assert(false);
-}
-
 void Vulkan_Command_List::copy_buffer(Buffer* src, uint64_t src_offset, Buffer* dst, uint64_t dst_offset, uint64_t size) noexcept
 {
     VkBufferCopy region = {
