@@ -588,6 +588,13 @@ void Vulkan_Graphics_Device::destroy_proxy_image(Vulkan_Image* image) noexcept
 
 std::expected<Sampler*, Result> Vulkan_Graphics_Device::create_sampler(const Sampler_Create_Info& create_info, uint32_t index) noexcept
 {
+    // A sampler with comparison must have a comparison function
+    if (create_info.comparison_func == Comparison_Func::None &&
+        create_info.reduction == Sampler_Reduction_Type::Comparison)
+    {
+        return std::unexpected(Result::Error_Invalid_Parameters);
+    }
+
     std::unique_lock<std::mutex> lock_guard(m_resource_mutex, std::defer_lock);
     if (m_use_mutex)
     {
