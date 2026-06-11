@@ -367,42 +367,6 @@ Result Vulkan_Fence::wait_for_value(uint64_t value) noexcept
     return(translate_result(vkWaitSemaphores(device, &wait_info, ~0ull)));
 }
 
-void Vulkan_Graphics_Device::map_buffer(Buffer* buffer, std::size_t offset, std::size_t size) noexcept
-{
-    return; // persistently mapped
-
-    auto* vulkan_buffer = static_cast<Vulkan_Buffer*>(buffer);
-
-    VmaAllocationInfo allocation_info = {};
-    vmaGetAllocationInfo(m_allocator, vulkan_buffer->allocation, &allocation_info);
-    VkMemoryMapInfo map_info = {
-        .sType = VK_STRUCTURE_TYPE_MEMORY_MAP_INFO,
-        .pNext = nullptr,
-        .flags = 0,
-        .memory = allocation_info.deviceMemory,
-        .offset = offset,
-        .size = size
-    };
-    vkMapMemory2(m_device, &map_info, &buffer->data);
-}
-
-void Vulkan_Graphics_Device::unmap_buffer(Buffer* buffer) noexcept
-{
-    return; // persistently mapped
-
-    auto* vulkan_buffer = static_cast<Vulkan_Buffer*>(buffer);
-
-    VmaAllocationInfo allocation_info = {};
-    vmaGetAllocationInfo(m_allocator, vulkan_buffer->allocation, &allocation_info);
-    VkMemoryUnmapInfo unmap_info = {
-        .sType = VK_STRUCTURE_TYPE_MEMORY_UNMAP_INFO,
-        .pNext = nullptr,
-        .flags = 0,
-        .memory = allocation_info.deviceMemory
-    };
-    vkUnmapMemory2(m_device, &unmap_info);
-}
-
 // TODO: put this function elsewhere
 inline VkFlags get_aspect_mask(Image* image)
 {

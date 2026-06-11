@@ -617,7 +617,8 @@ std::expected<Buffer*, Result> D3D12_Graphics_Device::create_buffer(const Buffer
     }
 
     void* mapped_data = nullptr;
-    if (create_info.heap == Memory_Heap_Type::CPU_Upload)
+    if (create_info.heap == Memory_Heap_Type::CPU_Upload ||
+        create_info.heap == Memory_Heap_Type::CPU_Readback)
     {
         resource->Map(0, nullptr, &mapped_data);
     }
@@ -708,27 +709,6 @@ void D3D12_Graphics_Device::destroy_buffer(Buffer* buffer) noexcept
     }
 
     m_buffers.erase(m_buffers.get_iterator(d3d12_buffer));
-}
-
-void D3D12_Graphics_Device::map_buffer(Buffer* buffer, std::size_t offset, std::size_t size) noexcept
-{
-    if (!buffer) return;
-
-    auto d3d12_buffer = static_cast<D3D12_Buffer*>(buffer);
-    D3D12_RANGE read_range = {
-        .Begin = offset,
-        .End = offset + size
-    };
-    d3d12_buffer->resource->Map(0, &read_range, &buffer->data);
-}
-
-void D3D12_Graphics_Device::unmap_buffer(Buffer* buffer) noexcept
-{
-    if (!buffer) return;
-
-    auto d3d12_buffer = static_cast<D3D12_Buffer*>(buffer);
-    d3d12_buffer->resource->Unmap(0, nullptr);
-    d3d12_buffer->data = nullptr;
 }
 
 std::expected<Image*, Result> D3D12_Graphics_Device::create_image(const Image_Create_Info& create_info, uint32_t index) noexcept
