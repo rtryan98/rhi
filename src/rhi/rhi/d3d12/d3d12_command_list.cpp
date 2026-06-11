@@ -971,7 +971,7 @@ void D3D12_Command_List::set_push_constants(
     case Pipeline_Bind_Point::Compute:
         m_cmd->SetComputeRoot32BitConstants(0, size / sizeof(uint32_t), data, 0);
         break;
-    case Pipeline_Bind_Point::Ray_Tracing: // TODO: correct command for constants?
+    case Pipeline_Bind_Point::Ray_Tracing:
         m_cmd->SetComputeRoot32BitConstants(0, size / sizeof(uint32_t), data, 0);
         break;
     default:
