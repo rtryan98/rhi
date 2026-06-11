@@ -44,4 +44,28 @@ struct Vulkan_Acceleration_Structure : public Acceleration_Structure
 {
     VkAccelerationStructureKHR acceleration_structure;
 };
+
+inline VkFlags get_aspect_mask(Image* image)
+{
+    auto image_format_info = get_image_format_info(image->format);
+    VkFlags aspect_mask = VK_IMAGE_ASPECT_NONE;
+
+    if (!(image_format_info.is_depth || image_format_info.is_stencil))
+    {
+        aspect_mask = VK_IMAGE_ASPECT_COLOR_BIT;
+    }
+    else
+    {
+        if (image_format_info.is_depth)
+        {
+            aspect_mask |= VK_IMAGE_ASPECT_DEPTH_BIT;
+        }
+        if (image_format_info.is_stencil)
+        {
+            aspect_mask |= VK_IMAGE_ASPECT_STENCIL_BIT;
+        }
+    }
+
+    return aspect_mask;
+}
 }

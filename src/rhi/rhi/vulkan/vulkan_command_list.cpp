@@ -189,30 +189,6 @@ auto translate_barrier_access_flags(Barrier_Access access)
     return result;
 }
 
-inline VkFlags get_aspect_mask(Image* image)
-{
-    auto image_format_info = get_image_format_info(image->format);
-    VkFlags aspect_mask = VK_IMAGE_ASPECT_NONE;
-
-    if (!(image_format_info.is_depth || image_format_info.is_stencil))
-    {
-        aspect_mask = VK_IMAGE_ASPECT_COLOR_BIT;
-    }
-    else
-    {
-        if (image_format_info.is_depth)
-        {
-            aspect_mask |= VK_IMAGE_ASPECT_DEPTH_BIT;
-        }
-        if (image_format_info.is_stencil)
-        {
-            aspect_mask |= VK_IMAGE_ASPECT_STENCIL_BIT;
-        }
-    }
-
-    return aspect_mask;
-}
-
 void Vulkan_Command_List::barrier(const Barrier_Info& barrier_info) noexcept
 {
     std::vector<VkMemoryBarrier2> memory_barriers;

@@ -369,31 +369,6 @@ Result Vulkan_Fence::wait_for_value(uint64_t value) noexcept
     return(translate_result(vkWaitSemaphores(device, &wait_info, ~0ull)));
 }
 
-// TODO: put this function elsewhere
-inline VkFlags get_aspect_mask(Image* image)
-{
-    auto image_format_info = get_image_format_info(image->format);
-    VkFlags aspect_mask = VK_IMAGE_ASPECT_NONE;
-
-    if (!(image_format_info.is_depth || image_format_info.is_stencil))
-    {
-        aspect_mask = VK_IMAGE_ASPECT_COLOR_BIT;
-    }
-    else
-    {
-        if (image_format_info.is_depth)
-        {
-            aspect_mask |= VK_IMAGE_ASPECT_DEPTH_BIT;
-        }
-        if (image_format_info.is_stencil)
-        {
-            aspect_mask |= VK_IMAGE_ASPECT_STENCIL_BIT;
-        }
-    }
-
-    return aspect_mask;
-}
-
 std::expected<Image*, Result> Vulkan_Graphics_Device::create_image(const Image_Create_Info& create_info, uint32_t index) noexcept
 {
     std::unique_lock<std::mutex> lock_guard(m_resource_mutex, std::defer_lock);
