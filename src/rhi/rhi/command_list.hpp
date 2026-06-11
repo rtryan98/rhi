@@ -307,6 +307,7 @@ public:
     virtual void set_push_constants(const void* data, uint32_t size, Pipeline_Bind_Point bind_point) noexcept = 0;
     virtual void set_scissor(int32_t x, int32_t y, uint32_t width, uint32_t height) noexcept = 0;
     virtual void set_viewport(float x, float y, float width, float height, float min_depth, float max_depth) noexcept = 0;
+    virtual void set_stencil_reference(uint8_t reference) noexcept = 0;
 
     // Ray tracing commands
     virtual void build_acceleration_structure(

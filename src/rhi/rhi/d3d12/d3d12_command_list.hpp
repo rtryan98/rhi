@@ -78,6 +78,7 @@ public:
     virtual void set_push_constants(const void* data, uint32_t size, Pipeline_Bind_Point bind_point) noexcept override;
     virtual void set_scissor(int32_t x, int32_t y, uint32_t width, uint32_t height) noexcept override;
     virtual void set_viewport(float x, float y, float width, float height, float min_depth, float max_depth) noexcept override;
+    virtual void set_stencil_reference(uint8_t reference) noexcept override;
 
     virtual void build_acceleration_structure(
         const Acceleration_Structure_Build_Geometry_Info& build_info, uint64_t scratch_memory_address) noexcept override;

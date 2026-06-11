@@ -783,6 +783,11 @@ void Vulkan_Command_List::set_viewport(float x, float y, float width, float heig
     vkCmdSetViewport(m_cmd, 0, 1, &viewport);
 }
 
+void Vulkan_Command_List::set_stencil_reference(uint8_t reference) noexcept
+{
+    vkCmdSetStencilReference(m_cmd, VK_STENCIL_FACE_FRONT_AND_BACK, reference);
+}
+
 void Vulkan_Command_List::build_acceleration_structure(
     const Acceleration_Structure_Build_Geometry_Info& build_info, uint64_t scratch_memory_address) noexcept
 {
