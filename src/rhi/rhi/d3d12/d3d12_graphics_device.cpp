@@ -642,8 +642,7 @@ std::expected<Buffer*, Result> D3D12_Graphics_Device::create_buffer(const Buffer
     bool create_srv = should_create_buffer_srv(buffer);
     bool create_uav = should_create_buffer_uav(buffer);
 
-    if (create_info.heap != Memory_Heap_Type::CPU_Readback)
-        create_initial_buffer_descriptors(buffer, create_srv, create_uav);
+    create_initial_buffer_descriptors(buffer, create_srv, create_uav);
 
     return buffer;
 }
@@ -676,8 +675,7 @@ std::expected<Buffer_View*, Result> D3D12_Graphics_Device::create_buffer_view(
     bool create_srv = should_create_buffer_srv(d3d12_buffer);
     bool create_uav = should_create_buffer_uav(d3d12_buffer);
 
-    if (buffer->heap_type != Memory_Heap_Type::CPU_Readback)
-        create_buffer_view_descriptors(buffer_view, create_srv, create_uav);
+    create_buffer_view_descriptors(buffer_view, create_srv, create_uav);
 
     return buffer_view;
 }
