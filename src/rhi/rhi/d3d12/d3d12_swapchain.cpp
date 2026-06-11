@@ -24,8 +24,8 @@ D3D12_Swapchain::D3D12_Swapchain(D3D12_Graphics_Device* graphics_device, const S
         .SwapEffect = DXGI_SWAP_EFFECT_FLIP_DISCARD,
         .AlphaMode = DXGI_ALPHA_MODE_UNSPECIFIED,
         .Flags = create_info.present_mode == Present_Mode::Vsync
-            ? DXGI_SWAP_CHAIN_FLAG_ALLOW_TEARING
-            : 0u
+            ? 0u
+            : DXGI_SWAP_CHAIN_FLAG_ALLOW_TEARING
     };
     IDXGISwapChain1* swapchain1 = nullptr;
     auto context = graphics_device->get_context();
@@ -72,8 +72,8 @@ void D3D12_Swapchain::present() noexcept
 {
     DXGI_SWAP_CHAIN_DESC1 desc = {};
     m_dxgi_swapchain->GetDesc1(&desc);
-    const auto immediate_present = (desc.Flags & DXGI_SWAP_CHAIN_FLAG_ALLOW_TEARING) > 0;
-    m_dxgi_swapchain->Present(static_cast<int32_t>(immediate_present), immediate_present ? DXGI_PRESENT_ALLOW_TEARING : 0);
+    const auto allow_tearing = (desc.Flags & DXGI_SWAP_CHAIN_FLAG_ALLOW_TEARING) > 0;
+    m_dxgi_swapchain->Present(static_cast<int32_t>(!allow_tearing), allow_tearing ? DXGI_PRESENT_ALLOW_TEARING : 0);
 }
 
 void D3D12_Swapchain::change_format(const Image_Format format) noexcept
