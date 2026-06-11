@@ -105,7 +105,8 @@ public:
 
 private:
     void create_acceleration_structure_descriptor(Vulkan_Acceleration_Structure* acceleration_structure);
-    void create_buffer_descriptors(Vulkan_Buffer* buffer, bool create_storage_buffer_descriptor);
+    void create_buffer_descriptors(Vulkan_Buffer* buffer);
+    void create_buffer_view_descriptors(Vulkan_Buffer_View* buffer_view);
     void create_image_descriptors(Vulkan_Image* image, bool create_storage_image_descriptor);
     void create_image_view_descriptors(
         Vulkan_Image_View* image_view, const Image_View_Create_Info& create_info, bool create_storage_image_descriptor);

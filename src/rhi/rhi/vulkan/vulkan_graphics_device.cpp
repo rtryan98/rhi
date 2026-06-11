@@ -286,7 +286,7 @@ std::expected<Buffer*, Result> Vulkan_Graphics_Device::create_buffer(
     };
     buffer->gpu_address = vkGetBufferDeviceAddress(m_device, &buffer_device_address_info);
 
-    create_buffer_descriptors(buffer, !create_info.acceleration_structure_memory);
+    create_buffer_descriptors(buffer);
 
     return buffer;
 }
@@ -326,6 +326,8 @@ std::expected<Buffer_View*, Result> Vulkan_Graphics_Device::create_buffer_view(
 
     auto* buffer_view = m_resource_pool.acquire_buffer_view(buffer, create_info, index);
     buffer_view->buffer_view = vulkan_buffer_view;
+
+    create_buffer_view_descriptors(buffer_view);
 
     return buffer_view;
 }
@@ -1627,7 +1629,7 @@ void Vulkan_Graphics_Device::create_acceleration_structure_descriptor(Vulkan_Acc
     vkUpdateDescriptorSets(m_device, 1, &write_descriptor_set, 0, nullptr);
 }
 
-void Vulkan_Graphics_Device::create_buffer_descriptors(Vulkan_Buffer* buffer, bool create_storage_buffer_descriptor)
+void Vulkan_Graphics_Device::create_buffer_descriptors(Vulkan_Buffer* buffer)
 {
     VkDescriptorBufferInfo buffer_info = {
         .buffer = static_cast<Vulkan_Buffer*>(buffer)->buffer,
@@ -1646,12 +1648,29 @@ void Vulkan_Graphics_Device::create_buffer_descriptors(Vulkan_Buffer* buffer, bo
     };
     vkUpdateDescriptorSets(m_device, 1, &write_descriptor_set, 0, nullptr);
 
-    if (!create_storage_buffer_descriptor)
-    {
-        return;
-    }
+    write_descriptor_set.dstArrayElement += 1;
+    vkUpdateDescriptorSets(m_device, 1, &write_descriptor_set, 0, nullptr);
+}
 
-    write_descriptor_set.descriptorType = VK_DESCRIPTOR_TYPE_STORAGE_BUFFER;
+void Vulkan_Graphics_Device::create_buffer_view_descriptors(Vulkan_Buffer_View* buffer_view)
+{
+    VkDescriptorBufferInfo buffer_info = {
+        .buffer = static_cast<Vulkan_Buffer*>(buffer_view->buffer)->buffer,
+        .offset = buffer_view->offset,
+        .range = buffer_view->size
+    };
+    VkWriteDescriptorSet write_descriptor_set = {
+        .sType = VK_STRUCTURE_TYPE_WRITE_DESCRIPTOR_SET,
+        .pNext = nullptr,
+        .dstSet = m_descriptor_set,
+        .dstBinding = 0,
+        .dstArrayElement = buffer_view->bindless_index,
+        .descriptorCount = 1,
+        .descriptorType = VK_DESCRIPTOR_TYPE_STORAGE_BUFFER, // TODO: use two descriptors?
+        .pBufferInfo = &buffer_info
+    };
+    vkUpdateDescriptorSets(m_device, 1, &write_descriptor_set, 0, nullptr);
+
     write_descriptor_set.dstArrayElement += 1;
     vkUpdateDescriptorSets(m_device, 1, &write_descriptor_set, 0, nullptr);
 }
