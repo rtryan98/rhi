@@ -740,8 +740,9 @@ void Vulkan_Command_List::set_index_buffer(Buffer* buffer, Index_Type index_type
     vkCmdBindIndexBuffer2(m_cmd, static_cast<Vulkan_Buffer*>(buffer)->buffer, offset, size, vulkan_index_type);
 }
 
-void Vulkan_Command_List::set_push_constants(const void* data, uint32_t size, Pipeline_Bind_Point bind_point) noexcept
+void Vulkan_Command_List::set_push_constants(const void* data, uint32_t size, [[maybe_unused]] Pipeline_Bind_Point bind_point) noexcept
 {
+    // `bind_point` is not required in Vulkan. Pipeline layout dictates push constants.
     vkCmdPushConstants(m_cmd, m_device->get_pipeline_layout(), VK_SHADER_STAGE_ALL, 0, size, data);
 }
 
