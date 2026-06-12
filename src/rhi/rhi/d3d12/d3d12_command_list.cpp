@@ -1098,6 +1098,35 @@ void D3D12_Command_List::build_acceleration_structure(
     }
 }
 
+void D3D12_Command_List::dispatch_rays(uint32_t groups_x, uint32_t groups_y, uint32_t groups_z, const Shader_Binding_Table& sbt) noexcept
+{
+    D3D12_DISPATCH_RAYS_DESC dispatch_rays_desc = {
+        .RayGenerationShaderRecord = {
+            .StartAddress = sbt.ray_gen.gpu_address,
+            .SizeInBytes = sbt.ray_gen.size
+        },
+        .MissShaderTable = {
+            .StartAddress = sbt.miss.gpu_address,
+            .SizeInBytes = sbt.miss.size,
+            .StrideInBytes = sbt.miss.stride
+        },
+        .HitGroupTable = {
+            .StartAddress = sbt.hit.gpu_address,
+            .SizeInBytes = sbt.hit.size,
+            .StrideInBytes = sbt.hit.stride
+        },
+        .CallableShaderTable = {
+            .StartAddress = sbt.callable.gpu_address,
+            .SizeInBytes = sbt.callable.size,
+            .StrideInBytes = sbt.callable.stride
+        },
+        .Width = groups_x,
+        .Height = groups_y,
+        .Depth = groups_z
+    };
+    m_cmd->DispatchRays(&dispatch_rays_desc);
+}
+
 D3D12_COMMAND_LIST_TYPE translate_command_list_type(Queue_Type queue_type)
 {
     switch (queue_type)

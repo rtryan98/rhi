@@ -890,6 +890,31 @@ void Vulkan_Command_List::build_acceleration_structure(
         m_cmd, 1, &build_geometry_info, &build_ranges_ptrs);
 }
 
+void Vulkan_Command_List::dispatch_rays(uint32_t groups_x, uint32_t groups_y, uint32_t groups_z, const Shader_Binding_Table& sbt) noexcept
+{
+    VkStridedDeviceAddressRegionKHR sbt_ray_gen = {
+        .deviceAddress = sbt.ray_gen.gpu_address,
+        .stride = sbt.ray_gen.stride,
+        .size = sbt.ray_gen.size
+    };
+    VkStridedDeviceAddressRegionKHR sbt_miss = {
+        .deviceAddress = sbt.miss.gpu_address,
+        .stride = sbt.miss.stride,
+        .size = sbt.miss.size
+    };
+    VkStridedDeviceAddressRegionKHR sbt_hit = {
+        .deviceAddress = sbt.hit.gpu_address,
+        .stride = sbt.hit.stride,
+        .size = sbt.hit.size
+    };
+    VkStridedDeviceAddressRegionKHR sbt_callable = {
+        .deviceAddress = sbt.callable.gpu_address,
+        .stride = sbt.callable.stride,
+        .size = sbt.callable.size
+    };
+    vkCmdTraceRaysKHR(m_cmd, &sbt_ray_gen, &sbt_miss, &sbt_hit, &sbt_callable, groups_x, groups_y, groups_z);
+}
+
 VkCommandBuffer Vulkan_Command_List::get_internal_command_list() const noexcept
 {
     return m_cmd;

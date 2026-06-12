@@ -80,6 +80,7 @@ public:
 
     virtual void build_acceleration_structure(
         const Acceleration_Structure_Build_Geometry_Info& build_info, uint64_t scratch_memory_address) noexcept override;
+    virtual void dispatch_rays(uint32_t groups_x, uint32_t groups_y, uint32_t groups_z, const Shader_Binding_Table& sbt) noexcept override;
 
     [[nodiscard]] D3D12_Command_List_Underlying_Type get_internal_command_list() const noexcept;
 

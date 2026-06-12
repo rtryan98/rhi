@@ -240,6 +240,21 @@ struct Extent_3D
     uint32_t z;
 };
 
+struct GPU_Address_Range
+{
+    uint64_t gpu_address;
+    uint64_t size;
+    uint64_t stride;
+};
+
+struct Shader_Binding_Table
+{
+    GPU_Address_Range ray_gen;
+    GPU_Address_Range miss;
+    GPU_Address_Range hit;
+    GPU_Address_Range callable;
+};
+
 class Command_List
 {
 public:
@@ -310,6 +325,7 @@ public:
     // Ray tracing commands
     virtual void build_acceleration_structure(
         const Acceleration_Structure_Build_Geometry_Info& build_info, uint64_t scratch_memory_address) noexcept = 0;
+    virtual void dispatch_rays(uint32_t groups_x, uint32_t groups_y, uint32_t groups_z, const Shader_Binding_Table& sbt) noexcept = 0;
 
 protected:
     Queue_Type m_queue_type = {};
