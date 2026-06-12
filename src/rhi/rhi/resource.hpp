@@ -63,7 +63,8 @@ enum class Memory_Heap_Type
 {
     GPU,
     CPU_Upload,
-    CPU_Readback
+    CPU_Readback,
+    CPU_Visible_GPU // ReBAR/SAM
 };
 
 enum class Fill_Mode

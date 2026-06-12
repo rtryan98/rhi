@@ -568,7 +568,8 @@ std::expected<Buffer*, Result> D3D12_Graphics_Device::create_buffer(const Buffer
     }
 
     D3D12_RESOURCE_FLAGS flags = D3D12_RESOURCE_FLAG_USE_TIGHT_ALIGNMENT;
-    if (create_info.heap == Memory_Heap_Type::GPU)
+    if (create_info.heap == Memory_Heap_Type::GPU ||
+        create_info.heap == Memory_Heap_Type::CPU_Visible_GPU)
     {
         flags |= D3D12_RESOURCE_FLAG_ALLOW_UNORDERED_ACCESS;
     }
@@ -610,8 +611,7 @@ std::expected<Buffer*, Result> D3D12_Graphics_Device::create_buffer(const Buffer
     }
 
     void* mapped_data = nullptr;
-    if (create_info.heap == Memory_Heap_Type::CPU_Upload ||
-        create_info.heap == Memory_Heap_Type::CPU_Readback)
+    if (create_info.heap != Memory_Heap_Type::GPU)
     {
         resource->Map(0, nullptr, &mapped_data);
     }

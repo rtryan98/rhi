@@ -230,9 +230,21 @@ std::expected<Buffer*, Result> Vulkan_Graphics_Device::create_buffer(
 
     VkBuffer vulkan_buffer = VK_NULL_HANDLE;
     VmaAllocation allocation = VK_NULL_HANDLE;
+    VmaMemoryUsage memory_usage = VMA_MEMORY_USAGE_AUTO;
+    if (create_info.heap == Memory_Heap_Type::CPU_Upload ||
+        create_info.heap == Memory_Heap_Type::CPU_Readback)
+    {
+        memory_usage = VMA_MEMORY_USAGE_AUTO_PREFER_HOST;
+    }
+    else
+    {
+        memory_usage = VMA_MEMORY_USAGE_AUTO_PREFER_DEVICE;
+    }
     VmaAllocationCreateInfo allocation_create_info = {
-        .flags = VMA_ALLOCATION_CREATE_MAPPED_BIT,
-        .usage = VMA_MEMORY_USAGE_AUTO,
+        .flags = create_info.heap != Memory_Heap_Type::GPU
+            ? VMA_ALLOCATION_CREATE_MAPPED_BIT
+            : static_cast<VmaAllocationCreateFlags>(0),
+        .usage = memory_usage,
         .requiredFlags = 0,
         .preferredFlags = 0,
         .memoryTypeBits = 0,
@@ -256,13 +268,14 @@ std::expected<Buffer*, Result> Vulkan_Graphics_Device::create_buffer(
         .flags = 0,
         .size = create_info.size,
         .usage = VK_BUFFER_USAGE_SHADER_DEVICE_ADDRESS_BIT
-            | (create_info.acceleration_structure_memory
-                ? VK_BUFFER_USAGE_ACCELERATION_STRUCTURE_STORAGE_BIT_KHR
-                : static_cast<VkBufferUsageFlags>(VK_BUFFER_USAGE_INDEX_BUFFER_BIT))
+            | (create_info.acceleration_structure_memory ? VK_BUFFER_USAGE_ACCELERATION_STRUCTURE_STORAGE_BIT_KHR : static_cast<VkBufferUsageFlags>(0))
             | VK_BUFFER_USAGE_TRANSFER_SRC_BIT
             | VK_BUFFER_USAGE_TRANSFER_DST_BIT
-            | VK_BUFFER_USAGE_STORAGE_BUFFER_BIT,
-        .sharingMode = VK_SHARING_MODE_EXCLUSIVE,
+            | VK_BUFFER_USAGE_INDEX_BUFFER_BIT
+            | VK_BUFFER_USAGE_STORAGE_BUFFER_BIT
+            | VK_BUFFER_USAGE_INDIRECT_BUFFER_BIT
+            | VK_BUFFER_USAGE_ACCELERATION_STRUCTURE_BUILD_INPUT_READ_ONLY_BIT_KHR,
+        .sharingMode = VK_SHARING_MODE_CONCURRENT,
         .queueFamilyIndexCount = static_cast<uint32_t>(queue_families.size()),
         .pQueueFamilyIndices = queue_families.data()
     };

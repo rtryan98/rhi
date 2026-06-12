@@ -85,6 +85,8 @@ D3D12_HEAP_TYPE d3d12_cast<D3D12_HEAP_TYPE, Memory_Heap_Type>(const Memory_Heap_
         return D3D12_HEAP_TYPE_UPLOAD;
     case Memory_Heap_Type::CPU_Readback:
         return D3D12_HEAP_TYPE_READBACK;
+    case Memory_Heap_Type::CPU_Visible_GPU:
+        return D3D12_HEAP_TYPE_GPU_UPLOAD;
     default:
         return D3D12_HEAP_TYPE_DEFAULT;
     }
