@@ -16,6 +16,8 @@ constexpr static uint32_t MAX_SAMPLER_INDEX = 2048;
 
 constexpr static uint32_t PIPELINE_COLOR_ATTACHMENTS_MAX = 8;
 
+constexpr static uint32_t RT_PIPELINE_NO_SHADER = ~0u;
+
 struct Buffer_View;
 struct Image_View;
 
@@ -467,6 +469,51 @@ struct Mesh_Shading_Pipeline_Create_Info
     auto operator<=>(const Mesh_Shading_Pipeline_Create_Info&) const = default;
 };
 
+enum class Ray_Tracing_Hit_Group_Type
+{
+    Triangles,
+    Procedural
+};
+
+enum class Ray_Tracing_Shader_Type
+{
+    Ray_Gen,
+    Ray_Any_Hit,
+    Ray_Closest_Hit,
+    Ray_Miss,
+    Ray_Intersection,
+    Ray_Callable
+};
+
+struct Ray_Tracing_Shader
+{
+    Shader_Blob* blob;
+    Ray_Tracing_Shader_Type type;
+};
+
+// Indexing is done based on order of shaders in Ray_Tracing_Pipeline_Create_Info
+struct Ray_Tracing_Hit_Group
+{
+    Ray_Tracing_Hit_Group_Type type;
+    uint32_t closest_hit;
+    uint32_t any_hit;
+    uint32_t intersection;
+};
+
+struct Ray_Tracing_Pipeline_Create_Info
+{
+    std::vector<Ray_Tracing_Shader> shaders;
+    std::vector<Ray_Tracing_Hit_Group> hit_groups;
+    std::vector<uint32_t> ray_gen_libraries;
+    std::vector<uint32_t> miss_libraries;
+    std::vector<uint32_t> callable_libraries;
+    uint32_t max_recursion_depth;
+    uint32_t max_payload_size;
+    uint32_t max_attribute_size;
+
+    auto operator<=>(const Ray_Tracing_Pipeline_Create_Info&) const = default;
+};
+
 enum class Pipeline_Type
 {
     Vertex_Shading,
@@ -483,6 +530,7 @@ struct Pipeline
         Graphics_Pipeline_Create_Info vertex_shading_info;
         Compute_Pipeline_Create_Info compute_shading_info;
         Mesh_Shading_Pipeline_Create_Info mesh_shading_info;
+        Ray_Tracing_Pipeline_Create_Info ray_tracing_info;
     };
 };
 }

@@ -649,4 +649,18 @@ VkDescriptorSet create_descriptor_set(VkDevice device, VkDescriptorSetLayout des
     vkAllocateDescriptorSets(device, &allocate_info, &result);
     return result;
 }
+
+VkPhysicalDeviceRayTracingPipelinePropertiesKHR query_ray_tracing_pipeline_properties(VkPhysicalDevice physical_device)
+{
+    VkPhysicalDeviceRayTracingPipelinePropertiesKHR ray_tracing_pipeline_properties = {
+        .sType = VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_RAY_TRACING_PIPELINE_PROPERTIES_KHR,
+        .pNext = nullptr
+    };
+    VkPhysicalDeviceProperties2 properties2 = {
+        .sType = VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_PROPERTIES_2,
+        .pNext = &ray_tracing_pipeline_properties
+    };
+    vkGetPhysicalDeviceProperties2(physical_device, &properties2);
+    return ray_tracing_pipeline_properties;
+}
 }

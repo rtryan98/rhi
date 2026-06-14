@@ -21,4 +21,6 @@ VkDescriptorSetLayout create_descriptor_set_layout(VkDevice device);
 VkPipelineLayout create_pipeline_layout(VkDevice device, VkDescriptorSetLayout descriptor_set_layout, uint32_t push_constant_size);
 VkDescriptorPool create_descriptor_pool(VkDevice device);
 VkDescriptorSet create_descriptor_set(VkDevice device, VkDescriptorSetLayout descriptor_set_layout, VkDescriptorPool descriptor_pool);
+
+VkPhysicalDeviceRayTracingPipelinePropertiesKHR query_ray_tracing_pipeline_properties(VkPhysicalDevice physical_device);
 }

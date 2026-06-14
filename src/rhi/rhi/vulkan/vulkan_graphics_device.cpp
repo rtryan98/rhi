@@ -113,6 +113,16 @@ Vulkan_Graphics_Device::Vulkan_Graphics_Device(const Graphics_Device_Create_Info
     m_descriptor_pool = create_descriptor_pool(m_device);
     m_descriptor_set = create_descriptor_set(m_device, m_descriptor_set_layout, m_descriptor_pool);
     m_pipeline_layout = create_pipeline_layout(m_device, m_descriptor_set_layout, PUSH_CONSTANT_MAX_SIZE);
+
+    { // Query and set ray tracing pipeline properties
+        auto ray_tracing_pipeline_properties = query_ray_tracing_pipeline_properties(m_physical_device);
+        m_ray_tracing_pipeline_properties = {
+            .shader_group_handle_size = ray_tracing_pipeline_properties.shaderGroupHandleSize,
+            .shader_group_handle_alignment = ray_tracing_pipeline_properties.shaderGroupHandleAlignment,
+            .shader_group_base_alignment = ray_tracing_pipeline_properties.shaderGroupBaseAlignment,
+            .max_recursion_depth = ray_tracing_pipeline_properties.maxRayRecursionDepth
+        };
+    }
 }
 
 Vulkan_Graphics_Device::~Vulkan_Graphics_Device() noexcept
@@ -1252,6 +1262,146 @@ std::expected<Pipeline*, Result> Vulkan_Graphics_Device::create_pipeline(const M
     return pipeline;
 }
 
+std::expected<Pipeline*, Result> Vulkan_Graphics_Device::create_pipeline(const Ray_Tracing_Pipeline_Create_Info& create_info) noexcept
+{
+    std::unique_lock<std::mutex> lock_guard(m_resource_mutex, std::defer_lock);
+    if (m_use_mutex)
+    {
+        lock_guard.lock();
+    }
+
+    auto pipeline = &*m_pipelines.emplace();
+    pipeline->type = Pipeline_Type::Ray_Tracing;
+    pipeline->ray_tracing_info = create_info;
+
+    std::vector<VkShaderModuleCreateInfo> modules;
+    modules.reserve(create_info.shaders.size());
+    std::vector<VkPipelineShaderStageCreateInfo> stages;
+    stages.reserve(create_info.shaders.size());
+    for (const auto& shader : create_info.shaders)
+    {
+        auto shader_stage = VK_SHADER_STAGE_RAYGEN_BIT_KHR;
+        switch (shader.type)
+        {
+        case Ray_Tracing_Shader_Type::Ray_Gen: shader_stage = VK_SHADER_STAGE_RAYGEN_BIT_KHR; break;
+        case Ray_Tracing_Shader_Type::Ray_Any_Hit: shader_stage = VK_SHADER_STAGE_ANY_HIT_BIT_KHR; break;
+        case Ray_Tracing_Shader_Type::Ray_Closest_Hit: shader_stage = VK_SHADER_STAGE_CLOSEST_HIT_BIT_KHR; break;
+        case Ray_Tracing_Shader_Type::Ray_Miss: shader_stage = VK_SHADER_STAGE_MISS_BIT_KHR; break;
+        case Ray_Tracing_Shader_Type::Ray_Intersection: shader_stage = VK_SHADER_STAGE_INTERSECTION_BIT_KHR; break;
+        case Ray_Tracing_Shader_Type::Ray_Callable: shader_stage = VK_SHADER_STAGE_CALLABLE_BIT_KHR; break;
+        default: break;
+        }
+
+        auto& module_create_info = modules.emplace_back();
+        module_create_info = {
+            .sType = VK_STRUCTURE_TYPE_SHADER_MODULE_CREATE_INFO,
+            .pNext = nullptr,
+            .flags = 0,
+            .codeSize = shader.blob->data.size(),
+            .pCode = reinterpret_cast<uint32_t*>(shader.blob->data.data())
+        };
+        auto& stage = stages.emplace_back();
+        stage = {
+            .sType = VK_STRUCTURE_TYPE_PIPELINE_SHADER_STAGE_CREATE_INFO,
+            .pNext = &module_create_info,
+            .flags = 0,
+            .stage = shader_stage,
+            .module = VK_NULL_HANDLE,
+            .pName = "main",
+            .pSpecializationInfo = nullptr
+        };
+    }
+
+    std::vector<VkRayTracingShaderGroupCreateInfoKHR> shader_groups;
+    auto shader_group_count = create_info.hit_groups.size()
+        + create_info.ray_gen_libraries.size()
+        + create_info.miss_libraries.size()
+        + create_info.callable_libraries.size();
+    shader_groups.reserve(shader_group_count);
+
+    for (const auto hit_group : create_info.hit_groups)
+    {
+        auto type = VK_RAY_TRACING_SHADER_GROUP_TYPE_TRIANGLES_HIT_GROUP_KHR;
+        if (hit_group.type == Ray_Tracing_Hit_Group_Type::Procedural)
+        {
+            type = VK_RAY_TRACING_SHADER_GROUP_TYPE_PROCEDURAL_HIT_GROUP_KHR;
+        }
+        auto& shader_group = shader_groups.emplace_back();
+        shader_group = {
+            .sType = VK_STRUCTURE_TYPE_RAY_TRACING_SHADER_GROUP_CREATE_INFO_KHR,
+            .pNext = nullptr,
+            .type = type,
+            .generalShader = VK_SHADER_UNUSED_KHR,
+            .closestHitShader = hit_group.closest_hit,
+            .anyHitShader = hit_group.any_hit,
+            .intersectionShader = hit_group.intersection,
+            .pShaderGroupCaptureReplayHandle = nullptr
+        };
+    }
+    for (const auto ray_gen_lib_index : create_info.ray_gen_libraries)
+    {
+        auto& shader_group = shader_groups.emplace_back();
+        shader_group = {
+            .sType = VK_STRUCTURE_TYPE_RAY_TRACING_SHADER_GROUP_CREATE_INFO_KHR,
+            .pNext = nullptr,
+            .type = VK_RAY_TRACING_SHADER_GROUP_TYPE_GENERAL_KHR,
+            .generalShader = VK_SHADER_UNUSED_KHR,
+            .closestHitShader = VK_SHADER_UNUSED_KHR,
+            .anyHitShader = VK_SHADER_UNUSED_KHR,
+            .intersectionShader = VK_SHADER_UNUSED_KHR,
+            .pShaderGroupCaptureReplayHandle = nullptr
+        };
+    }
+    for (const auto miss_lib_index : create_info.miss_libraries)
+    {
+        auto& shader_group = shader_groups.emplace_back();
+        shader_group = {
+            .sType = VK_STRUCTURE_TYPE_RAY_TRACING_SHADER_GROUP_CREATE_INFO_KHR,
+            .pNext = nullptr,
+            .type = VK_RAY_TRACING_SHADER_GROUP_TYPE_GENERAL_KHR,
+            .generalShader = miss_lib_index,
+            .closestHitShader = VK_SHADER_UNUSED_KHR,
+            .anyHitShader = VK_SHADER_UNUSED_KHR,
+            .intersectionShader = VK_SHADER_UNUSED_KHR,
+            .pShaderGroupCaptureReplayHandle = nullptr
+        };
+    }
+    for (const auto callable_lib_index : create_info.callable_libraries)
+    {
+        auto& shader_group = shader_groups.emplace_back();
+        shader_group = {
+            .sType = VK_STRUCTURE_TYPE_RAY_TRACING_SHADER_GROUP_CREATE_INFO_KHR,
+            .pNext = nullptr,
+            .type = VK_RAY_TRACING_SHADER_GROUP_TYPE_GENERAL_KHR,
+            .generalShader = callable_lib_index,
+            .closestHitShader = VK_SHADER_UNUSED_KHR,
+            .anyHitShader = VK_SHADER_UNUSED_KHR,
+            .intersectionShader = VK_SHADER_UNUSED_KHR,
+            .pShaderGroupCaptureReplayHandle = nullptr
+        };
+    }
+
+    VkRayTracingPipelineCreateInfoKHR ray_tracing_pipeline_create_info = {
+        .sType = VK_STRUCTURE_TYPE_RAY_TRACING_PIPELINE_CREATE_INFO_KHR,
+        .pNext = nullptr,
+        .flags = 0,
+        .stageCount = static_cast<uint32_t>(stages.size()),
+        .pStages = stages.data(),
+        .groupCount = static_cast<uint32_t>(shader_groups.size()),
+        .pGroups = shader_groups.data(),
+        .maxPipelineRayRecursionDepth = create_info.max_recursion_depth,
+        .pLibraryInfo = nullptr,
+        .pLibraryInterface = nullptr,
+        .pDynamicState = nullptr,
+        .layout = m_pipeline_layout,
+        .basePipelineHandle = VK_NULL_HANDLE,
+        .basePipelineIndex = 0
+    };
+    vkCreateRayTracingPipelinesKHR(m_device, VK_NULL_HANDLE, VK_NULL_HANDLE, 1, &ray_tracing_pipeline_create_info, nullptr, &pipeline->pipeline);
+
+    return pipeline;
+}
+
 void Vulkan_Graphics_Device::destroy_pipeline(Pipeline* pipeline) noexcept
 {
     if (pipeline == nullptr) return;
@@ -1421,6 +1571,11 @@ Acceleration_Structure_Build_Sizes Vulkan_Graphics_Device::get_acceleration_stru
         .acceleration_structure_scratch_update_size = build_sizes_info.updateScratchSize
     };
     return result;
+}
+
+const Ray_Tracing_Pipeline_Properties& Vulkan_Graphics_Device::get_ray_tracing_pipeline_properties() const noexcept
+{
+    return m_ray_tracing_pipeline_properties;
 }
 
 Result Vulkan_Graphics_Device::submit(const Submit_Info& submit_info) noexcept

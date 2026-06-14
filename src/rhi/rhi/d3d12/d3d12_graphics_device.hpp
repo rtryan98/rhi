@@ -159,6 +159,8 @@ public:
         const Compute_Pipeline_Create_Info& create_info) noexcept override;
     virtual [[nodiscard]] std::expected<Pipeline*, Result> create_pipeline(
         const Mesh_Shading_Pipeline_Create_Info& create_info) noexcept override;
+    virtual [[nodiscard]] std::expected<Pipeline*, Result> create_pipeline(
+        const Ray_Tracing_Pipeline_Create_Info& create_info) noexcept override;
     virtual void destroy_pipeline(Pipeline* pipeline) noexcept override;
 
     virtual Result submit(const Submit_Info& submit_info) noexcept override;
@@ -211,6 +213,7 @@ private:
 
     [[nodiscard]] Acceleration_Structure_Build_Sizes get_acceleration_structure_build_sizes(
         const Acceleration_Structure_Build_Geometry_Info& build_info) noexcept override;
+    virtual [[nodiscard]] const Ray_Tracing_Pipeline_Properties& get_ray_tracing_pipeline_properties() const noexcept override;
 
 private:
     D3D12_Context m_context;

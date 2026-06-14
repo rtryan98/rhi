@@ -47,6 +47,14 @@ struct Submit_Info
     std::span<Submit_Fence_Info> signal_infos;
 };
 
+struct Ray_Tracing_Pipeline_Properties
+{
+    uint32_t shader_group_handle_size;
+    uint32_t shader_group_handle_alignment;
+    uint32_t shader_group_base_alignment;
+    uint32_t max_recursion_depth;
+};
+
 struct Graphics_Device_Create_Info
 {
     Graphics_API graphics_api;
@@ -109,11 +117,12 @@ public:
     virtual [[nodiscard]] std::expected<Pipeline*, Result> create_pipeline(const Graphics_Pipeline_Create_Info& create_info) noexcept = 0;
     virtual [[nodiscard]] std::expected<Pipeline*, Result> create_pipeline(const Compute_Pipeline_Create_Info& create_info) noexcept = 0;
     virtual [[nodiscard]] std::expected<Pipeline*, Result> create_pipeline(const Mesh_Shading_Pipeline_Create_Info& create_info) noexcept = 0;
-    // virtual [[nodiscard]] std::expected<Pipeline*, Error> create_pipeline(const Ray_Tracing_Pipeline_Create_Info& create_info) noexcept = 0;
+    virtual [[nodiscard]] std::expected<Pipeline*, Result> create_pipeline(const Ray_Tracing_Pipeline_Create_Info& create_info) noexcept = 0;
     virtual void destroy_pipeline(Pipeline* pipeline) noexcept = 0;
 
     virtual [[nodiscard]] Acceleration_Structure_Build_Sizes get_acceleration_structure_build_sizes(
         const Acceleration_Structure_Build_Geometry_Info& build_info) noexcept = 0;
+    virtual [[nodiscard]] const Ray_Tracing_Pipeline_Properties& get_ray_tracing_pipeline_properties() const noexcept = 0;
 
     virtual Result submit(const Submit_Info& submit_info) noexcept = 0;
 

@@ -82,10 +82,13 @@ public:
         const Compute_Pipeline_Create_Info& create_info) noexcept override;
     virtual [[nodiscard]] std::expected<Pipeline*, Result> create_pipeline(
         const Mesh_Shading_Pipeline_Create_Info& create_info) noexcept override;
+    virtual [[nodiscard]] std::expected<Pipeline*, Result> create_pipeline(
+        const Ray_Tracing_Pipeline_Create_Info& create_info) noexcept override;
     virtual void destroy_pipeline(Pipeline* pipeline) noexcept override;
 
     virtual [[nodiscard]] Acceleration_Structure_Build_Sizes get_acceleration_structure_build_sizes(
         const Acceleration_Structure_Build_Geometry_Info& build_info) noexcept override;
+    virtual [[nodiscard]] const Ray_Tracing_Pipeline_Properties& get_ray_tracing_pipeline_properties() const noexcept override;
 
     virtual Result submit(const Submit_Info& submit_info) noexcept override;
 
@@ -136,6 +139,8 @@ private:
     VkDescriptorPool m_descriptor_pool;
     VkDescriptorSet m_descriptor_set;
     VkPipelineLayout m_pipeline_layout;
+
+    Ray_Tracing_Pipeline_Properties m_ray_tracing_pipeline_properties;
 
     bool m_use_mutex;
     std::mutex m_resource_mutex;

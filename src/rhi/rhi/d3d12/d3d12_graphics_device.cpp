@@ -7,6 +7,8 @@
 
 #include <D3D12MemAlloc.h>
 #include <dxgidebug.h>
+#include <ranges>
+#include <string>
 
 extern "C" __declspec(dllexport) extern const uint32_t D3D12SDKVersion = 619;
 extern "C" __declspec(dllexport) extern const char* D3D12SDKPath = ".\\D3D12\\";
@@ -1344,6 +1346,113 @@ std::expected<Pipeline*, Result> D3D12_Graphics_Device::create_pipeline(
     return pipeline;
 }
 
+std::expected<Pipeline*, Result> D3D12_Graphics_Device::create_pipeline(const Ray_Tracing_Pipeline_Create_Info& create_info) noexcept
+{
+    std::unique_lock<std::mutex> lock_guard(m_resource_mutex, std::defer_lock);
+    if (m_use_mutex)
+    {
+        lock_guard.lock();
+    }
+
+    std::vector<std::wstring> library_export_names;
+    library_export_names.reserve(create_info.shaders.size());
+    std::vector<D3D12_EXPORT_DESC> library_export_descs;
+    library_export_descs.reserve(create_info.shaders.size());
+    std::vector<D3D12_DXIL_LIBRARY_DESC> library_descs;
+    library_descs.reserve(create_info.shaders.size());
+    for (const auto& [index, shader] : create_info.shaders | std::views::enumerate)
+    {
+        auto& library_export_name = library_export_names.emplace_back();
+        library_export_name = std::wstring(L"s") + std::to_wstring(index);
+        auto& library_export_desc = library_export_descs.emplace_back();
+        library_export_desc = {
+            .Name = library_export_name.c_str(),
+            .ExportToRename = L"main",
+            .Flags = D3D12_EXPORT_FLAG_NONE
+        };
+        auto& library_desc = library_descs.emplace_back();
+        library_desc = {
+            .DXILLibrary = d3d12_cast<D3D12_SHADER_BYTECODE>(shader.blob),
+            .NumExports = 1,
+            .pExports = &library_export_desc
+        };
+    }
+
+    std::vector<std::wstring> hit_group_export_names;
+    library_export_names.reserve(create_info.shaders.size());
+    std::vector<D3D12_HIT_GROUP_DESC> hit_groups;
+    hit_groups.reserve(create_info.hit_groups.size());
+    for (const auto& [index, hit_group] : create_info.hit_groups | std::views::enumerate)
+    {
+        auto& hit_group_export_name = hit_group_export_names.emplace_back();
+        hit_group_export_name = std::wstring(L"hg") + std::to_wstring(index);
+        auto& hit_group_desc = hit_groups.emplace_back();
+        hit_group_desc = {
+            .HitGroupExport = hit_group_export_name.c_str(),
+            .Type = hit_group.type == Ray_Tracing_Hit_Group_Type::Triangles ? D3D12_HIT_GROUP_TYPE_TRIANGLES : D3D12_HIT_GROUP_TYPE_PROCEDURAL_PRIMITIVE,
+            .AnyHitShaderImport = hit_group.any_hit != RT_PIPELINE_NO_SHADER ? library_export_names[hit_group.any_hit].c_str() : nullptr,
+            .ClosestHitShaderImport = hit_group.closest_hit != RT_PIPELINE_NO_SHADER ? library_export_names[hit_group.closest_hit].c_str() : nullptr,
+            .IntersectionShaderImport = hit_group.intersection != RT_PIPELINE_NO_SHADER ? library_export_names[hit_group.intersection].c_str() : nullptr,
+        };
+    }
+
+    D3D12_RAYTRACING_SHADER_CONFIG ray_tracing_shader_config = {
+        .MaxPayloadSizeInBytes = create_info.max_payload_size,
+        .MaxAttributeSizeInBytes = create_info.max_attribute_size
+    };
+
+    D3D12_RAYTRACING_PIPELINE_CONFIG ray_tracing_pipeline_config = {
+        .MaxTraceRecursionDepth = create_info.max_recursion_depth
+    };
+
+    D3D12_GLOBAL_ROOT_SIGNATURE global_root_signature = {
+        .pGlobalRootSignature = m_context.bindless_root_signature
+    };
+
+    std::vector<D3D12_STATE_SUBOBJECT> subobjects;
+    for (const auto& library_desc : library_descs)
+    {
+        subobjects.push_back({
+            .Type = D3D12_STATE_SUBOBJECT_TYPE_DXIL_LIBRARY,
+            .pDesc = &library_desc
+            });
+    }
+    for (const auto& hit_group_desc : hit_groups)
+    {
+        subobjects.push_back({
+            .Type = D3D12_STATE_SUBOBJECT_TYPE_HIT_GROUP,
+            .pDesc = &hit_group_desc
+            });
+    }
+    subobjects.push_back({
+        .Type = D3D12_STATE_SUBOBJECT_TYPE_RAYTRACING_SHADER_CONFIG,
+        .pDesc = &ray_tracing_shader_config
+        });
+    subobjects.push_back({
+        .Type = D3D12_STATE_SUBOBJECT_TYPE_RAYTRACING_PIPELINE_CONFIG,
+        .pDesc = &ray_tracing_pipeline_config
+        });
+    subobjects.push_back({
+        .Type = D3D12_STATE_SUBOBJECT_TYPE_GLOBAL_ROOT_SIGNATURE,
+        .pDesc = &global_root_signature
+        });
+
+    D3D12_STATE_OBJECT_DESC state_object_desc = {
+        .Type = D3D12_STATE_OBJECT_TYPE_RAYTRACING_PIPELINE,
+        .NumSubobjects = static_cast<uint32_t>(subobjects.size()),
+        .pSubobjects = subobjects.data()
+    };
+    ID3D12StateObject* rtpso = nullptr;
+    m_context.device->CreateStateObject(&state_object_desc, IID_PPV_ARGS(&rtpso));
+
+    auto pipeline = &*m_pipelines.emplace();
+    pipeline->type = Pipeline_Type::Ray_Tracing;
+    pipeline->ray_tracing_info = create_info;
+    pipeline->pso = nullptr;
+    pipeline->rtpso = rtpso;
+    return pipeline;
+}
+
 void D3D12_Graphics_Device::destroy_pipeline(Pipeline* pipeline) noexcept
 {
     if (pipeline == nullptr) return;
@@ -1858,6 +1967,17 @@ Acceleration_Structure_Build_Sizes D3D12_Graphics_Device::get_acceleration_struc
         .acceleration_structure_scratch_update_size = prebuild_info.UpdateScratchDataSizeInBytes
     };
     return result;
+}
+
+const Ray_Tracing_Pipeline_Properties& D3D12_Graphics_Device::get_ray_tracing_pipeline_properties() const noexcept
+{
+    constexpr static Ray_Tracing_Pipeline_Properties RAY_TRACING_PIPELINE_PROPERTIES = {
+        .shader_group_handle_size = D3D12_SHADER_IDENTIFIER_SIZE_IN_BYTES,
+        .shader_group_handle_alignment = D3D12_RAYTRACING_SHADER_RECORD_BYTE_ALIGNMENT,
+        .shader_group_base_alignment = D3D12_RAYTRACING_SHADER_TABLE_BYTE_ALIGNMENT,
+        .max_recursion_depth = D3D12_RAYTRACING_MAX_DECLARABLE_TRACE_RECURSION_DEPTH
+    };
+    return RAY_TRACING_PIPELINE_PROPERTIES;
 }
 
 D3D12_Context* D3D12_Graphics_Device::get_context() noexcept
