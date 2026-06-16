@@ -10,6 +10,8 @@ target_sources(
     resource.cpp
     resource.hpp
     result.hpp
+    shader_binding_table.cpp
+    shader_binding_table.hpp
     swapchain.hpp
 )
 

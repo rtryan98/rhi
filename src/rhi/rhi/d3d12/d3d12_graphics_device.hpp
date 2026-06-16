@@ -163,6 +163,12 @@ public:
         const Ray_Tracing_Pipeline_Create_Info& create_info) noexcept override;
     virtual void destroy_pipeline(Pipeline* pipeline) noexcept override;
 
+    [[nodiscard]] Acceleration_Structure_Build_Sizes get_acceleration_structure_build_sizes(
+        const Acceleration_Structure_Build_Geometry_Info& build_info) noexcept override;
+    virtual [[nodiscard]] const Ray_Tracing_Pipeline_Properties& get_ray_tracing_pipeline_properties() const noexcept override;
+    virtual [[nodiscard]] Result get_ray_tracing_shader_group_handles(
+        Pipeline* pipeline, uint32_t first_group, uint32_t group_count, void* dst) const noexcept override;
+
     virtual Result submit(const Submit_Info& submit_info) noexcept override;
 
     virtual void name_resource(Buffer* buffer, const char* name) noexcept override;
@@ -210,10 +216,6 @@ private:
 
     [[nodiscard]] Descriptor_Increment_Sizes acquire_descriptor_increment_sizes() noexcept;
     [[nodiscard]] Indirect_Signatures create_execute_indirect_signatures() noexcept;
-
-    [[nodiscard]] Acceleration_Structure_Build_Sizes get_acceleration_structure_build_sizes(
-        const Acceleration_Structure_Build_Geometry_Info& build_info) noexcept override;
-    virtual [[nodiscard]] const Ray_Tracing_Pipeline_Properties& get_ray_tracing_pipeline_properties() const noexcept override;
 
 private:
     D3D12_Context m_context;

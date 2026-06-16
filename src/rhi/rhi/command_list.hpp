@@ -5,6 +5,7 @@
 #include <vector>
 
 #include "rhi/acceleration_structure.hpp"
+#include "rhi/shader_binding_table.hpp"
 #include "rhi/common/bitmask.hpp"
 
 namespace rhi
@@ -238,21 +239,6 @@ struct Extent_3D
     uint32_t x;
     uint32_t y;
     uint32_t z;
-};
-
-struct GPU_Address_Range
-{
-    uint64_t gpu_address;
-    uint64_t size;
-    uint64_t stride;
-};
-
-struct Shader_Binding_Table
-{
-    GPU_Address_Range ray_gen;
-    GPU_Address_Range miss;
-    GPU_Address_Range hit;
-    GPU_Address_Range callable;
 };
 
 class Command_List

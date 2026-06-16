@@ -1578,6 +1578,19 @@ const Ray_Tracing_Pipeline_Properties& Vulkan_Graphics_Device::get_ray_tracing_p
     return m_ray_tracing_pipeline_properties;
 }
 
+Result Vulkan_Graphics_Device::get_ray_tracing_shader_group_handles(
+    Pipeline* pipeline, uint32_t first_group, uint32_t group_count, void* dst) const noexcept
+{
+    const auto& properties = get_ray_tracing_pipeline_properties();
+    return translate_result(vkGetRayTracingShaderGroupHandlesKHR(
+        m_device,
+        static_cast<Vulkan_Pipeline*>(pipeline)->pipeline,
+        first_group,
+        group_count,
+        static_cast<uint64_t>(properties.shader_group_handle_size) * group_count,
+        dst));
+}
+
 Result Vulkan_Graphics_Device::submit(const Submit_Info& submit_info) noexcept
 {
     std::mutex* queue_mutex = nullptr;

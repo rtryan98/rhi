@@ -89,6 +89,8 @@ public:
     virtual [[nodiscard]] Acceleration_Structure_Build_Sizes get_acceleration_structure_build_sizes(
         const Acceleration_Structure_Build_Geometry_Info& build_info) noexcept override;
     virtual [[nodiscard]] const Ray_Tracing_Pipeline_Properties& get_ray_tracing_pipeline_properties() const noexcept override;
+    virtual [[nodiscard]] Result get_ray_tracing_shader_group_handles(
+        Pipeline* pipeline, uint32_t first_group, uint32_t group_count, void* dst) const noexcept override;
 
     virtual Result submit(const Submit_Info& submit_info) noexcept override;
 

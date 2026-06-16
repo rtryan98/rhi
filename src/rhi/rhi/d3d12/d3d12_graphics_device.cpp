@@ -1980,6 +1980,48 @@ const Ray_Tracing_Pipeline_Properties& D3D12_Graphics_Device::get_ray_tracing_pi
     return RAY_TRACING_PIPELINE_PROPERTIES;
 }
 
+Result D3D12_Graphics_Device::get_ray_tracing_shader_group_handles(
+    Pipeline* pipeline, uint32_t first_group, uint32_t group_count, void* dst) const noexcept
+{
+    using Shader_Identifier = std::array<uint8_t, D3D12_SHADER_IDENTIFIER_SIZE_IN_BYTES>;
+    std::vector<Shader_Identifier> identifiers;
+    identifiers.reserve(group_count);
+
+    auto d3d12_pipeline = static_cast<D3D12_Pipeline*>(pipeline);
+    ID3D12StateObjectProperties* properties;
+    auto result = d3d12_pipeline->rtpso->QueryInterface(IID_PPV_ARGS(&properties));
+    if (FAILED(result))
+    {
+        return result_from_hresult(result);
+    }
+
+    auto emplace_shader_identifier = [&](std::wstring prefix, uint32_t index) {
+        auto name = std::wstring(L"s") + std::to_wstring(index);
+        auto p_identifier = properties->GetShaderIdentifier(name.c_str());
+        auto& identifier = identifiers.emplace_back();
+        memcpy(&identifier, p_identifier, sizeof(Shader_Identifier));
+        };
+
+    for (const auto& [index, hit_group] : pipeline->ray_tracing_info.hit_groups | std::views::enumerate)
+    {
+        emplace_shader_identifier(L"hg", index);
+    }
+    for (const auto ray_gen_index : pipeline->ray_tracing_info.ray_gen_libraries)
+    {
+        emplace_shader_identifier(L"s", ray_gen_index);
+    }
+    for (const auto miss_index : pipeline->ray_tracing_info.miss_libraries)
+    {
+        emplace_shader_identifier(L"s", miss_index);
+    }
+    for (const auto callable_index : pipeline->ray_tracing_info.callable_libraries)
+    {
+        emplace_shader_identifier(L"s", callable_index);
+    }
+
+    memcpy(dst, identifiers.data(), identifiers.size() * sizeof(uint32_t));
+}
+
 D3D12_Context* D3D12_Graphics_Device::get_context() noexcept
 {
     return &m_context;
