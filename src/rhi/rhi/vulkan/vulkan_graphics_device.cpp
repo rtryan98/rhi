@@ -1345,7 +1345,7 @@ std::expected<Pipeline*, Result> Vulkan_Graphics_Device::create_pipeline(const R
             .sType = VK_STRUCTURE_TYPE_RAY_TRACING_SHADER_GROUP_CREATE_INFO_KHR,
             .pNext = nullptr,
             .type = VK_RAY_TRACING_SHADER_GROUP_TYPE_GENERAL_KHR,
-            .generalShader = VK_SHADER_UNUSED_KHR,
+            .generalShader = ray_gen_lib_index,
             .closestHitShader = VK_SHADER_UNUSED_KHR,
             .anyHitShader = VK_SHADER_UNUSED_KHR,
             .intersectionShader = VK_SHADER_UNUSED_KHR,
