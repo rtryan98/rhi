@@ -530,8 +530,9 @@ struct Pipeline
         Graphics_Pipeline_Create_Info vertex_shading_info;
         Compute_Pipeline_Create_Info compute_shading_info;
         Mesh_Shading_Pipeline_Create_Info mesh_shading_info;
-        Ray_Tracing_Pipeline_Create_Info ray_tracing_info;
     };
+    // TODO: Enlargens the struct a lot, but required because of vectors. Find better solution.
+    Ray_Tracing_Pipeline_Create_Info ray_tracing_info;
 };
 }
 
