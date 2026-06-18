@@ -206,17 +206,21 @@ Shader Shader_Compiler::compile_from_memory(
             .Encoding = DXC_CP_ACP
         };
         ComPtr<ID3D12ShaderReflection> d3d12_reflection = nullptr;
-        m_utils->CreateReflection(&reflection_data, IID_PPV_ARGS(&d3d12_reflection));
+        auto reflection_result = m_utils->CreateReflection(&reflection_data, IID_PPV_ARGS(&d3d12_reflection));
 
         result.reflection = {
             .workgroups_x = 0,
             .workgroups_y = 0,
             .workgroups_z = 0
         };
-        d3d12_reflection->GetThreadGroupSize(
-            &result.reflection.workgroups_x,
-            &result.reflection.workgroups_y,
-            &result.reflection.workgroups_z);
+
+        if (SUCCEEDED(reflection_result))
+        {
+            d3d12_reflection->GetThreadGroupSize(
+                &result.reflection.workgroups_x,
+                &result.reflection.workgroups_y,
+                &result.reflection.workgroups_z);
+        }
     }
     else
     {
