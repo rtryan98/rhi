@@ -1996,7 +1996,7 @@ Result D3D12_Graphics_Device::get_ray_tracing_shader_group_handles(
     }
 
     auto emplace_shader_identifier = [&](std::wstring prefix, uint32_t index) {
-        auto name = std::wstring(L"s") + std::to_wstring(index);
+        auto name = prefix + std::to_wstring(index);
         auto p_identifier = properties->GetShaderIdentifier(name.c_str());
         auto& identifier = identifiers.emplace_back();
         memcpy(&identifier, p_identifier, sizeof(Shader_Identifier));
@@ -2019,7 +2019,9 @@ Result D3D12_Graphics_Device::get_ray_tracing_shader_group_handles(
         emplace_shader_identifier(L"s", callable_index);
     }
 
-    memcpy(dst, identifiers.data(), identifiers.size() * sizeof(uint32_t));
+    properties->Release();
+    memcpy(dst, identifiers.data(), identifiers.size() * D3D12_SHADER_IDENTIFIER_SIZE_IN_BYTES);
+    return Result::Success;
 }
 
 D3D12_Context* D3D12_Graphics_Device::get_context() noexcept
