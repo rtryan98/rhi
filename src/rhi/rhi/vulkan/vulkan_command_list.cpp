@@ -1006,6 +1006,7 @@ Command_List* Vulkan_Command_Pool::acquire_command_list() noexcept
         VkDescriptorSet descriptor_set = m_device->get_descriptor_set();
         vkCmdBindDescriptorSets(cmd_alloc.cmd, VK_PIPELINE_BIND_POINT_GRAPHICS, pipeline_layout, 0, 1, &descriptor_set, 0, nullptr);
         vkCmdBindDescriptorSets(cmd_alloc.cmd, VK_PIPELINE_BIND_POINT_COMPUTE, pipeline_layout, 0, 1, &descriptor_set, 0, nullptr);
+        vkCmdBindDescriptorSets(cmd_alloc.cmd, VK_PIPELINE_BIND_POINT_RAY_TRACING_KHR, pipeline_layout, 0, 1, &descriptor_set, 0, nullptr);
     }
     return m_command_lists.emplace_back(std::make_unique<Vulkan_Command_List>(cmd_alloc.cmd, m_device, m_queue_type)).get();
 }
