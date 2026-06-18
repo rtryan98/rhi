@@ -51,7 +51,7 @@ struct Shader_Binding_Table_Selection
     uint32_t callable_offset;
 };
 
-[[nodiscard]] constexpr Shader_Binding_Table_Layout compute_shader_binding_table_layout(
+[[nodiscard]] Shader_Binding_Table_Layout compute_shader_binding_table_layout(
     const Ray_Tracing_Pipeline_Properties& props,
     uint32_t ray_gen_count, uint32_t miss_count,
     uint32_t hit_count, uint32_t callable_count) noexcept;

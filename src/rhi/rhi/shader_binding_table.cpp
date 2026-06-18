@@ -9,7 +9,7 @@ namespace rhi
     return (x + (a - 1ull)) & ~(a - 1ull);
 }
 
-constexpr Shader_Binding_Table_Layout compute_shader_binding_table_layout(
+Shader_Binding_Table_Layout compute_shader_binding_table_layout(
     const Ray_Tracing_Pipeline_Properties& props,
     uint32_t ray_gen_count, uint32_t miss_count,
     uint32_t hit_count, uint32_t callable_count) noexcept
@@ -58,10 +58,10 @@ void write_shader_binding_table(
                 src += handle_size;
             }
         };
-
+    
+    copy_region(layout.hit_offset, layout.hit_count);
     copy_region(layout.ray_gen_offset, layout.ray_gen_count);
     copy_region(layout.miss_offset, layout.miss_count);
-    copy_region(layout.hit_offset, layout.hit_count);
     copy_region(layout.callable_offset, layout.callable_count);
 }
 
