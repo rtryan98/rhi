@@ -151,7 +151,14 @@ Vulkan_Swapchain::~Vulkan_Swapchain() noexcept
     }
     if (m_swapchain != VK_NULL_HANDLE)
     {
-        for (auto image_view : m_image_views)
+        for (auto* image : m_images)
+        {
+            if (image)
+            {
+                m_device->destroy_proxy_image(image);
+            }
+        }
+        for (auto* image_view : m_image_views)
         {
             vkDestroyImageView(*m_device, image_view, nullptr);
         }

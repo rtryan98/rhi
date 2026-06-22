@@ -14,11 +14,11 @@ constexpr static auto VULKAN_RHI_VERSION = VK_MAKE_VERSION(0, 1, 0);
 
 Vulkan_Graphics_Device::Vulkan_Graphics_Device(const Graphics_Device_Create_Info& create_info) noexcept
     : m_use_mutex(create_info.enable_locking)
-    , m_resource_pool(
+    , m_resource_pool(std::make_unique<Vulkan_Resource_Pool>(
         MAX_RESOURCE_INDEX - create_info.reserved_bindless_resource_index_count,
         MAX_SAMPLER_INDEX - create_info.reserved_bindless_sampler_index_count,
         2, // TODO: stride same as D3D12?
-        decltype(m_resource_pool)::Deleters {
+        decltype(m_resource_pool)::element_type::Deleters {
             .buffer_delete_function = [this](Vulkan_Buffer* buffer) {
                 if (buffer && buffer->buffer != VK_NULL_HANDLE && buffer->allocation != VK_NULL_HANDLE)
                 {
@@ -63,7 +63,7 @@ Vulkan_Graphics_Device::Vulkan_Graphics_Device(const Graphics_Device_Create_Info
                     acceleration_structure->acceleration_structure = VK_NULL_HANDLE;
                 }
             }
-        })
+        }))
 {
     volkInitialize();
 
@@ -128,6 +128,14 @@ Vulkan_Graphics_Device::Vulkan_Graphics_Device(const Graphics_Device_Create_Info
 Vulkan_Graphics_Device::~Vulkan_Graphics_Device() noexcept
 {
     wait_idle();
+    m_resource_pool.reset();
+    for (auto& pipeline : m_pipelines)
+    {
+        vkDestroyPipeline(m_device, pipeline.pipeline, nullptr);
+    }
+    vkDestroyDescriptorPool(m_device, m_descriptor_pool, nullptr);
+    vkDestroyPipelineLayout(m_device, m_pipeline_layout, nullptr);
+    vkDestroyDescriptorSetLayout(m_device, m_descriptor_set_layout, nullptr);
     vmaDestroyAllocator(m_allocator);
     vkDestroyDevice(m_device, nullptr);
     vkDestroyInstance(m_instance, nullptr);
@@ -298,7 +306,7 @@ std::expected<Buffer*, Result> Vulkan_Graphics_Device::create_buffer(
         return std::unexpected(translate_result(buffer_result));
     }
 
-    auto* buffer = m_resource_pool.acquire_buffer(create_info, index);
+    auto* buffer = m_resource_pool->acquire_buffer(create_info, index);
     buffer->buffer = vulkan_buffer;
     buffer->allocation = allocation;
     buffer->data = allocation_info.pMappedData;
@@ -348,7 +356,7 @@ std::expected<Buffer_View*, Result> Vulkan_Graphics_Device::create_buffer_view(
         return std::unexpected(translate_result(buffer_view_result));
     }
 
-    auto* buffer_view = m_resource_pool.acquire_buffer_view(buffer, create_info, index);
+    auto* buffer_view = m_resource_pool->acquire_buffer_view(buffer, create_info, index);
     buffer_view->buffer_view = vulkan_buffer_view;
 
     create_buffer_view_descriptors(buffer_view);
@@ -366,7 +374,7 @@ void Vulkan_Graphics_Device::destroy_buffer(Buffer* buffer) noexcept
         lock_guard.lock();
     }
 
-    m_resource_pool.release_buffer(buffer);
+    m_resource_pool->release_buffer(buffer);
 }
 
 Result Vulkan_Fence::get_status(uint64_t value) noexcept
@@ -452,7 +460,7 @@ std::expected<Image*, Result> Vulkan_Graphics_Device::create_image(const Image_C
         return std::unexpected(translate_result(image_result));
     }
 
-    auto* image = m_resource_pool.acquire_image(create_info, index);
+    auto* image = m_resource_pool->acquire_image(create_info, index);
     image->image = vulkan_image;
     image->allocation = allocation;
 
@@ -491,7 +499,7 @@ std::expected<Image_View*, Result> Vulkan_Graphics_Device::create_image_view(
     }
 
     auto vulkan_image = static_cast<Vulkan_Image*>(image);
-    auto image_view = m_resource_pool.acquire_image_view(image, create_info, index);
+    auto image_view = m_resource_pool->acquire_image_view(image, create_info, index);
 
     VkImageViewCreateInfo image_view_create_info = {
         .sType = VK_STRUCTURE_TYPE_IMAGE_VIEW_CREATE_INFO,
@@ -526,7 +534,7 @@ void Vulkan_Graphics_Device::destroy_image(Image* image) noexcept
         lock_guard.lock();
     }
 
-    m_resource_pool.release_image(image);
+    m_resource_pool->release_image(image);
 }
 
 Vulkan_Image* Vulkan_Graphics_Device::create_proxy_image() noexcept
@@ -537,7 +545,7 @@ Vulkan_Image* Vulkan_Graphics_Device::create_proxy_image() noexcept
         lock_guard.lock();
     }
 
-    return m_resource_pool.acquire_proxy_image();
+    return m_resource_pool->acquire_proxy_image();
 }
 
 void Vulkan_Graphics_Device::destroy_proxy_image(Vulkan_Image* image) noexcept
@@ -548,7 +556,7 @@ void Vulkan_Graphics_Device::destroy_proxy_image(Vulkan_Image* image) noexcept
         lock_guard.lock();
     }
 
-    m_resource_pool.release_proxy_image(image);
+    m_resource_pool->release_proxy_image(image);
 }
 
 std::expected<Sampler*, Result> Vulkan_Graphics_Device::create_sampler(const Sampler_Create_Info& create_info, uint32_t index) noexcept
@@ -566,7 +574,7 @@ std::expected<Sampler*, Result> Vulkan_Graphics_Device::create_sampler(const Sam
         lock_guard.lock();
     }
 
-    auto* sampler = m_resource_pool.acquire_sampler(index);
+    auto* sampler = m_resource_pool->acquire_sampler(index);
 
     VkSamplerCreateInfo sampler_create_info = {
         .sType = VK_STRUCTURE_TYPE_SAMPLER_CREATE_INFO,
@@ -620,7 +628,7 @@ void Vulkan_Graphics_Device::destroy_sampler(Sampler* sampler) noexcept
         lock_guard.lock();
     }
 
-    m_resource_pool.release_sampler(sampler);
+    m_resource_pool->release_sampler(sampler);
 }
 
 std::expected<Acceleration_Structure*, Result> Vulkan_Graphics_Device::create_acceleration_structure(
@@ -632,7 +640,7 @@ std::expected<Acceleration_Structure*, Result> Vulkan_Graphics_Device::create_ac
         lock_guard.lock();
     }
 
-    auto* acceleration_structure = m_resource_pool.acquire_acceleration_structure(NO_RESOURCE_INDEX);
+    auto* acceleration_structure = m_resource_pool->acquire_acceleration_structure(NO_RESOURCE_INDEX);
 
     VkAccelerationStructureCreateInfoKHR acceleration_structure_create_info = {
         .sType = VK_STRUCTURE_TYPE_ACCELERATION_STRUCTURE_CREATE_INFO_KHR,
@@ -669,7 +677,7 @@ void Vulkan_Graphics_Device::destroy_acceleration_structure(Acceleration_Structu
         lock_guard.lock();
     }
 
-    m_resource_pool.release_acceleration_structure(acceleration_structure);
+    m_resource_pool->release_acceleration_structure(acceleration_structure);
 }
 
 std::expected<Shader_Blob*, Result> Vulkan_Graphics_Device::create_shader_blob(const Shader_Blob_Create_Info& create_info) noexcept

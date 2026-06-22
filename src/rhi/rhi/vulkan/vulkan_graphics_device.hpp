@@ -152,7 +152,7 @@ private:
     std::mutex m_video_decode_queue_mutex;
     std::mutex m_video_encode_queue_mutex;
 
-    Vulkan_Resource_Pool m_resource_pool;
+    std::unique_ptr<Vulkan_Resource_Pool> m_resource_pool;
 
     plf::colony<Vulkan_Fence> m_fences;
     plf::colony<Shader_Blob> m_shader_blobs;

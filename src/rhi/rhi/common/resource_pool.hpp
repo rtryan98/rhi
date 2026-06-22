@@ -123,7 +123,6 @@ public:
 
     void release_buffer(Buffer* base_buffer)
     {
-        m_resource_indices.release_index(base_buffer->buffer_view->bindless_index);
         auto next_buffer_view = static_cast<Buffer_View_Type*>(base_buffer->buffer_view_linked_list_head);
         while (next_buffer_view != nullptr)
         {
@@ -232,6 +231,7 @@ public:
     {
         m_sampler_indices.release_index(base_sampler->bindless_index);
         auto derived_sampler = static_cast<Sampler_Type*>(base_sampler);
+        m_deleters.sampler_delete_function(derived_sampler);
         m_samplers.erase(m_samplers.get_iterator(derived_sampler));
     }
 
@@ -249,6 +249,7 @@ public:
     {
         m_resource_indices.release_index(base_acceleration_structure->bindless_index);
         auto derived_acceleration_structure = static_cast<Acceleration_Structure_Type*>(base_acceleration_structure);
+        m_deleters.acceleration_structure_delete_function(derived_acceleration_structure);
         m_acceleration_structures.erase(m_acceleration_structures.get_iterator(derived_acceleration_structure));
     }
 
