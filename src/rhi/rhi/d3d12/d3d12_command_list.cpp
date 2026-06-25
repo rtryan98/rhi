@@ -443,6 +443,13 @@ void D3D12_Command_List::copy_buffer_to_image(
 {
     if (!src || !dst) return;
 
+    const auto info = get_image_format_info(dst->format);
+    uint32_t row_pitch = dst_extent.x * info.bytes;
+    if (info.is_block_compressed)
+    {
+        row_pitch /= info.block_size_x;
+    }
+
     D3D12_TEXTURE_COPY_LOCATION copy_src = {
         .pResource = static_cast<D3D12_Buffer*>(src)->resource,
         .Type = D3D12_TEXTURE_COPY_TYPE_PLACED_FOOTPRINT,
@@ -453,7 +460,7 @@ void D3D12_Command_List::copy_buffer_to_image(
                 .Width = dst_extent.x,
                 .Height = dst_extent.y,
                 .Depth = dst_extent.z,
-                .RowPitch = dst_extent.x * get_image_format_info(dst->format).bytes
+                .RowPitch = row_pitch
             }
         }
     };
@@ -511,6 +518,13 @@ void D3D12_Command_List::copy_image_to_buffer(
 {
     if (!src || !dst) return;
 
+    const auto info = get_image_format_info(src->format);
+    uint32_t row_pitch = src_extent.x * info.bytes;
+    if (info.is_block_compressed)
+    {
+        row_pitch /= info.block_size_x;
+    }
+
     D3D12_TEXTURE_COPY_LOCATION copy_src = {
         .pResource = static_cast<D3D12_Image*>(src)->resource,
         .Type = D3D12_TEXTURE_COPY_TYPE_SUBRESOURCE_INDEX,
@@ -527,7 +541,7 @@ void D3D12_Command_List::copy_image_to_buffer(
                 .Width = src_extent.x,
                 .Height = src_extent.y,
                 .Depth = src_extent.z,
-                .RowPitch = src_extent.x * get_image_format_info(src->format).bytes
+                .RowPitch = row_pitch
             }
         }
     };
